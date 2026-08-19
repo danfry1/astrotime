@@ -1,0 +1,41 @@
+/**
+ * Packs the library exactly as npm would and imports the tarball from a
+ * throw-away directory, so a broken `exports` map or missing file fails CI.
+ */
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
+const root = process.cwd()
+const workDir = mkdtempSync(join(tmpdir(), 'astrotime-pack-'))
+try {
+  const tarball = execFileSync('npm', ['pack', '--ignore-scripts', '--pack-destination', workDir], {
+    cwd: root,
+    encoding: 'utf8',
+  })
+    .trim()
+    .split('\n')
+    .at(-1)
+  if (tarball === undefined) throw new Error('npm pack produced no tarball')
+  writeFileSync(
+    join(workDir, 'package.json'),
+    JSON.stringify({ name: 'smoke', type: 'module', private: true }),
+  )
+  execFileSync(
+    'npm',
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(workDir, tarball)],
+    { cwd: workDir, stdio: 'inherit' },
+  )
+  const script = `
+    import { parseInstant, formatIso, unwrap, deltaAt } from 'astrotime'
+    const i = unwrap(parseInstant('2016-12-31T23:59:60.5Z'))
+    const tai = formatIso(i, { scale: 'tai', precision: 'auto' })
+    if (tai !== '2017-01-01T00:00:36.500' || deltaAt(i) !== 36) throw new Error('smoke test failed: ' + tai)
+    console.log('astrotime package smoke test passed')
+  `
+  writeFileSync(join(workDir, 'smoke.mjs'), script)
+  execFileSync(process.execPath, ['smoke.mjs'], { cwd: workDir, stdio: 'inherit' })
+} finally {
+  rmSync(workDir, { recursive: true, force: true })
+}

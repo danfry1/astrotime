@@ -1,0 +1,100 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicolo-ribaudo/oxc/refs/heads/json-schema-oxlint/npm/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "pedantic": "warn",
+    "perf": "warn",
+    "style": "warn"
+  },
+  "plugins": [
+    "typescript"
+  ],
+  "rules": {
+    "no-console": "error",
+    "no-debugger": "error",
+    "eqeqeq": [
+      "error",
+      "smart"
+    ],
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "no-magic-numbers": "off",
+    "max-params": [
+      "warn",
+      {
+        "max": 6
+      }
+    ],
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "off",
+    "typescript/consistent-type-imports": "warn",
+    "no-unsafe-function-type": "warn",
+    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/no-unnecessary-type-parameters": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-unsafe-call": "off",
+    "typescript/no-unsafe-assignment": "off",
+    "typescript/no-unsafe-member-access": "off",
+    "typescript/no-unsafe-argument": "off",
+    "typescript/no-unsafe-return": "off",
+    "max-lines-per-function": "off",
+    "max-lines": "off",
+    "max-statements": "off",
+    "max-depth": "off",
+    "sort-keys": "off",
+    "sort-imports": "off",
+    "func-style": "off",
+    "no-ternary": "off",
+    "no-continue": "off",
+    "no-inline-comments": "off",
+    "capitalized-comments": "off",
+    "id-length": "off",
+    "no-void": "off",
+    "init-declarations": "off",
+    "prefer-destructuring": "off",
+    "no-negated-condition": "off",
+    "no-case-declarations": "off",
+    "default-case": "off",
+    "no-fallthrough": "off",
+    "max-classes-per-file": "off",
+    "curly": "off",
+    "arrow-body-style": "off",
+    "array-type": "off",
+    "no-await-in-loop": "off",
+    "no-unmodified-loop-condition": "off",
+    "require-await": "off",
+    "unicorn/prefer-number-properties": "off",
+    "unicorn/prefer-math-trunc": "off",
+    "unicorn/prefer-code-point": "off",
+    "unicorn/switch-case-braces": "off",
+    "unicorn/no-nested-ternary": "off",
+    "unicorn/prefer-string-slice": "off",
+    "typescript/consistent-type-definitions": "off",
+    "require-unicode-regexp": "off",
+    "prefer-named-capture-group": "off",
+    "no-nested-ternary": "off",
+    "typescript/parameter-properties": "off",
+    "prefer-regex-literals": "off"
+  },
+  "overrides": [
+    {
+      "files": [
+        "tests/**/*.ts"
+      ],
+      "rules": {
+        "no-magic-numbers": "off",
+        "max-params": "off",
+        "no-unsafe-function-type": "off",
+        "no-template-curly-in-string": "off"
+      }
+    }
+  ],
+  "ignorePatterns": [
+    "dist",
+    "node_modules"
+  ]
+}
