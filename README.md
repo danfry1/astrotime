@@ -68,10 +68,25 @@ astropy, SOFA/ERFA, Rust's hifitime and Orekit's `AbsoluteDate`.
 | `TimeScale` | `'utc' \| 'tai' \| 'tt' \| 'gps' \| 'tdb'` |
 
 **Errors:** expected failures (parsing, invalid fields) return a `Result<T, E>`
-(`{ ok: true, value } | { ok: false, error }`) carrying a typed error
-(`TimeParseError`, `InvalidTimeError`, `LeapSecondTableError` — each with a stable
-`code` and `toJSON()`). `unwrap(result)` or the `…OrThrow` variants throw it instead.
-Programmer errors (non-finite numbers, malformed hand-built tables) throw `RangeError`.
+rather than throwing — malformed timestamps are ordinary data in a telemetry
+stream, and the type system then forces you to handle them:
+
+```ts
+const result = parseInstant(userInput) // Result<Instant, TimeParseError | InvalidTimeError>
+if (result.ok) {
+  formatIso(result.value)              // .value only exists after the .ok check
+} else {
+  console.warn(result.error.code, result.error.message) // typed: TimeParseError | InvalidTimeError
+}
+```
+
+Each error carries a stable `code`, structured fields and `toJSON()`
+(`TimeParseError`, `InvalidTimeError`, `LeapSecondTableError`). When you'd
+rather throw — one-off scripts, inputs you already trust, or plain JavaScript
+without the compiler enforcing the `.ok` check — use `parseInstantOrThrow` /
+`parseDurationOrThrow`, or `unwrap(result)` / `unwrapOr(result, fallback)`.
+Programmer errors (non-finite numbers, malformed hand-built tables) always
+throw `RangeError`.
 
 ## Usage
 
