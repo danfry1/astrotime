@@ -8,7 +8,7 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
 - **Leap-second-aware UTC** — `23:59:60` is a real, validated time; the IERS table ships in the box and can be replaced at runtime from `leap-seconds.list` / `Leap_Second.dat`.
-- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` is SPICE ET, NAIF convention), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
+- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET convention: exact epoch, approximate TDB model — < 30 µs vs CSPICE over 1972–2100), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
 - **Small and fast** — ~17 KB gzipped, tree-shakeable, no runtime dependencies; ~3M pattern formats/s and ~3.5M ISO parses/s on a laptop — on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. CI-verified on Node ≥ 22 and Bun; plain ES2022 with zero dependencies, so browsers, Deno and React Native ≥ 0.70 (Hermes) are supported targets.
@@ -186,7 +186,7 @@ import {
   instantToCivil, J2000_INSTANT, GPS_EPOCH_INSTANT,
 } from 'astrotime'
 
-instantToJ2000Seconds(i, 'tdb')       // 840414965.97… — SPICE ET (= 0 at 2000-01-01T12:00:00 TDB, NAIF convention)
+instantToJ2000Seconds(i, 'tdb')       // 840414965.97… — SPICE ET convention (approximate TDB: < 30 µs vs CSPICE, 1972–2100)
 instantToJ2000Seconds(i, 'tt')
 instantFromJ2000Seconds(8.4e8, 'tdb')
 

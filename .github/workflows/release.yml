@@ -47,24 +47,11 @@ jobs:
       - name: Audit dependencies
         run: bun audit --audit-level=high
 
-      - name: Format
-        run: bun run format:check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Typecheck
-        run: bun run typecheck
-
-      - name: Test
-        run: bun run test
+      - name: Full release gate (format, lint, knip, typecheck, coverage, packed smoke)
+        run: bun run check:release
 
       - name: Build
         run: bun run build
-
-
-      - name: Packed package smoke test
-        run: bun run check:package
 
       - name: Check package exports
         run: |

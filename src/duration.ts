@@ -158,7 +158,7 @@ export const isNegativeDuration = (d: Duration): boolean => d.nanos < 0n
 // ---------------------------------------------------------------------------
 // Parsing
 
-const DECIMAL = String.raw`(\d{1,15})(?:[.,](\d{1,9}))?`
+const DECIMAL = String.raw`(\d{1,16})(?:[.,](\d{1,9}))?`
 const ISO_DURATION = new RegExp(
   `^([+-])?P(?:${DECIMAL}W)?(?:${DECIMAL}D)?(?:T(?=\\d)(?:${DECIMAL}H)?(?:${DECIMAL}M)?(?:${DECIMAL}S)?)?$`,
 )
@@ -260,13 +260,16 @@ export const parseDurationOrThrow = (text: string): Duration => unwrap(parseDura
 // Formatting
 
 const DURATION_TOKEN = /^(?:D+|H{1,2}|m{1,2}|s{1,2}|S{1,9})/
+const padBig = (value: bigint, width: number): string => String(value).padStart(width, '0')
 const durationPatternCache = new Map<string, ReturnType<typeof tokenize>>()
 
 /** Canonical ISO 8601 form, e.g. `P1DT2H3M4.5S`; zero is `PT0S`. */
 function formatIsoDuration(d: Duration): string {
   const c = durationToComponents(d)
+  const abs = d.nanos < 0n ? -d.nanos : d.nanos
+  const days = abs / NANOS_PER_DAY
   let out = c.sign < 0 ? '-P' : 'P'
-  if (c.days > 0) out += `${String(c.days)}D`
+  if (days > 0n) out += `${String(days)}D`
   const time: string[] = []
   if (c.hours > 0) time.push(`${String(c.hours)}H`)
   if (c.minutes > 0) time.push(`${String(c.minutes)}M`)
@@ -306,10 +309,12 @@ export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): st
     else if (t.name === 'H' && largest !== 'D') largest = 'H'
     else if (t.name === 'm' && largest === 's') largest = 'm'
   }
-  const totalHours = c.days * 24 + c.hours
-  const hours = largest === 'H' ? totalHours : c.hours
-  const minutes = largest === 'm' ? totalHours * 60 + c.minutes : c.minutes
-  const seconds = largest === 's' ? (totalHours * 60 + c.minutes) * 60 + c.seconds : c.seconds
+  // Absorbed units are computed in bigint: float multiplication of a large
+  // day count would silently round (e.g. 2^53 days formatted as hours).
+  const abs = d.nanos < 0n ? -d.nanos : d.nanos
+  const hours = largest === 'H' ? abs / NANOS_PER_HOUR : BigInt(c.hours)
+  const minutes = largest === 'm' ? abs / NANOS_PER_MINUTE : BigInt(c.minutes)
+  const seconds = largest === 's' ? abs / NANOS_PER_SECOND : BigInt(c.seconds)
   let out = c.sign < 0 ? '-' : ''
   for (const token of tokens) {
     if (token.kind === 'literal') {
@@ -321,13 +326,13 @@ export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): st
         out += pad(c.days, token.width)
         break
       case 'H':
-        out += pad(hours, token.width)
+        out += padBig(hours, token.width)
         break
       case 'm':
-        out += pad(minutes, token.width)
+        out += padBig(minutes, token.width)
         break
       case 's':
-        out += pad(seconds, token.width)
+        out += padBig(seconds, token.width)
         break
       case 'S':
         out += fractionDigits(c.nanos, token.width)

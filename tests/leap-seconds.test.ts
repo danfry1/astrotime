@@ -54,9 +54,9 @@ describe('bundled table', () => {
     expect(deltaAtUnixSeconds(78_796_800)).toBe(11)
     expect(deltaAtUnixSeconds(1_483_228_799)).toBe(36)
     expect(deltaAtUnixSeconds(1_483_228_800)).toBe(37)
-    expect(deltaAtUnixSeconds(1_483_228_800, { leapSeconds: { entries: [], expires: null } })).toBe(
-      10,
-    )
+    expect(() =>
+      deltaAtUnixSeconds(1_483_228_800, { leapSeconds: { entries: [], expires: null } }),
+    ).toThrow(new RangeError('Invalid leap-second table: table has no entries'))
   })
 })
 
@@ -105,6 +105,11 @@ describe('parseLeapSecondsList', () => {
       'TAI−UTC must change by exactly one second between entries',
     ],
     ['2272060801 10', 1, 'entries must start at a UTC midnight'],
+    [
+      '2287785600 11',
+      1,
+      'table must start with the canonical 1972-01-01 entry (unixSeconds 63072000, deltaAt 10) to cover the full UTC era',
+    ],
   ])('rejects %j', (text, line, reason) => {
     const error = expectErr(parseLeapSecondsList(text))
     expect(error).toBeInstanceOf(LeapSecondTableError)

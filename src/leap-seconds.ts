@@ -19,6 +19,8 @@ export type LeapSecondTable = {
 }
 
 const NTP_TO_UNIX = 2_208_988_800
+/** 1972-01-01T00:00:00 UTC as Unix seconds — where leap-second UTC (and every valid table) begins. */
+const UTC_START_SECONDS = 63_072_000
 const MJD_TO_UNIX_DAYS = 40_587
 const SECONDS_PER_DAY = 86_400
 
@@ -73,6 +75,7 @@ export function deltaAtUnixSeconds(
   options: { readonly leapSeconds?: LeapSecondTable | undefined } = {},
 ): number {
   const table = options.leapSeconds ?? IERS_LEAP_SECONDS
+  assertValidLeapSecondTable(table)
   const idx = leapEntryIndexForUnix(unixSeconds, table)
   return idx === -1 ? PRE_1972_DELTA_AT : (table.entries[idx]?.deltaAt ?? PRE_1972_DELTA_AT)
 }
@@ -109,6 +112,13 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
     if (cur.unixSeconds <= prev.unixSeconds) return 'entries are not in ascending order'
     if (Math.abs(cur.deltaAt - prev.deltaAt) !== 1)
       return 'TAI−UTC must change by exactly one second between entries'
+  }
+  const first = entries[0]
+  if (
+    first !== undefined &&
+    (first.unixSeconds !== UTC_START_SECONDS || first.deltaAt !== PRE_1972_DELTA_AT)
+  ) {
+    return 'table must start with the canonical 1972-01-01 entry (unixSeconds 63072000, deltaAt 10) to cover the full UTC era'
   }
   return null
 }
@@ -202,7 +212,8 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     if (line.startsWith('#@') || line.startsWith('#$')) {
       const ntp = Number(line.slice(2).trim())
       const what = line.startsWith('#@') ? '#@ expiry' : '#$ update stamp'
-      if (!Number.isInteger(ntp)) return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
+      if (!Number.isSafeInteger(ntp))
+        return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
       if (line.startsWith('#@')) expires = ntp - NTP_TO_UNIX
       else updated = ntp - NTP_TO_UNIX
       continue
@@ -218,10 +229,18 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     if (line.startsWith('#')) continue
     const fields = line.split(/\s+/)
     if (fields.length >= 5 && fields.every((f, idx) => idx > 4 || /^\d+(?:\.\d+)?$/.test(f))) {
-      // IERS: MJD DAY MONTH YEAR TAI-UTC
+      // IERS: MJD DAY MONTH YEAR TAI-UTC — the calendar columns are
+      // redundant with the MJD; cross-check them to catch corrupted rows.
       const mjd = Number(fields[0])
       const delta = Number(fields[4])
-      entries.push({ unixSeconds: (mjd - MJD_TO_UNIX_DAYS) * SECONDS_PER_DAY, deltaAt: delta })
+      const unixSeconds = (mjd - MJD_TO_UNIX_DAYS) * SECONDS_PER_DAY
+      const calendar = Date.UTC(Number(fields[3]), Number(fields[2]) - 1, Number(fields[1])) / 1000
+      if (calendar !== unixSeconds) {
+        return err(
+          new LeapSecondTableError(lineNo, 'MJD does not match the day/month/year columns'),
+        )
+      }
+      entries.push({ unixSeconds, deltaAt: delta })
       continue
     }
     if (fields.length >= 2 && /^\d+$/.test(fields[0] ?? '') && /^\d+$/.test(fields[1] ?? '')) {
@@ -231,9 +250,10 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     return err(new LeapSecondTableError(lineNo, `unrecognised line ${JSON.stringify(raw)}`))
   }
   if (entries.length === 0) return err(new LeapSecondTableError(0, 'no leap-second entries found'))
-  const problem = tableProblem(entries)
+  const table = { entries, expires: expires ?? iersExpires, updated }
+  const problem = metadataProblem(table)
   if (problem !== null) return err(new LeapSecondTableError(lines.length, problem))
-  return ok(freezeLeapSecondTable({ entries, expires: expires ?? iersExpires, updated }))
+  return ok(freezeLeapSecondTable(table))
 }
 
 const MONTHS: readonly string[] = [

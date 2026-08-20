@@ -18,7 +18,7 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
 ## Model
 
 - `Instant` — a point on the TAI timeline, stored as `bigint` nanoseconds since
-  `1970-01-01T00:00:00 TAI`. Frozen, branded; construct only via functions; `toJSON` gives the canonical UTC ISO string.
+  `1970-01-01T00:00:00 TAI`. Frozen, branded; construct only via functions; `toJSON`/`toString` give the canonical TAI string (leap-table independent).
   TAI is uniform, so arithmetic is exact and leap seconds never corrupt it.
 - `Duration` — signed `bigint` nanoseconds of elapsed (SI) time. Days are
   exactly 86 400 s; there are no calendar durations (months/years rejected).

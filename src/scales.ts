@@ -125,7 +125,15 @@ export function instantToScaleNanos(
   }
 }
 
-/** Inverse of `instantToScaleNanos`. */
+/**
+ * Converts a scale reading back to an instant. Exact inverse of
+ * `instantToScaleNanos` for the uniform scales (`tai`, `tt`, `gps`, `tdb`).
+ * For `'utc'` the reading is POSIX time, which is **not injective**: an
+ * inserted leap second shares its Unix value with the following second (this
+ * conversion picks the post-leap instant), and a deleted second's value never
+ * occurs (handled per `UtcOptions.leapGap`). Use `instantFromUtc` with civil
+ * fields when leap-second identity matters.
+ */
 export function instantFromScaleNanos(
   nanos: bigint,
   scale: TimeScale,
@@ -159,10 +167,12 @@ export const instantToScaleSeconds = (
 
 /**
  * Seconds since 2000-01-01T12:00:00 **as read on `scale`'s own clock** — the
- * standard per-scale J2000 origin. `instantToJ2000Seconds(i, 'tdb')` is SPICE
- * ephemeris time (ET/TDB seconds past J2000, NAIF convention: ET = 0 at
- * 2000-01-01T12:00:00 TDB); `'tt'` gives TT seconds past the IAU J2000.0
- * epoch. Origins of different scales differ by up to ΔAT + 32.184 s.
+ * standard per-scale J2000 origin. `instantToJ2000Seconds(i, 'tdb')` follows
+ * the SPICE ephemeris-time convention (ET = 0 at 2000-01-01T12:00:00 TDB) but
+ * is **approximate ET**: the TDB−TT model is a three-term series that agrees
+ * with CSPICE/ERFA to < 30 µs over 1972–2100 (validated in CI; error grows
+ * slowly outside that interval). `'tt'` gives TT seconds past the IAU J2000.0
+ * epoch, exactly. Origins of different scales differ by up to ΔAT + 32.184 s.
  * ~0.1 µs float resolution near the present; use `instantToJ2000Nanos` for exactness.
  */
 export const instantToJ2000Seconds = (

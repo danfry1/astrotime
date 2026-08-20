@@ -42,6 +42,16 @@ export type UtcOptions = {
    * uses that must not present uncertain UTC as certain.
    */
   readonly tableValidity?: 'allow-stale' | 'reject' | undefined
+  /**
+   * Handling of POSIX Unix values that fall in the gap a negative leap
+   * second deletes (the label `23:59:59` that never occurs). `'fold'`
+   * (default) maps them forward onto the following midnight — the only
+   * physically adjacent instant; `'reject'` throws an `InvalidTimeError`.
+   * (Positive-leap overlap is inherent to POSIX and always folds: an
+   * inserted `23:59:60.x` and the following `00:00:00.x` share one Unix
+   * value, and conversions from Unix pick the post-leap reading.)
+   */
+  readonly leapGap?: 'fold' | 'reject' | undefined
 }
 
 const SECONDS_PER_DAY = 86_400
@@ -234,7 +244,21 @@ export function instantFromUnixNanos(unixNanos: bigint, options: UtcOptions = {}
     throw new InvalidTimeError('unixSeconds', unixSeconds, 'UTC is undefined before 1972-01-01')
   }
   rejectStaleUnix(unixSeconds, table, options)
-  const delta = deltaAtIndex(table, leapEntryIndexForUnix(unixSeconds, table))
+  const idx = leapEntryIndexForUnix(unixSeconds, table)
+  const delta = deltaAtIndex(table, idx)
+  const next = table.entries[idx + 1]
+  if (next !== undefined && next.deltaAt < delta && unixSeconds === next.unixSeconds - 1) {
+    // This Unix label is deleted by a negative leap second and never occurs.
+    if (options.leapGap === 'reject') {
+      throw new InvalidTimeError(
+        'unixSeconds',
+        unixSeconds,
+        'this Unix second is deleted by a negative leap second',
+      )
+    }
+    // Fold forward onto the following midnight (delta after the leap).
+    return makeInstant(unixNanos + BigInt(next.deltaAt + 1) * NANOS_PER_SECOND)
+  }
   return makeInstant(unixNanos + BigInt(delta) * NANOS_PER_SECOND)
 }
 
@@ -408,9 +432,9 @@ export function instantFromResolvedUtc(
   if (
     options.tableValidity === 'reject' &&
     table.expires !== null &&
-    days * SECONDS_PER_DAY >= table.expires
+    days * SECONDS_PER_DAY + secondOfDay >= table.expires
   ) {
-    return err(staleError(days * SECONDS_PER_DAY))
+    return err(staleError(days * SECONDS_PER_DAY + secondOfDay))
   }
   if (second === 60) {
     if (secondOfDay !== SECONDS_PER_DAY) {

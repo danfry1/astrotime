@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 
 import {
   addDuration,
+  deltaAtUnixSeconds,
   duration,
+  durationToNanos,
+  formatDuration,
+  parseDurationOrThrow,
   durationBetween,
   durationToSeconds,
   formatIso,
@@ -231,6 +235,78 @@ describe('negative leap second across every API', () => {
       ...instantRange(lastSecond, midnight, duration({ seconds: 1 }), { inclusive: true }),
     ].map((i) => formatIso(i, { leapSeconds: NEGATIVE_2030, precision: 'seconds' }))
     expect(steps).toStrictEqual(['2029-12-31T23:59:58Z', '2030-01-01T00:00:00Z'])
+  })
+})
+
+describe('review round 2 regressions', () => {
+  it('duration serialization is closed at Number.MAX_SAFE_INTEGER days', () => {
+    const d = duration({ days: Number.MAX_SAFE_INTEGER })
+    const iso = formatDuration(d)
+    expect(iso).toBe('P9007199254740991D')
+    expect(durationToNanos(parseDurationOrThrow(iso))).toBe(durationToNanos(d))
+    // Absorbed-unit clock formatting is exact (bigint, not float multiply).
+    expect(formatDuration(d, 'H[h]')).toBe('216172782113783784h')
+  })
+
+  it('rejects a partial table that would silently misapply the pre-1972 fallback', () => {
+    const partial = { entries: [{ unixSeconds: 1_483_228_800, deltaAt: 37 }], expires: null }
+    expect(expectErr(validateLeapSecondTable(partial)).reason).toContain(
+      'canonical 1972-01-01 entry',
+    )
+    expect(() => instantToUtc(instantFromTaiNanos(0n), { leapSeconds: partial })).toThrow(
+      RangeError,
+    )
+    expect(() => deltaAtUnixSeconds(1_451_606_400, { leapSeconds: partial })).toThrow(RangeError)
+  })
+
+  it('deltaAtUnixSeconds validates its table', () => {
+    const unsorted = {
+      entries: [
+        { unixSeconds: 78_796_800, deltaAt: 11 },
+        { unixSeconds: 63_072_000, deltaAt: 10 },
+      ],
+      expires: null,
+    }
+    expect(() => deltaAtUnixSeconds(0, { leapSeconds: unsorted })).toThrow(RangeError)
+  })
+
+  it('deleted Unix label folds forward by default and can be rejected', () => {
+    const opts = { leapSeconds: NEGATIVE_2030 }
+    const deletedLabel = 1_893_455_999n * 1_000_000_000n + 500_000_000n
+    const folded = instantFromUnixNanos(deletedLabel, opts)
+    expect(formatIso(folded, { ...opts, precision: 'auto' })).toBe('2030-01-01T00:00:00.500Z')
+    expect(() => instantFromUnixNanos(deletedLabel, { ...opts, leapGap: 'reject' })).toThrow(
+      new InvalidTimeError(
+        'unixSeconds',
+        1_893_455_999,
+        'this Unix second is deleted by a negative leap second',
+      ),
+    )
+    // Ordinary seconds are unaffected by the option.
+    expect(() =>
+      instantFromUnixNanos(1_893_455_998_000_000_000n, { ...opts, leapGap: 'reject' }),
+    ).not.toThrow()
+  })
+
+  it('enforces non-midnight expiry stamps on civil construction', () => {
+    const noonExpiry = unwrap(
+      validateLeapSecondTable({ entries: [...IERS_LEAP_SECONDS.entries], expires: 1_814_183_200 }), // 2027-06-28T11:46:40Z
+    )
+    const opts = { leapSeconds: noonExpiry, tableValidity: 'reject' } as const
+    expect(instantFromUtc({ year: 2027, month: 6, day: 28, hour: 6 }, opts).ok).toBe(true)
+    expect(
+      expectErr(instantFromUtc({ year: 2027, month: 6, day: 28, hour: 18 }, opts)).reason,
+    ).toContain('expiry')
+  })
+
+  it('parseLeapSecondsList rejects unsafe metadata stamps and mismatched IERS rows', () => {
+    expect(expectErr(parseLeapSecondsList('#@ 90071992547409934023\n2272060800 10\n')).reason).toBe(
+      'malformed #@ expiry',
+    )
+    const badIers = '#  File expires on 28 June 2027\n    41317.0    2  1 1972       10\n'
+    expect(expectErr(parseLeapSecondsList(badIers)).reason).toBe(
+      'MJD does not match the day/month/year columns',
+    )
   })
 })
 
