@@ -1,5 +1,6 @@
 import { LeapSecondTableError } from './errors.js'
 import { err, ok, type Result } from './result.js'
+import { sha1Hex } from './sha1.js'
 
 /** One row of a leap-second table: from `unixSeconds` (a UTC midnight) onward, TAI − UTC = `deltaAt`. */
 export type LeapSecondEntry = {
@@ -112,18 +113,31 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
       return 'TAI−UTC must change by exactly one second between entries'
   }
   // The full known history is required: every bundled entry must appear
-  // verbatim, in order, before any appended (future) entries. A partial
-  // snapshot would silently misapply older ΔAT values to modern epochs.
-  if (entries.length < IERS_LEAP_SECONDS.entries.length) {
-    return `table must include the complete known leap-second history (got ${String(entries.length)} of ${String(IERS_LEAP_SECONDS.entries.length)} known entries)`
+  // verbatim, in order, before any appended entries. A partial snapshot
+  // would silently misapply older ΔAT values to modern epochs.
+  const known = IERS_LEAP_SECONDS.entries
+  if (entries.length < known.length) {
+    return `table must include the complete known leap-second history (got ${String(entries.length)} of ${String(known.length)} known entries)`
   }
-  for (let i = 0; i < IERS_LEAP_SECONDS.entries.length; i += 1) {
-    const known = IERS_LEAP_SECONDS.entries[i]
+  for (let i = 0; i < known.length; i += 1) {
+    const expected = known[i]
     const given = entries[i]
-    if (known === undefined || given === undefined) continue
-    if (given.unixSeconds !== known.unixSeconds || given.deltaAt !== known.deltaAt) {
-      return `entry ${String(i)} must match the known leap-second history (expected unixSeconds ${String(known.unixSeconds)}, deltaAt ${String(known.deltaAt)})`
+    if (expected === undefined || given === undefined) continue
+    if (given.unixSeconds !== expected.unixSeconds || given.deltaAt !== expected.deltaAt) {
+      return `entry ${String(i)} must match the known leap-second history (expected unixSeconds ${String(expected.unixSeconds)}, deltaAt ${String(expected.deltaAt)})`
     }
+  }
+  // Appended entries must lie in the genuinely unknown future: the bundled
+  // data is authoritative through its expiry, so an "extra" leap second
+  // dated inside that window would contradict known history.
+  const firstAppended = entries[known.length]
+  const coverageBoundary = IERS_LEAP_SECONDS.expires
+  if (
+    firstAppended !== undefined &&
+    coverageBoundary !== null &&
+    firstAppended.unixSeconds < coverageBoundary
+  ) {
+    return `appended entries must not predate the known history's coverage boundary (${String(coverageBoundary)})`
   }
   return null
 }
@@ -203,6 +217,10 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
   let expires: number | null = null
   let iersExpires: number | null = null
   let updated: number | null = null
+  let integrityHash: { readonly value: string; readonly line: number } | null = null
+  let updatedDigits = ''
+  let expiresDigits = ''
+  let pairDigits = ''
   const lines = text.split(/\r?\n/)
   if (lines.length > MAX_LIST_LINES) {
     return err(
@@ -219,8 +237,13 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       const what = line.startsWith('#@') ? '#@ expiry' : '#$ update stamp'
       if (!Number.isSafeInteger(ntp))
         return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
-      if (line.startsWith('#@')) expires = ntp - NTP_TO_UNIX
-      else updated = ntp - NTP_TO_UNIX
+      if (line.startsWith('#@')) {
+        expires = ntp - NTP_TO_UNIX
+        expiresDigits = line.slice(2).trim()
+      } else {
+        updated = ntp - NTP_TO_UNIX
+        updatedDigits = line.slice(2).trim()
+      }
       continue
     }
     const iersExpiry = /^#\s*File expires on\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i.exec(line)
@@ -232,6 +255,17 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       if (expirySeconds === null)
         return err(new LeapSecondTableError(lineNo, 'expiry date does not exist'))
       iersExpires = expirySeconds
+      continue
+    }
+    if (line.startsWith('#h')) {
+      const words = line.slice(2).trim().split(/\s+/)
+      if (words.length !== 5 || words.some((w) => !/^[0-9a-fA-F]{1,8}$/.test(w))) {
+        return err(new LeapSecondTableError(lineNo, 'malformed #h integrity record'))
+      }
+      integrityHash = {
+        value: words.map((w) => w.toLowerCase().padStart(8, '0')).join(''),
+        line: lineNo,
+      }
       continue
     }
     if (line.startsWith('#')) continue
@@ -256,11 +290,25 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     }
     if (fields.length >= 2 && /^\d+$/.test(fields[0] ?? '') && /^\d+$/.test(fields[1] ?? '')) {
       entries.push({ unixSeconds: Number(fields[0]) - NTP_TO_UNIX, deltaAt: Number(fields[1]) })
+      pairDigits += `${fields[0] ?? ''}${fields[1] ?? ''}`
       continue
     }
     return err(new LeapSecondTableError(lineNo, `unrecognised line ${JSON.stringify(raw)}`))
   }
   if (entries.length === 0) return err(new LeapSecondTableError(0, 'no leap-second entries found'))
+  if (integrityHash !== null) {
+    // IANA/NIST '#h': SHA-1 over the ASCII digits of the '#$' stamp, the
+    // '#@' stamp, then each (timestamp, ΔAT) pair, with no separators.
+    const computed = sha1Hex(updatedDigits + expiresDigits + pairDigits)
+    if (computed !== integrityHash.value) {
+      return err(
+        new LeapSecondTableError(
+          integrityHash.line,
+          'integrity hash (#h) does not match the file contents',
+        ),
+      )
+    }
+  }
   const table = { entries, expires: expires ?? iersExpires, updated }
   const problem = metadataProblem(table)
   if (problem !== null) return err(new LeapSecondTableError(lines.length, problem))

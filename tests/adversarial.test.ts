@@ -241,6 +241,67 @@ describe('negative leap second across every API', () => {
   })
 })
 
+describe('review round 4 regressions', () => {
+  it('rejects appended entries that contradict known history (fabricated 2018 leap)', () => {
+    const fabricated = {
+      entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1_514_764_800, deltaAt: 38 }],
+      expires: null,
+    }
+    expect(expectErr(validateLeapSecondTable(fabricated)).reason).toContain('coverage boundary')
+    expect(() => instantToUtc(instantFromTaiNanos(0n), { leapSeconds: fabricated })).toThrow(
+      RangeError,
+    )
+  })
+
+  it('accepts appended entries at or after the bundled coverage boundary', () => {
+    const atBoundary = validateLeapSecondTable({
+      entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1_814_140_800, deltaAt: 38 }],
+      expires: null,
+    })
+    expect(atBoundary.ok).toBe(true)
+    const multipleFuture = validateLeapSecondTable({
+      entries: [
+        ...IERS_LEAP_SECONDS.entries,
+        { unixSeconds: 1_830_297_600, deltaAt: 38 }, // 2028 positive
+        { unixSeconds: 1_893_456_000, deltaAt: 37 }, // 2030 negative
+        { unixSeconds: 1_956_528_000, deltaAt: 38 }, // 2032 positive
+      ],
+      expires: null,
+    })
+    expect(multipleFuture.ok).toBe(true)
+  })
+
+  it('rejects impossible IERS dates instead of normalizing them', () => {
+    const juneThirtyFirst =
+      '    41317.0    1  1 1972       10\n    41499.0    31  6 1972       11\n'
+    expect(expectErr(parseLeapSecondsList(juneThirtyFirst)).reason).toBe(
+      'day/month/year columns are not a real date',
+    )
+    const febThirtyFirst =
+      '#  File expires on 31 February 2027\n    41317.0    1  1 1972       10\n'
+    expect(expectErr(parseLeapSecondsList(febThirtyFirst)).reason).toBe(
+      'expiry date does not exist',
+    )
+  })
+
+  it('verifies the IANA #h integrity record when present', () => {
+    const NTP = 2_208_988_800
+    const body = IERS_LEAP_SECONDS.entries
+      .map((e) => `${String(e.unixSeconds + NTP)}\t${String(e.deltaAt)}`)
+      .join('\n')
+    const good = `#$\t3992312697\n#@\t4023129600\n#h\ta9bad145 84c31c70 758402aa b37bfd54 5923836a\n${body}\n`
+    expect(parseLeapSecondsList(good).ok).toBe(true)
+    const tampered = good
+      .replace('1483228800\t37', '1483228800\t37')
+      .replace('#$\t3992312697', '#$\t3992312698')
+    expect(expectErr(parseLeapSecondsList(tampered)).reason).toBe(
+      'integrity hash (#h) does not match the file contents',
+    )
+    const malformed = good.replace('a9bad145', 'zzzz')
+    expect(expectErr(parseLeapSecondsList(malformed)).reason).toBe('malformed #h integrity record')
+  })
+})
+
 describe('review round 2 regressions', () => {
   it('duration serialization is closed at Number.MAX_SAFE_INTEGER days', () => {
     const d = duration({ days: Number.MAX_SAFE_INTEGER })

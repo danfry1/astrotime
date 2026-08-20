@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.5.0 - 2026-08-20
+
+Fourth review round: appended-entry coverage and file integrity.
+
+- **Breaking**: appended custom-table entries must lie at or after the
+  bundled table's coverage boundary (its IERS Bulletin C expiry). "After the
+  known 2017 entry" was not "future": a fabricated 2018 leap second passed
+  0.4.0 validation and shifted 2020 conversions by one second; it is now
+  rejected, with regression tests for before-boundary (reject), at-boundary
+  (accept), and multiple future positive/negative leaps (accept).
+- `parseLeapSecondsList` now verifies the IANA `#h` integrity record when
+  present (SHA-1 over the file's stamp and entry digits, algorithm confirmed
+  against the live IANA file), using a built-in FIPS-vector-tested SHA-1;
+  malformed or mismatching records are rejected.
+- Committed direct regression tests for impossible IERS dates
+  ("31 February" expiry, "31 June" row) that previously relied on ad-hoc
+  verification.
+- Correction: the 0.4.0 changelog said release tags are signed; v0.4.0 was
+  annotated but unsigned. Tags are signed from v0.5.0.
+
 ## 0.4.0 - 2026-08-20
 
 Third review round: the leap-table history guarantee.
