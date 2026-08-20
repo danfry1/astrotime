@@ -49,13 +49,17 @@ export const TIME_SCALE_LABELS = {
   tdb: 'TDB',
 } as const satisfies Record<TimeScale, string>
 
+/** TT − TAI: exactly 32.184 s, as nanoseconds. */
 export const TT_MINUS_TAI_NANOS = 32_184_000_000n
+/** GPS − TAI: exactly −19 s, as nanoseconds. */
 export const GPS_MINUS_TAI_NANOS = -19_000_000_000n
 
 const SECONDS_PER_DAY = 86_400
 /** JD of 1970-01-01T00:00:00 on any scale's own calendar. */
 export const JD_UNIX_EPOCH = 2_440_587.5
+/** Julian date of the J2000 epoch (2000-01-01T12:00:00 TT). */
 export const JD_J2000 = 2_451_545
+/** JD − MJD (2 400 000.5). */
 export const MJD_OFFSET = 2_400_000.5
 /** Seconds from 1970-01-01T00:00:00 to 2000-01-01T12:00:00 on a uniform calendar. */
 const J2000_SECONDS_FROM_1970 = daysFromCivil(2000, 1, 1) * SECONDS_PER_DAY + 43_200
@@ -164,6 +168,7 @@ export const instantToJ2000Seconds = (
   options?: UtcOptions,
 ): number => fromNanos(instantToJ2000Nanos(instant, scale, options), NANOS_PER_SECOND)
 
+/** Exact nanoseconds since the J2000 epoch as read on `scale`. */
 export const instantToJ2000Nanos = (
   instant: Instant,
   scale: TimeScale,
@@ -171,6 +176,7 @@ export const instantToJ2000Nanos = (
 ): bigint =>
   instantToScaleNanos(instant, scale, options) - instantToScaleNanos(J2000_INSTANT, scale, options)
 
+/** Instant from float seconds since J2000 on `scale` (rounded to the nearest ns). */
 export const instantFromJ2000Seconds = (
   seconds: number,
   scale: TimeScale,
@@ -178,6 +184,7 @@ export const instantFromJ2000Seconds = (
 ): Instant =>
   instantFromJ2000Nanos(toNanos(seconds, NANOS_PER_SECOND, 'J2000 seconds'), scale, options)
 
+/** Instant from exact nanoseconds since J2000 on `scale`. */
 export const instantFromJ2000Nanos = (
   nanos: bigint,
   scale: TimeScale,
@@ -242,6 +249,7 @@ export function instantToJulianDate(
   return jd1 + jd2
 }
 
+/** Modified Julian Date (JD − 2 400 000.5) on `scale` as a single float. */
 export const instantToModifiedJulianDate = (
   instant: Instant,
   scale: TimeScale,
@@ -251,6 +259,7 @@ export const instantToModifiedJulianDate = (
   return jd1 - MJD_OFFSET + jd2
 }
 
+/** Inverse of `instantToJulianDateParts` (UTC input uses the same quasi-JD convention). */
 export function instantFromJulianDateParts(
   jd1: number,
   jd2: number,
@@ -285,12 +294,14 @@ export function instantFromJulianDateParts(
   )
 }
 
+/** Instant from a single-float Julian date on `scale` (≈50 µs resolution; prefer the two-part form). */
 export const instantFromJulianDate = (
   jd: number,
   scale: TimeScale,
   options?: UtcOptions,
 ): Instant => instantFromJulianDateParts(jd, 0, scale, options)
 
+/** Instant from a Modified Julian Date on `scale`. */
 export const instantFromModifiedJulianDate = (
   mjd: number,
   scale: TimeScale,
@@ -312,6 +323,7 @@ export function instantToGpsWeek(instant: Instant): GpsWeek {
   }
 }
 
+/** Instant from a GPS week number and (possibly fractional) seconds of week. */
 export function instantFromGpsWeek(week: number, secondsOfWeek: number): Instant {
   assertInteger(week, 'GPS week')
   return instantFromTaiNanos(
@@ -326,6 +338,7 @@ export function instantFromGpsWeek(week: number, secondsOfWeek: number): Instant
 export const instantToGpsSeconds = (instant: Instant): number =>
   fromNanos(instant.taiNanos + GPS_MINUS_TAI_NANOS - GPS_EPOCH_NANOS, NANOS_PER_SECOND)
 
+/** Instant from GPS seconds since the GPS epoch (1980-01-06T00:00:00). */
 export const instantFromGpsSeconds = (seconds: number): Instant =>
   instantFromTaiNanos(
     GPS_EPOCH_NANOS + toNanos(seconds, NANOS_PER_SECOND, 'GPS seconds') - GPS_MINUS_TAI_NANOS,

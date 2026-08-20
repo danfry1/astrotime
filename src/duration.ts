@@ -4,11 +4,17 @@ import { fractionDigits, fractionToNanos, pad, tokenize } from './pattern.js'
 import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
 
+/** Nanoseconds per microsecond (1 000). */
 export const NANOS_PER_MICRO = 1_000n
+/** Nanoseconds per millisecond (1 000 000). */
 export const NANOS_PER_MILLI = 1_000_000n
+/** Nanoseconds per second (1 000 000 000). */
 export const NANOS_PER_SECOND = 1_000_000_000n
+/** Nanoseconds per minute. */
 export const NANOS_PER_MINUTE = 60n * NANOS_PER_SECOND
+/** Nanoseconds per hour. */
 export const NANOS_PER_HOUR = 60n * NANOS_PER_MINUTE
+/** Nanoseconds per day (exactly 86 400 s). */
 export const NANOS_PER_DAY = 24n * NANOS_PER_HOUR
 
 declare const durationBrand: unique symbol
@@ -39,8 +45,10 @@ const makeDuration = (nanos: bigint): Duration => new DurationValue(nanos)
 
 /** Builds a duration from whole nanoseconds. */
 export const durationFromNanos = (nanos: bigint): Duration => makeDuration(nanos)
+/** Type guard: `true` only for values created by this library's duration constructors. */
 export const isDuration = (value: unknown): value is Duration => value instanceof DurationValue
 
+/** The zero-length duration. */
 export const ZERO_DURATION: Duration = makeDuration(0n)
 
 export type DurationParts = {
@@ -70,18 +78,28 @@ export function duration(parts: DurationParts): Duration {
   )
 }
 
+/** Duration from a (possibly fractional) count of 86 400-second days. */
 export const durationFromDays = (days: number): Duration => duration({ days })
+/** Duration from a (possibly fractional) count of hours. */
 export const durationFromHours = (hours: number): Duration => duration({ hours })
+/** Duration from a (possibly fractional) count of minutes. */
 export const durationFromMinutes = (minutes: number): Duration => duration({ minutes })
+/** Duration from a (possibly fractional) count of SI seconds. */
 export const durationFromSeconds = (seconds: number): Duration => duration({ seconds })
+/** Duration from a (possibly fractional) count of milliseconds. */
 export const durationFromMillis = (millis: number): Duration => duration({ millis })
 
+/** The exact signed nanosecond count. */
 export const durationToNanos = (d: Duration): bigint => d.nanos
 /** Float conversions: exact while |nanos| < 2^53 (~104 days), then rounded to double precision. */
 export const durationToSeconds = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_SECOND)
+/** Float milliseconds; exact while |nanos| < 2^53. */
 export const durationToMillis = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_MILLI)
+/** Float minutes; exact while |nanos| < 2^53. */
 export const durationToMinutes = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_MINUTE)
+/** Float hours; exact while |nanos| < 2^53. */
 export const durationToHours = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_HOUR)
+/** Float 86 400-second days; exact while |nanos| < 2^53. */
 export const durationToDays = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_DAY)
 
 export type DurationComponents = {
@@ -108,17 +126,24 @@ export function durationToComponents(d: Duration): DurationComponents {
   }
 }
 
+/** `a + b`, exact. */
 export const addDurations = (a: Duration, b: Duration): Duration => makeDuration(a.nanos + b.nanos)
+/** `a − b`, exact. */
 export const subtractDurations = (a: Duration, b: Duration): Duration =>
   makeDuration(a.nanos - b.nanos)
+/** `−d`, exact. */
 export const negateDuration = (d: Duration): Duration => makeDuration(-d.nanos)
+/** Magnitude of a duration (drops the sign). */
 export const absDuration = (d: Duration): Duration => (d.nanos < 0n ? makeDuration(-d.nanos) : d)
 /** Multiplies by a number exactly, rounding the final result half away from zero. Throws `RangeError` on non-finite factors. */
 export const scaleDuration = (d: Duration, factor: number): Duration =>
   makeDuration(scaleNanosExact(d.nanos, factor, 'Duration factor'))
+/** Total order for `Array.prototype.sort`. */
 export const compareDurations = (a: Duration, b: Duration): -1 | 0 | 1 =>
   a.nanos < b.nanos ? -1 : a.nanos > b.nanos ? 1 : 0
+/** Exact equality (same nanosecond count). */
 export const durationsEqual = (a: Duration, b: Duration): boolean => a.nanos === b.nanos
+/** `true` when the duration is below zero. */
 export const isNegativeDuration = (d: Duration): boolean => d.nanos < 0n
 
 // ---------------------------------------------------------------------------

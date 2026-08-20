@@ -5,7 +5,9 @@ export type Err<E> = { readonly ok: false; readonly error: E }
 /** Expected-failure return type used by every parser/validator in astrotime. */
 export type Result<T, E> = Ok<T> | Err<E>
 
+/** Wraps a value in an `Ok`. */
 export const ok = <T>(value: T): Ok<T> => ({ ok: true, value })
+/** Wraps an error in an `Err`. */
 export const err = <E>(error: E): Err<E> => ({ ok: false, error })
 
 /** Returns the value of an `Ok`, or throws the contained error (wrapped in an `Error` if it is not one). */

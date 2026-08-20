@@ -1,5 +1,8 @@
 # astrotime
 
+[![CI](https://github.com/danfry1/astrotime/actions/workflows/ci.yml/badge.svg)](https://github.com/danfry1/astrotime/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Zero-dependency spacecraft & astronomy time for TypeScript.
 
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
@@ -223,13 +226,19 @@ addDuration(i, d)
 ### Ordering, ranges, truncation
 
 ```ts
-import { compareInstants, isBefore, minInstant, clampInstant, instantRange, truncateInstant, duration } from 'astrotime'
+import { compareInstants, duration, instantRange, parseInstantOrThrow, truncateInstant, formatIso } from 'astrotime'
 
-;[...instantRange(start, end, duration({ minutes: 10 }))] // plot ticks
-truncateInstant(i, 'day', 'utc')    // start of UTC day (scale-aware: TAI days differ by ΔAT)
-truncateInstant(i, 'hour', 'gps')
-sorted.sort(compareInstants)
+const start = parseInstantOrThrow('2026-08-19T00:00:00Z')
+const end = parseInstantOrThrow('2026-08-19T00:30:00Z')
+const ticks = [...instantRange(start, end, duration({ minutes: 10 }))] // 00:00, 00:10, 00:20
+;[end, start].sort(compareInstants)                                   // → [start, end]
+
+const i = parseInstantOrThrow('2026-08-19T12:34:56.789Z')
+formatIso(truncateInstant(i, 'day', 'utc'))  // '2026-08-19T00:00:00.000Z' (scale-aware: TAI days differ by ΔAT)
+formatIso(truncateInstant(i, 'hour', 'gps')) // '2026-08-19T11:59:42.000Z' (a GPS hour boundary)
 ```
+
+Also available: `isBefore` / `isAfter`, `minInstant` / `maxInstant`, `clampInstant`, `instantsEqual`.
 
 ### Keeping the leap-second table fresh
 
@@ -280,6 +289,25 @@ pip install astropy==6.0.1
 python3 scripts/generate-golden.py > tests/fixtures/astropy-golden.json  # regenerate reference data
 python3 scripts/generate-drift.py  > tests/fixtures/astropy-drift.json
 ```
+
+## API reference
+
+Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T, InvalidTimeError | TimeParseError>`.
+
+| Group | Exports |
+|---|---|
+| Construct | `instantFromUnixMillis/Seconds/Nanos` · `instantFromDate` · `instantNow` · `instantFromTaiNanos` · `instantFromUtc(fields) → R` · `instantFromCivil(fields, scale) → R` |
+| Read | `instantToUnixMillis/Seconds/Nanos` · `instantToDate` · `instantToTaiNanos` · `instantToUtc` · `instantToCivil(i, scale)` |
+| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` |
+| Scales | `instantToScaleNanos/Seconds` · `instantFromScaleNanos` · `instantToJ2000Seconds/Nanos` · `instantFromJ2000Seconds/Nanos` · `instantToJulianDate[Parts]` · `instantFromJulianDate[Parts]` · `instantToModifiedJulianDate` · `instantFromModifiedJulianDate` · `instantToGpsWeek/Seconds` · `instantFromGpsWeek/Seconds` |
+| Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
+| Arithmetic & order | `addDuration` · `subtractDuration` · `durationBetween` · `compareInstants` · `instantsEqual` · `isBefore` · `isAfter` · `minInstant` · `maxInstant` · `clampInstant` · `instantRange` · `truncateInstant(i, unit, scale)` |
+| Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
+| Calendar | `isLeapYear` · `daysInMonth` · `daysInYear` · `dayOfYear` · `daysFromCivil` · `civilFromDays` · `civilFromOrdinal` |
+| Constants | `J2000_INSTANT` · `GPS_EPOCH_INSTANT` · `UNIX_EPOCH_INSTANT` · `UTC_START_INSTANT` · `TT_MINUS_TAI_NANOS` · `GPS_MINUS_TAI_NANOS` · `JD_UNIX_EPOCH` · `JD_J2000` · `MJD_OFFSET` · `NANOS_PER_*` · `TIME_SCALES` · `TIME_SCALE_LABELS` |
+| Results & errors | `unwrap` · `unwrapOr` · `ok` · `err` · `isAstrotimeError` · `TimeParseError` · `InvalidTimeError` · `LeapSecondTableError` · `isInstant` · `isDuration` |
+
+Every export has JSDoc — hover in your editor for the details, or read [`DESIGN.md`](DESIGN.md) for the model and its invariants.
 
 ## License
 

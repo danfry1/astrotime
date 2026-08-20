@@ -60,8 +60,11 @@ const makeInstant = (taiNanos: bigint): Instant => new InstantValue(taiNanos)
 const isoNanos = (c: CivilDateTime): string =>
   `${c.year < 0 ? `-${pad(-c.year, 4)}` : c.year > 9999 ? `+${pad(c.year, 6)}` : pad(c.year, 4)}-${pad(c.month, 2)}-${pad(c.day, 2)}T${pad(c.hour, 2)}:${pad(c.minute, 2)}:${pad(c.second, 2)}.${fractionDigits(c.nanosecond, 9)}Z`
 
+/** Instant from exact TAI nanoseconds since 1970-01-01T00:00:00 TAI. */
 export const instantFromTaiNanos = (taiNanos: bigint): Instant => makeInstant(taiNanos)
+/** The exact TAI nanosecond count (for storage or binary protocols). */
 export const instantToTaiNanos = (instant: Instant): bigint => instant.taiNanos
+/** Type guard: `true` only for values created by this library's instant constructors. */
 export const isInstant = (value: unknown): value is Instant => value instanceof InstantValue
 
 /** The Unix epoch, 1970-01-01T00:00:00 UTC (= TAI 00:00:10). */
@@ -193,9 +196,11 @@ export const instantFromUnixMillis = (millis: number, options?: UtcOptions): Ins
 export const instantToUnixMillis = (instant: Instant, options?: UtcOptions): number =>
   fromNanos(instantToUnixNanos(instant, options), NANOS_PER_MILLI)
 
+/** Unix seconds as a float (POSIX semantics; sub-second part kept in the fraction). */
 export const instantToUnixSeconds = (instant: Instant, options?: UtcOptions): number =>
   fromNanos(instantToUnixNanos(instant, options), NANOS_PER_SECOND)
 
+/** Instant from a JavaScript `Date` (millisecond precision). Throws `RangeError` for an invalid Date. */
 export const instantFromDate = (date: Date, options?: UtcOptions): Instant => {
   const ms = date.getTime()
   if (Number.isNaN(ms)) throw new RangeError('Cannot convert an invalid Date to an Instant')
@@ -420,20 +425,29 @@ export function civilFromUnixSeconds(
 // ---------------------------------------------------------------------------
 // Arithmetic and ordering
 
+/** `instant + d`, exact on the TAI timeline (leap-second safe). */
 export const addDuration = (instant: Instant, d: Duration): Instant =>
   makeInstant(instant.taiNanos + d.nanos)
+/** `instant − d`, exact on the TAI timeline (leap-second safe). */
 export const subtractDuration = (instant: Instant, d: Duration): Instant =>
   makeInstant(instant.taiNanos - d.nanos)
 /** `end − start` as an exact elapsed duration (leap seconds included). */
 export const durationBetween = (start: Instant, end: Instant): Duration =>
   durationFromNanos(end.taiNanos - start.taiNanos)
+/** Total order for `Array.prototype.sort`. */
 export const compareInstants = (a: Instant, b: Instant): -1 | 0 | 1 =>
   a.taiNanos < b.taiNanos ? -1 : a.taiNanos > b.taiNanos ? 1 : 0
+/** Exact equality (same TAI nanosecond). */
 export const instantsEqual = (a: Instant, b: Instant): boolean => a.taiNanos === b.taiNanos
+/** `true` when `a` is strictly earlier than `b`. */
 export const isBefore = (a: Instant, b: Instant): boolean => a.taiNanos < b.taiNanos
+/** `true` when `a` is strictly later than `b`. */
 export const isAfter = (a: Instant, b: Instant): boolean => a.taiNanos > b.taiNanos
+/** The earlier of two instants. */
 export const minInstant = (a: Instant, b: Instant): Instant => (a.taiNanos <= b.taiNanos ? a : b)
+/** The later of two instants. */
 export const maxInstant = (a: Instant, b: Instant): Instant => (a.taiNanos >= b.taiNanos ? a : b)
+/** `instant` limited to the inclusive range [`lo`, `hi`]. */
 export const clampInstant = (instant: Instant, lo: Instant, hi: Instant): Instant =>
   instant.taiNanos < lo.taiNanos ? lo : instant.taiNanos > hi.taiNanos ? hi : instant
 

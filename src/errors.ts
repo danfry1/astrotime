@@ -79,6 +79,7 @@ export class LeapSecondTableError extends AstrotimeBaseError {
 
 export type AstrotimeError = TimeParseError | InvalidTimeError | LeapSecondTableError
 
+/** Type guard for the union of all astrotime error classes. */
 export const isAstrotimeError = (value: unknown): value is AstrotimeError =>
   value instanceof TimeParseError ||
   value instanceof InvalidTimeError ||
