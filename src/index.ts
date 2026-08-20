@@ -1,4 +1,5 @@
-export { type Err, err, type Ok, ok, type Result, unwrap } from './result.js'
+// Result & errors
+export { type Err, err, type Ok, ok, type Result, unwrap, unwrapOr } from './result.js'
 export {
   type AstrotimeError,
   InvalidTimeError,
@@ -6,6 +7,9 @@ export {
   LeapSecondTableError,
   TimeParseError,
 } from './errors.js'
+export type { StringWithHints } from './types.js'
+
+// Calendar
 export {
   type CivilDate,
   civilFromDays,
@@ -16,23 +20,33 @@ export {
   daysInYear,
   isLeapYear,
 } from './calendar.js'
+
+// Duration
 export {
   absDuration,
   addDurations,
   compareDurations,
   type Duration,
   type DurationComponents,
+  type DurationFormat,
   type DurationParts,
   duration,
-  durationComponents,
+  durationFromDays,
+  durationFromHours,
   durationFromMillis,
+  durationFromMinutes,
   durationFromNanos,
   durationFromSeconds,
   durationsEqual,
+  durationToComponents,
+  durationToDays,
+  durationToHours,
   durationToMillis,
+  durationToMinutes,
   durationToNanos,
   durationToSeconds,
   formatDuration,
+  isDuration,
   isNegativeDuration,
   NANOS_PER_DAY,
   NANOS_PER_HOUR,
@@ -42,21 +56,30 @@ export {
   NANOS_PER_SECOND,
   negateDuration,
   parseDuration,
+  parseDurationOrThrow,
   scaleDuration,
   subtractDurations,
   ZERO_DURATION,
 } from './duration.js'
+
+// Leap seconds
 export {
-  deltaAtForUnixSeconds,
+  deltaAtUnixSeconds,
   IERS_LEAP_SECONDS,
-  isLeapSecondTableExpired,
   type LeapSecondEntry,
   type LeapSecondTable,
   parseLeapSecondsList,
   PRE_1972_DELTA_AT,
+  validateLeapSecondTable,
 } from './leap-seconds.js'
+
+// Instant
 export {
   addDuration,
+  type CalendarFields,
+  type CivilDateTime,
+  type CivilFields,
+  clampInstant,
   compareInstants,
   deltaAt,
   durationBetween,
@@ -66,50 +89,69 @@ export {
   instantFromUnixMillis,
   instantFromUnixNanos,
   instantFromUnixSeconds,
+  instantFromUtc,
   instantNow,
+  instantRange,
   instantsEqual,
   instantToDate,
+  instantToTaiNanos,
   instantToUnixMillis,
   instantToUnixNanos,
   instantToUnixSeconds,
   instantToUtc,
+  isAfter,
+  isBefore,
+  isInstant,
+  isLeapSecond,
+  isLeapSecondTableExpired,
+  isUtcDefined,
+  maxInstant,
+  minInstant,
+  type OrdinalFields,
   subtractDuration,
-  taiNanosOf,
-  type UtcDateTime,
-  type UtcFields,
+  UNIX_EPOCH_INSTANT,
+  UTC_START_INSTANT,
   type UtcOptions,
-  utcToInstant,
 } from './instant.js'
+
+// Scales
 export {
-  civilToInstant,
+  GPS_EPOCH_INSTANT,
   GPS_MINUS_TAI_NANOS,
   type GpsWeek,
-  gpsSeconds,
-  gpsWeek,
+  instantFromCivil,
   instantFromGpsSeconds,
   instantFromGpsWeek,
+  instantFromJ2000Nanos,
+  instantFromJ2000Seconds,
   instantFromJulianDate,
   instantFromJulianDateParts,
   instantFromModifiedJulianDate,
-  instantFromNanosSinceJ2000,
   instantFromScaleNanos,
-  instantFromSecondsSinceJ2000,
   instantToCivil,
+  instantToGpsSeconds,
+  instantToGpsWeek,
+  instantToJ2000Nanos,
+  instantToJ2000Seconds,
+  instantToJulianDate,
+  instantToJulianDateParts,
+  instantToModifiedJulianDate,
+  instantToScaleNanos,
+  instantToScaleSeconds,
   J2000_INSTANT,
   JD_J2000,
   JD_UNIX_EPOCH,
-  julianDate,
   type JulianDateParts,
-  julianDateParts,
   MJD_OFFSET,
-  modifiedJulianDate,
-  nanosSinceJ2000,
-  scaleNanos,
-  secondsSinceJ2000,
+  TIME_SCALE_LABELS,
   TIME_SCALES,
   type TimeScale,
+  truncateInstant,
+  type TruncateUnit,
   TT_MINUS_TAI_NANOS,
 } from './scales.js'
+
+// Format & parse
 export {
   formatInstant,
   formatIso,
@@ -119,4 +161,10 @@ export {
   INSTANT_TOKEN,
   type IsoFormatOptions,
 } from './format.js'
-export { isValidInstant, type ParseError, type ParseOptions, parseInstant } from './parse.js'
+export {
+  isValidInstant,
+  type ParseError,
+  type ParseOptions,
+  parseInstant,
+  parseInstantOrThrow,
+} from './parse.js'

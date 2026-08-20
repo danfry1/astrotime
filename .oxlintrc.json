@@ -91,6 +91,14 @@
         "no-unsafe-function-type": "off",
         "no-template-curly-in-string": "off"
       }
+    },
+    {
+      "files": [
+        "scripts/**/*.ts"
+      ],
+      "rules": {
+        "no-console": "off"
+      }
     }
   ],
   "ignorePatterns": [

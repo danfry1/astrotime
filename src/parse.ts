@@ -1,71 +1,123 @@
 import { InvalidTimeError, TimeParseError } from './errors.js'
 import { INSTANT_TOKEN } from './format.js'
 import {
+  type CivilFields,
+  civilFromUnixSeconds,
   type Instant,
-  instantFromUnixNanos,
+  instantFromResolvedUtc,
   resolveCivilFields,
-  type UtcFields,
   type UtcOptions,
 } from './instant.js'
 import { tokenize } from './pattern.js'
-import { civilToInstant, type TimeScale } from './scales.js'
-import { err, ok, type Result } from './result.js'
+import { instantFromCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
+import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
-import { NANOS_PER_SECOND } from './duration.js'
 
 export type ParseOptions = UtcOptions & {
   /**
    * `'iso'` (default) accepts calendar and ordinal ISO 8601 forms with optional
-   * time, fraction (1–9 digits), `Z` or `±HH:mm` offset; `'ordinal'` accepts
-   * only the day-of-year form; any other string is a strict token pattern.
+   * time, fraction (1–9 digits) and designator (`Z`, `±HH[:mm]`, or ` TAI` /
+   * ` TT` / ` GPS` / ` TDB`); `'ordinal'` accepts only the day-of-year form;
+   * any other string is a strict token pattern (see `INSTANT_TOKEN`).
    */
-  readonly format?: StringWithHints<'iso' | 'ordinal'>
-  /** Scale the text is expressed in. Default `utc`. */
-  readonly scale?: TimeScale
+  readonly format?: StringWithHints<'iso' | 'ordinal'> | undefined
+  /**
+   * Scale the text is expressed in. Default `utc`. A scale designator in the
+   * text must agree with it; when `scale` is omitted the designator wins.
+   */
+  readonly scale?: TimeScale | undefined
 }
 
 export type ParseError = TimeParseError | InvalidTimeError
 
-const YEAR = String.raw`([+-]?\d{4,6})`
+const YEAR = String.raw`([+-]\d{4,6}|\d{4})`
 const TIME = String.raw`(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)?`
-const OFFSET = String.raw`(Z|[+-]\d{2}(?::?\d{2})?)?`
-const ISO_CALENDAR = new RegExp(`^${YEAR}-(\\d{2})-(\\d{2})${TIME}${OFFSET}$`)
-const ISO_ORDINAL = new RegExp(`^${YEAR}-(\\d{3})${TIME}${OFFSET}$`)
+const DESIGNATOR = String.raw`(Z|[+-]\d{2}(?::?\d{2})?| ?(?:TAI|TT|GPS|TDB))?`
+const ISO_CALENDAR = new RegExp(`^${YEAR}-(\\d{2})-(\\d{2})${TIME}${DESIGNATOR}$`)
+const ISO_ORDINAL = new RegExp(`^${YEAR}-(\\d{3})${TIME}${DESIGNATOR}$`)
 const SECONDS_PER_DAY = 86_400
+const LABEL_TO_SCALE: Readonly<Record<string, TimeScale>> = {
+  TAI: 'tai',
+  TT: 'tt',
+  GPS: 'gps',
+  TDB: 'tdb',
+}
 
 const parseFraction = (digits: string | undefined): number =>
   digits === undefined ? 0 : Number(digits.padEnd(9, '0'))
 
-function parseOffsetSeconds(offset: string): number {
-  const sign = offset.startsWith('-') ? -1 : 1
-  const digits = offset.slice(1).replace(':', '')
-  const hours = Number(digits.slice(0, 2))
-  const minutes = digits.length > 2 ? Number(digits.slice(2, 4)) : 0
-  return sign * (hours * 3600 + minutes * 60)
+function parseYear(text: string): number | null {
+  if (text === '-0000') return null
+  return Number(text)
 }
 
-function resolveWithOffset(
-  fields: UtcFields,
-  offset: string | undefined,
-  scale: TimeScale,
+type Designator =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'offset'; readonly seconds: number }
+  | { readonly kind: 'scale'; readonly scale: TimeScale }
+
+function parseDesignator(
+  raw: string | undefined,
   text: string,
   formatName: string,
-  options: UtcOptions,
-): Result<Instant, ParseError> {
-  if (offset === undefined || offset === 'Z' || scale !== 'utc') {
-    if (offset !== undefined && scale !== 'utc') {
+): Result<Designator, TimeParseError> {
+  if (raw === undefined) return ok({ kind: 'none' })
+  if (raw === 'Z') return ok({ kind: 'scale', scale: 'utc' })
+  const label = raw.trim()
+  const scale = LABEL_TO_SCALE[label]
+  if (scale !== undefined) return ok({ kind: 'scale', scale })
+  const sign = raw.startsWith('-') ? -1 : 1
+  const digits = raw.slice(1).replace(':', '')
+  const hours = Number(digits.slice(0, 2))
+  const minutes = digits.length > 2 ? Number(digits.slice(2, 4)) : 0
+  if (hours > 23 || minutes > 59)
+    return err(new TimeParseError(text, `invalid UTC offset ${raw}`, formatName))
+  return ok({ kind: 'offset', seconds: sign * (hours * 3600 + minutes * 60) })
+}
+
+function resolveScale(
+  designator: Designator,
+  requested: TimeScale | undefined,
+  text: string,
+  formatName: string,
+): Result<TimeScale, TimeParseError> {
+  if (designator.kind === 'scale') {
+    if (requested !== undefined && requested !== designator.scale) {
       return err(
         new TimeParseError(
           text,
-          `a UTC designator/offset is not valid for the ${scale.toUpperCase()} scale`,
+          `text is in ${TIME_SCALE_LABELS[designator.scale]} but ${TIME_SCALE_LABELS[requested]} was requested`,
           formatName,
         ),
       )
     }
-    return civilToInstant(fields, scale, options)
+    return ok(designator.scale)
   }
-  const seconds = parseOffsetSeconds(offset)
-  if (seconds === 0) return civilToInstant(fields, 'utc', options)
+  const scale = requested ?? 'utc'
+  if (designator.kind === 'offset' && scale !== 'utc') {
+    return err(
+      new TimeParseError(
+        text,
+        `a UTC offset is not valid for the ${TIME_SCALE_LABELS[scale]} scale`,
+        formatName,
+      ),
+    )
+  }
+  return ok(scale)
+}
+
+function resolveFields(
+  fields: CivilFields,
+  designator: Designator,
+  requested: TimeScale | undefined,
+  text: string,
+  formatName: string,
+  options: UtcOptions,
+): Result<Instant, ParseError> {
+  const scale = resolveScale(designator, requested, text, formatName)
+  if (!scale.ok) return scale
+  if (designator.kind !== 'offset' || designator.seconds === 0)
+    return instantFromCivil(fields, scale.value, options)
   if (fields.second === 60) {
     return err(
       new InvalidTimeError(
@@ -77,59 +129,62 @@ function resolveWithOffset(
   }
   const resolved = resolveCivilFields(fields)
   if (!resolved.ok) return resolved
-  const unixSeconds = resolved.value.days * SECONDS_PER_DAY + resolved.value.secondOfDay - seconds
-  return ok(
-    instantFromUnixNanos(
-      BigInt(unixSeconds) * NANOS_PER_SECOND + BigInt(resolved.value.nanosecond),
-      options,
-    ),
-  )
+  // Shift to UTC, then re-derive civil fields so leap-second validation applies to the UTC reading.
+  const unixSeconds =
+    resolved.value.days * SECONDS_PER_DAY + resolved.value.secondOfDay - designator.seconds
+  const utc = civilFromUnixSeconds(unixSeconds, resolved.value.nanosecond)
+  const shifted = resolveCivilFields({
+    year: utc.year,
+    month: utc.month,
+    day: utc.day,
+    hour: utc.hour,
+    minute: utc.minute,
+    second: utc.second,
+    nanosecond: utc.nanosecond,
+  })
+  if (!shifted.ok) return shifted
+  return instantFromResolvedUtc(shifted.value, options)
 }
 
 function parseIsoText(
   text: string,
   ordinalOnly: boolean,
-  scale: TimeScale,
+  requested: TimeScale | undefined,
   options: UtcOptions,
 ): Result<Instant, ParseError> {
   const formatName = ordinalOnly ? 'ordinal' : 'iso'
   const ordinal = ISO_ORDINAL.exec(text)
-  if (ordinal !== null) {
-    const [, year, doy, hour, minute, second, fraction, offset] = ordinal
-    const fields: UtcFields = {
-      year: Number(year),
-      dayOfYear: Number(doy),
-      hour: Number(hour ?? 0),
-      minute: Number(minute ?? 0),
-      second: Number(second ?? 0),
-      nanosecond: parseFraction(fraction),
-    }
-    return resolveWithOffset(fields, offset, scale, text, formatName, options)
+  const calendar = ordinal === null && !ordinalOnly ? ISO_CALENDAR.exec(text) : null
+  const match = ordinal ?? calendar
+  if (match === null) {
+    const expected = ordinalOnly
+      ? 'YYYY-DDD[THH:mm[:ss[.fff]]][Z|±HH:mm| TAI]'
+      : 'YYYY-MM-DD or YYYY-DDD with optional THH:mm[:ss[.fff]][Z|±HH:mm| TAI]'
+    return err(new TimeParseError(text, `expected ${expected}`, formatName))
   }
-  const calendar = ordinalOnly ? null : ISO_CALENDAR.exec(text)
-  if (calendar !== null) {
-    const [, year, month, day, hour, minute, second, fraction, offset] = calendar
-    const fields: UtcFields = {
-      year: Number(year),
-      month: Number(month),
-      day: Number(day),
-      hour: Number(hour ?? 0),
-      minute: Number(minute ?? 0),
-      second: Number(second ?? 0),
-      nanosecond: parseFraction(fraction),
-    }
-    return resolveWithOffset(fields, offset, scale, text, formatName, options)
+  const year = parseYear(match[1] ?? '')
+  if (year === null) return err(new TimeParseError(text, 'year -0000 is not allowed', formatName))
+  const designator = parseDesignator(match.at(-1), text, formatName)
+  if (!designator.ok) return designator
+  const timeOffset = ordinal !== null ? 3 : 4
+  const time = {
+    hour: Number(match[timeOffset] ?? 0),
+    minute: Number(match[timeOffset + 1] ?? 0),
+    second: Number(match[timeOffset + 2] ?? 0),
+    nanosecond: parseFraction(match[timeOffset + 3]),
   }
-  const expected = ordinalOnly
-    ? 'YYYY-DDD[THH:mm[:ss[.fff]]][Z]'
-    : 'YYYY-MM-DD or YYYY-DDD with optional THH:mm[:ss[.fff]][Z|±HH:mm]'
-  return err(new TimeParseError(text, `expected ${expected}`, formatName))
+  const fields: CivilFields =
+    ordinal !== null
+      ? { year, dayOfYear: Number(ordinal[2]), ...time }
+      : { year, month: Number(match[2]), day: Number(match[3]), ...time }
+  return resolveFields(fields, designator.value, requested, text, formatName, options)
 }
 
 const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`)
 
 type Compiled = { readonly regex: RegExp; readonly fields: readonly string[] }
 const compiledPatterns = new Map<string, Compiled>()
+const MAX_COMPILED_PATTERNS = 256
 
 function compilePattern(pattern: string): Compiled {
   const cached = compiledPatterns.get(pattern)
@@ -141,22 +196,30 @@ function compilePattern(pattern: string): Compiled {
       source += escapeRegExp(token.text)
       continue
     }
-    if (token.name === 'Z') {
-      source += 'Z'
-      continue
+    switch (token.name) {
+      case 'Y':
+        source += String.raw`(-?\d{4})`
+        fields.push('Y')
+        break
+      case 'Z':
+        source += String.raw`(Z|TAI|TT|GPS|TDB)`
+        fields.push('Z')
+        break
+      case 'D':
+        source += `(\\d{${String(token.width)}})`
+        fields.push(token.width === 3 ? 'doy' : 'D')
+        break
+      case 'S':
+        source += `(\\d{${String(token.width)}})`
+        fields.push('S')
+        break
+      default:
+        source += String.raw`(\d{2})`
+        fields.push(token.name)
     }
-    const width =
-      token.name === 'Y'
-        ? 4
-        : token.name === 'D'
-          ? token.width
-          : token.name === 'S'
-            ? token.width
-            : 2
-    source += token.name === 'Y' ? String.raw`([+-]?\d{4,6})` : `(\\d{${String(width)}})`
-    fields.push(token.name === 'D' ? (token.width === 3 ? 'doy' : 'D') : token.name)
   }
   const compiled = { regex: new RegExp(`${source}$`), fields }
+  if (compiledPatterns.size >= MAX_COMPILED_PATTERNS) compiledPatterns.clear()
   compiledPatterns.set(pattern, compiled)
   return compiled
 }
@@ -164,7 +227,7 @@ function compilePattern(pattern: string): Compiled {
 function parseWithPattern(
   text: string,
   pattern: string,
-  scale: TimeScale,
+  requested: TimeScale | undefined,
   options: UtcOptions,
 ): Result<Instant, ParseError> {
   const { regex, fields } = compilePattern(pattern)
@@ -178,6 +241,8 @@ function parseWithPattern(
   const year = values['Y']
   if (year === undefined)
     return err(new TimeParseError(text, 'pattern must include a year (YYYY)', pattern))
+  const designator = parseDesignator(values['Z'], text, pattern)
+  if (!designator.ok) return designator
   const time = {
     hour: Number(values['H'] ?? 0),
     minute: Number(values['m'] ?? 0),
@@ -185,7 +250,7 @@ function parseWithPattern(
     nanosecond: parseFraction(values['S']),
   }
   const doy = values['doy']
-  const utcFields: UtcFields =
+  const civil: CivilFields =
     doy !== undefined
       ? { year: Number(year), dayOfYear: Number(doy), ...time }
       : {
@@ -194,7 +259,7 @@ function parseWithPattern(
           day: Number(values['D'] ?? 1),
           ...time,
         }
-  return civilToInstant(utcFields, scale, options)
+  return resolveFields(civil, designator.value, requested, text, pattern, options)
 }
 
 /** Parses text into an instant. See `ParseOptions.format` for accepted forms. */
@@ -202,12 +267,15 @@ export function parseInstant(
   text: string,
   options: ParseOptions = {},
 ): Result<Instant, ParseError> {
-  const scale = options.scale ?? 'utc'
   const format = options.format ?? 'iso'
-  if (format === 'iso') return parseIsoText(text, false, scale, options)
-  if (format === 'ordinal') return parseIsoText(text, true, scale, options)
-  return parseWithPattern(text, format, scale, options)
+  if (format === 'iso') return parseIsoText(text, false, options.scale, options)
+  if (format === 'ordinal') return parseIsoText(text, true, options.scale, options)
+  return parseWithPattern(text, format, options.scale, options)
 }
+
+/** `parseInstant` that throws the `TimeParseError` / `InvalidTimeError` instead of returning it. */
+export const parseInstantOrThrow = (text: string, options?: ParseOptions): Instant =>
+  unwrap(parseInstant(text, options))
 
 /** `true` when `text` parses under the given options. */
 export const isValidInstant = (text: string, options?: ParseOptions): boolean =>

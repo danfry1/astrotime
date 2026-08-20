@@ -33,6 +33,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Tag matches package version
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: test "v$(node -p 'require("./package.json").version')" = "$TAG_NAME"
+
       # Put the lockfile-pinned npm (a devDependency, integrity-checked by bun
       # install) ahead of the runner's bundled npm for the rest of the job.
       - name: Use repo-pinned npm

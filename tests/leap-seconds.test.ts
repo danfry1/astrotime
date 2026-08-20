@@ -2,15 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import {
   deltaAt,
-  deltaAtForUnixSeconds,
+  deltaAtUnixSeconds,
   formatIso,
   IERS_LEAP_SECONDS,
-  isLeapSecondTableExpired,
   LeapSecondTableError,
-  parseInstant,
+  parseInstantOrThrow,
   parseLeapSecondsList,
   unwrap,
+  validateLeapSecondTable,
 } from '../src/index.js'
+import { expectErr } from './helpers.js'
 
 const IANA_SAMPLE = `#	Leap seconds list
 #$	3992312697
@@ -35,68 +36,66 @@ const IERS_SAMPLE = `#  Value of TAI-UTC in second valid beetween the initial va
 `
 
 describe('bundled table', () => {
-  it('has 28 entries ending at 37 s and an expiry', () => {
+  it('has 28 entries ending at 37 s, an expiry and an update stamp', () => {
     expect(IERS_LEAP_SECONDS.entries).toHaveLength(28)
     expect(IERS_LEAP_SECONDS.entries.at(-1)).toStrictEqual({
       unixSeconds: 1_483_228_800,
       deltaAt: 37,
     })
     expect(IERS_LEAP_SECONDS.expires).toBe(1_814_140_800)
-  })
-
-  it('is internally consistent (+1 per entry, ascending)', () => {
-    for (let i = 1; i < IERS_LEAP_SECONDS.entries.length; i += 1) {
-      const prev = IERS_LEAP_SECONDS.entries[i - 1]
-      const cur = IERS_LEAP_SECONDS.entries[i]
-      expect(cur?.deltaAt).toBe((prev?.deltaAt ?? 0) + 1)
-      expect((cur?.unixSeconds ?? 0) > (prev?.unixSeconds ?? 0)).toBe(true)
-    }
+    expect(IERS_LEAP_SECONDS.updated).toBe(1_783_323_897)
+    expect(validateLeapSecondTable(IERS_LEAP_SECONDS).ok).toBe(true)
   })
 
   it('looks up ΔAT by Unix seconds', () => {
-    expect(deltaAtForUnixSeconds(0)).toBe(10)
-    expect(deltaAtForUnixSeconds(63_072_000)).toBe(10)
-    expect(deltaAtForUnixSeconds(78_796_799)).toBe(10)
-    expect(deltaAtForUnixSeconds(78_796_800)).toBe(11)
-    expect(deltaAtForUnixSeconds(1_483_228_799)).toBe(36)
-    expect(deltaAtForUnixSeconds(1_483_228_800)).toBe(37)
-  })
-
-  it('reports expiry', () => {
-    expect(isLeapSecondTableExpired(IERS_LEAP_SECONDS, 1_814_140_799)).toBe(false)
-    expect(isLeapSecondTableExpired(IERS_LEAP_SECONDS, 1_814_140_800)).toBe(true)
-    expect(isLeapSecondTableExpired({ entries: [], expires: null }, 1e12)).toBe(false)
+    expect(deltaAtUnixSeconds(0)).toBe(10)
+    expect(deltaAtUnixSeconds(63_072_000)).toBe(10)
+    expect(deltaAtUnixSeconds(78_796_799)).toBe(10)
+    expect(deltaAtUnixSeconds(78_796_800)).toBe(11)
+    expect(deltaAtUnixSeconds(1_483_228_799)).toBe(36)
+    expect(deltaAtUnixSeconds(1_483_228_800)).toBe(37)
+    expect(deltaAtUnixSeconds(1_483_228_800, { leapSeconds: { entries: [], expires: null } })).toBe(
+      10,
+    )
   })
 })
 
 describe('parseLeapSecondsList', () => {
-  it('parses the IANA/NIST format including expiry', () => {
-    const table = unwrap(parseLeapSecondsList(IANA_SAMPLE))
-    expect(table).toStrictEqual({
+  it('parses the IANA/NIST format including expiry and update stamp', () => {
+    expect(unwrap(parseLeapSecondsList(IANA_SAMPLE))).toStrictEqual({
       entries: [
         { unixSeconds: 63_072_000, deltaAt: 10 },
         { unixSeconds: 78_796_800, deltaAt: 11 },
         { unixSeconds: 94_694_400, deltaAt: 12 },
       ],
       expires: 1_814_140_800,
+      updated: 1_783_323_897,
     })
   })
 
   it('parses the IERS Leap_Second.dat format including expiry', () => {
-    const table = unwrap(parseLeapSecondsList(IERS_SAMPLE))
-    expect(table).toStrictEqual({
+    expect(unwrap(parseLeapSecondsList(IERS_SAMPLE))).toStrictEqual({
       entries: [
         { unixSeconds: 63_072_000, deltaAt: 10 },
         { unixSeconds: 78_796_800, deltaAt: 11 },
         { unixSeconds: 94_694_400, deltaAt: 12 },
       ],
       expires: 1_814_140_800,
+      updated: null,
     })
+  })
+
+  it('prefers the #@ expiry when both forms are present', () => {
+    const table = unwrap(
+      parseLeapSecondsList(`#@ 4023129600\n# File expires on 1 January 2030\n2272060800 10\n`),
+    )
+    expect(table.expires).toBe(1_814_140_800)
   })
 
   it.each([
     ['', 0, 'no leap-second entries found'],
     ['#@ abc\n2272060800 10', 1, 'malformed #@ expiry'],
+    ['#$ abc\n2272060800 10', 1, 'malformed #$ update stamp'],
     ['# File expires on 28 Foo 2027\n2272060800 10', 1, 'unknown month in expiry'],
     ['2272060800 10\nhello world', 2, 'unrecognised line "hello world"'],
     ['2287785600 11\n2272060800 10', 2, 'entries are not in ascending order'],
@@ -105,19 +104,31 @@ describe('parseLeapSecondsList', () => {
       2,
       'TAI−UTC must change by exactly one second between entries',
     ],
+    ['2272060801 10', 1, 'entries must start at a UTC midnight'],
   ])('rejects %j', (text, line, reason) => {
-    const result = parseLeapSecondsList(text)
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error).toBeInstanceOf(LeapSecondTableError)
-      expect(result.error.toJSON()).toStrictEqual({ code: 'LEAP_SECOND_TABLE', line, reason })
-    }
+    const error = expectErr(parseLeapSecondsList(text))
+    expect(error).toBeInstanceOf(LeapSecondTableError)
+    expect(error.toJSON()).toStrictEqual({
+      name: 'LeapSecondTableError',
+      code: 'LEAP_SECOND_TABLE',
+      message: `Invalid leap-second table at line ${String(line)}: ${reason}`,
+      line,
+      reason,
+    })
+  })
+
+  it('validateLeapSecondTable reports problems in hand-built tables', () => {
+    expect(
+      expectErr(
+        validateLeapSecondTable({ entries: [{ unixSeconds: 0.5, deltaAt: 10 }], expires: null }),
+      ).reason,
+    ).toBe('entries must be integers')
   })
 
   it('a parsed table drives UTC conversions', () => {
-    const table = unwrap(parseLeapSecondsList(IANA_SAMPLE))
-    const i = unwrap(parseInstant('2026-08-19T00:00:00Z', { leapSeconds: table }))
-    expect(deltaAt(i, { leapSeconds: table })).toBe(12)
-    expect(formatIso(i, { scale: 'tai' })).toBe('2026-08-19T00:00:12.000')
+    const leapSeconds = unwrap(parseLeapSecondsList(IANA_SAMPLE))
+    const i = parseInstantOrThrow('2026-08-19T00:00:00Z', { leapSeconds })
+    expect(deltaAt(i, { leapSeconds })).toBe(12)
+    expect(formatIso(i, { scale: 'tai' })).toBe('2026-08-19T00:00:12.000 TAI')
   })
 })

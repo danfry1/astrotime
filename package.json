@@ -10,36 +10,72 @@
     ".": {
       "types": "./dist/index.d.mts",
       "import": "./dist/index.mjs"
-    }
+    },
+    "./package.json": "./package.json"
   },
-  "files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
-  "publishConfig": { "access": "public" },
-  "repository": { "type": "git", "url": "git+https://github.com/danfry1/astrotime.git" },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danfry1/astrotime.git"
+  },
   "homepage": "https://github.com/danfry1/astrotime#readme",
-  "bugs": { "url": "https://github.com/danfry1/astrotime/issues" },
+  "bugs": {
+    "url": "https://github.com/danfry1/astrotime/issues"
+  },
   "scripts": {
     "build": "tsdown",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "lint": "oxlint --type-aware --deny-warnings src tests scripts",
-    "format": "oxfmt src tests scripts tsdown.config.ts vitest.config.ts",
-    "format:check": "oxfmt --check src tests scripts tsdown.config.ts vitest.config.ts",
+    "lint": "oxlint --type-aware --deny-warnings src tests scripts benchmarks",
+    "format": "oxfmt src tests scripts benchmarks tsdown.config.ts vitest.config.ts",
+    "format:check": "oxfmt --check src tests scripts benchmarks tsdown.config.ts vitest.config.ts",
     "knip": "knip",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check:package": "bun run build && bun run scripts/check-package.ts",
     "check:release": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package",
     "prepare": "test -n \"$CI\" || lefthook install",
-    "prepublishOnly": "bun run check:release"
+    "prepublishOnly": "bun run check:release",
+    "bench": "vitest bench --run"
   },
-  "keywords": ["time", "leap-seconds", "tai", "utc", "tt", "gps", "tdb", "julian-date", "day-of-year", "doy", "scet", "iso-8601", "duration", "spacecraft", "astronomy", "space", "nasa", "openmct"],
+  "keywords": [
+    "time",
+    "leap-seconds",
+    "tai",
+    "utc",
+    "tt",
+    "gps",
+    "tdb",
+    "julian-date",
+    "day-of-year",
+    "doy",
+    "scet",
+    "iso-8601",
+    "duration",
+    "spacecraft",
+    "astronomy",
+    "space",
+    "nasa",
+    "openmct"
+  ],
   "author": "Daniel Fry",
   "license": "MIT",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@types/node": "22.20.1",
     "@vitest/coverage-v8": "4.1.10",
+    "fast-check": "4.9.0",
     "knip": "6.26.0",
     "lefthook": "2.1.10",
     "npm": "11.15.0",

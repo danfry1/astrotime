@@ -28,7 +28,7 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   table from `leap-seconds.list` (IANA/NIST) or `Leap_Second.dat` (IERS) via
   `parseLeapSecondsList`. No global mutable state.
 - Scales: `utc | tai | tt | gps | tdb`. TT = TAI + 32.184 s; GPS = TAI − 19 s;
-  TDB = TT + 0.001657 sin g + 0.000014 sin 2g (≈30 µs accuracy, documented).
+  TDB = TT + three leading Fairhead & Bretagnon terms (USNO Circular 179 eq. 2.6; < 30 µs vs ERFA, documented).
   UT1 is out of scope (needs IERS EOP data).
 - Leap-second semantics: UTC `23:59:60` is representable and valid only when the
   table has a positive leap at that boundary. `toUnixMillis` follows POSIX:
@@ -37,27 +37,34 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
 - Calendar math is proleptic Gregorian, integer-only (Hinnant's algorithms).
 - Julian dates are offered both as a single `number` (≈50 µs precision near
   the present, documented) and as two-part `{ jd1, jd2 }` for full precision.
+  UTC Julian dates use the SOFA quasi-JD convention (86 401-second leap days),
+  so they are monotonic and match astropy on leap days; POSIX repeat semantics
+  apply only to the Unix-time functions.
 
 ## API shape (flat functions, no classes)
 
 ```
-instantFromUnixMillis / instantToUnixMillis / instantFromDate / instantToDate / instantNow
-instantFromTaiNanos / taiNanosOf
-utcToInstant(fields, opts) → Result<Instant, InvalidTimeError>
-instantToUtc(i, opts) → UtcDateTime { year, month, day, dayOfYear, hour, minute, second(0–60), nanosecond }
-civilToInstant(fields, scale) / instantToCivil(i, scale)         // tai|tt|gps uniform calendars
-addDuration / subtractDuration / durationBetween / compareInstants / instantsEqual
-duration({days,hours,minutes,seconds,millis,micros,nanos}) / durationFromSeconds / durationToSeconds / durationComponents
-parseDuration(text) / formatDuration(d, pattern)
-parseInstant(text, { format: 'iso' | 'ordinal' | tokenPattern, scale, leapSeconds }) → Result
-formatInstant(i, pattern, { scale, leapSeconds }) / formatIso / formatOrdinal
-secondsSinceJ2000 / fromSecondsSinceJ2000 / julianDate / julianDateParts / fromJulianDate / modifiedJulianDate
-gpsWeek / fromGpsWeek / deltaAt
-IERS_LEAP_SECONDS / parseLeapSecondsList / isLeapSecondTableExpired
+instantFromUnixMillis/Seconds/Nanos ↔ instantToUnix* / instantFromDate / instantToDate / instantNow
+instantFromTaiNanos / instantToTaiNanos / isInstant
+instantFromUtc(fields, opts) → Result<Instant, InvalidTimeError>
+instantToUtc(i, opts) → CivilDateTime { year, month, day, dayOfYear, hour, minute, second(0–60), nanosecond }
+instantFromCivil(fields, scale) / instantToCivil(i, scale)       // any scale's own calendar
+addDuration / subtractDuration / durationBetween / compareInstants / instantsEqual / isBefore / isAfter
+minInstant / maxInstant / clampInstant / instantRange / truncateInstant(i, unit, scale)
+duration({days,hours,minutes,seconds,millis,micros,nanos}) / durationFrom*/durationTo* / durationToComponents
+parseDuration / parseDurationOrThrow / formatDuration(d, 'iso' | 'clock' | pattern) / scaleDuration (exact)
+parseInstant(text, { format: 'iso' | 'ordinal' | tokenPattern, scale, leapSeconds }) → Result / parseInstantOrThrow
+formatInstant(i, pattern, { scale }) / formatIso / formatOrdinal   // non-UTC output carries ' TAI' etc.
+instantToJ2000Seconds/Nanos ↔ instantFromJ2000* / instantToJulianDate[Parts] ↔ instantFromJulianDate[Parts]
+instantToModifiedJulianDate / instantToScaleNanos ↔ instantFromScaleNanos / instantToScaleSeconds
+instantToGpsWeek/Seconds ↔ instantFromGps* / deltaAt / deltaAtUnixSeconds / isLeapSecond / isUtcDefined
+IERS_LEAP_SECONDS / parseLeapSecondsList / validateLeapSecondTable / isLeapSecondTableExpired
+J2000_INSTANT / GPS_EPOCH_INSTANT / UNIX_EPOCH_INSTANT / UTC_START_INSTANT
 ```
 
-Tokens (strict, small): `YYYY MM DD DDD HH mm ss S…S(1–9) Z [literal]`.
-Expected failures (parsing, invalid fields) return `Result`; bugs throw.
+Tokens (strict, small): `YYYY MM DD DDD HH mm ss S…S(1–9) Z [literal]`; `Z` is the
+scale designator (`Z` for UTC, ` TAI` etc. otherwise) in both directions.
+Expected failures (parsing, invalid fields) return `Result`; bugs throw `RangeError`.
 
 ## Non-goals
 

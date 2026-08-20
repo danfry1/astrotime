@@ -1,15 +1,8 @@
 import { TimeParseError } from './errors.js'
+import { fromNanos, scaleNanosExact, toNanos } from './numeric.js'
 import { fractionDigits, fractionToNanos, pad, tokenize } from './pattern.js'
-import { err, ok, type Result } from './result.js'
+import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
-
-declare const durationBrand: unique symbol
-
-/**
- * A signed span of elapsed (SI) time in whole nanoseconds.
- * Days are exactly 86 400 s; there are no calendar (month/year) durations.
- */
-export type Duration = { readonly nanos: bigint; readonly [durationBrand]: true }
 
 export const NANOS_PER_MICRO = 1_000n
 export const NANOS_PER_MILLI = 1_000_000n
@@ -18,56 +11,78 @@ export const NANOS_PER_MINUTE = 60n * NANOS_PER_SECOND
 export const NANOS_PER_HOUR = 60n * NANOS_PER_MINUTE
 export const NANOS_PER_DAY = 24n * NANOS_PER_HOUR
 
-const makeDuration = (nanos: bigint): Duration => ({ nanos }) as Duration
+declare const durationBrand: unique symbol
+
+/**
+ * A signed span of elapsed (SI) time in whole nanoseconds.
+ * Days are exactly 86 400 s; there are no calendar (month/year) durations.
+ * Values are immutable; `JSON.stringify` / `String()` yield the ISO 8601 form.
+ */
+export type Duration = DurationValue
+
+class DurationValue {
+  declare readonly [durationBrand]: true
+  readonly nanos: bigint
+  constructor(nanos: bigint) {
+    this.nanos = nanos
+    Object.freeze(this)
+  }
+  toJSON(): string {
+    return formatIsoDuration(this)
+  }
+  toString(): string {
+    return formatIsoDuration(this)
+  }
+}
+
+const makeDuration = (nanos: bigint): Duration => new DurationValue(nanos)
 
 /** Builds a duration from whole nanoseconds. */
 export const durationFromNanos = (nanos: bigint): Duration => makeDuration(nanos)
+export const isDuration = (value: unknown): value is Duration => value instanceof DurationValue
 
 export const ZERO_DURATION: Duration = makeDuration(0n)
 
 export type DurationParts = {
-  readonly days?: number
-  readonly hours?: number
-  readonly minutes?: number
-  readonly seconds?: number
-  readonly millis?: number
-  readonly micros?: number
-  readonly nanos?: number | bigint
+  readonly days?: number | undefined
+  readonly hours?: number | undefined
+  readonly minutes?: number | undefined
+  readonly seconds?: number | undefined
+  readonly millis?: number | undefined
+  readonly micros?: number | undefined
+  readonly nanos?: number | bigint | undefined
 }
 
-function scaled(value: number | undefined, unitNanos: bigint, name: string): bigint {
-  if (value === undefined) return 0n
-  if (!Number.isFinite(value))
-    throw new RangeError(`Duration ${name} must be finite, got ${String(value)}`)
-  return BigInt(Math.round(value * Number(unitNanos)))
-}
+const part = (value: number | undefined, unitNanos: bigint, name: string): bigint =>
+  value === undefined ? 0n : toNanos(value, unitNanos, `Duration ${name}`)
 
-/** Builds a duration from components; fractional components are rounded to the nearest nanosecond. */
+/** Builds a duration from components; fractional components are rounded to the nearest nanosecond. Throws `RangeError` on non-finite input. */
 export function duration(parts: DurationParts): Duration {
-  const nanos =
-    parts.nanos === undefined
-      ? 0n
-      : typeof parts.nanos === 'bigint'
-        ? parts.nanos
-        : scaled(parts.nanos, 1n, 'nanos')
+  const nanos = typeof parts.nanos === 'bigint' ? parts.nanos : part(parts.nanos, 1n, 'nanos')
   return makeDuration(
-    scaled(parts.days, NANOS_PER_DAY, 'days') +
-      scaled(parts.hours, NANOS_PER_HOUR, 'hours') +
-      scaled(parts.minutes, NANOS_PER_MINUTE, 'minutes') +
-      scaled(parts.seconds, NANOS_PER_SECOND, 'seconds') +
-      scaled(parts.millis, NANOS_PER_MILLI, 'millis') +
-      scaled(parts.micros, NANOS_PER_MICRO, 'micros') +
+    part(parts.days, NANOS_PER_DAY, 'days') +
+      part(parts.hours, NANOS_PER_HOUR, 'hours') +
+      part(parts.minutes, NANOS_PER_MINUTE, 'minutes') +
+      part(parts.seconds, NANOS_PER_SECOND, 'seconds') +
+      part(parts.millis, NANOS_PER_MILLI, 'millis') +
+      part(parts.micros, NANOS_PER_MICRO, 'micros') +
       nanos,
   )
 }
 
+export const durationFromDays = (days: number): Duration => duration({ days })
+export const durationFromHours = (hours: number): Duration => duration({ hours })
+export const durationFromMinutes = (minutes: number): Duration => duration({ minutes })
 export const durationFromSeconds = (seconds: number): Duration => duration({ seconds })
 export const durationFromMillis = (millis: number): Duration => duration({ millis })
 
 export const durationToNanos = (d: Duration): bigint => d.nanos
-/** Seconds as a float; exact below 2^53 ns (~104 days), then rounded. */
-export const durationToSeconds = (d: Duration): number => Number(d.nanos) / 1e9
-export const durationToMillis = (d: Duration): number => Number(d.nanos) / 1e6
+/** Float conversions: exact while |nanos| < 2^53 (~104 days), then rounded to double precision. */
+export const durationToSeconds = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_SECOND)
+export const durationToMillis = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_MILLI)
+export const durationToMinutes = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_MINUTE)
+export const durationToHours = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_HOUR)
+export const durationToDays = (d: Duration): number => fromNanos(d.nanos, NANOS_PER_DAY)
 
 export type DurationComponents = {
   readonly sign: 1 | -1
@@ -80,7 +95,7 @@ export type DurationComponents = {
 }
 
 /** Decomposes a duration into non-negative components plus a sign. */
-export function durationComponents(d: Duration): DurationComponents {
+export function durationToComponents(d: Duration): DurationComponents {
   const sign: 1 | -1 = d.nanos < 0n ? -1 : 1
   const abs = d.nanos < 0n ? -d.nanos : d.nanos
   return {
@@ -98,13 +113,9 @@ export const subtractDurations = (a: Duration, b: Duration): Duration =>
   makeDuration(a.nanos - b.nanos)
 export const negateDuration = (d: Duration): Duration => makeDuration(-d.nanos)
 export const absDuration = (d: Duration): Duration => (d.nanos < 0n ? makeDuration(-d.nanos) : d)
-/** Multiplies by a number, rounding to the nearest nanosecond. */
-export const scaleDuration = (d: Duration, factor: number): Duration => {
-  if (!Number.isFinite(factor))
-    throw new RangeError(`Duration factor must be finite, got ${String(factor)}`)
-  if (Number.isInteger(factor)) return makeDuration(d.nanos * BigInt(factor))
-  return makeDuration(BigInt(Math.round(Number(d.nanos) * factor)))
-}
+/** Multiplies by a number exactly, rounding the final result half away from zero. Throws `RangeError` on non-finite factors. */
+export const scaleDuration = (d: Duration, factor: number): Duration =>
+  makeDuration(scaleNanosExact(d.nanos, factor, 'Duration factor'))
 export const compareDurations = (a: Duration, b: Duration): -1 | 0 | 1 =>
   a.nanos < b.nanos ? -1 : a.nanos > b.nanos ? 1 : 0
 export const durationsEqual = (a: Duration, b: Duration): boolean => a.nanos === b.nanos
@@ -117,9 +128,7 @@ const DECIMAL = String.raw`(\d+)(?:[.,](\d{1,9}))?`
 const ISO_DURATION = new RegExp(
   `^([+-])?P(?:${DECIMAL}W)?(?:${DECIMAL}D)?(?:T(?=\\d)(?:${DECIMAL}H)?(?:${DECIMAL}M)?(?:${DECIMAL}S)?)?$`,
 )
-const CLOCK_DURATION = new RegExp(
-  String.raw`^([+-])?(?:(\d+)[T ])?(\d+):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?$`,
-)
+const CLOCK_DURATION = /^([+-])?(?:(\d+)[T ])?(\d+):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?$/
 
 const FORMAT_NAME = 'duration'
 
@@ -136,7 +145,7 @@ function isoComponent(
  * Parses a duration string. Accepted forms:
  * - ISO 8601: `P1DT2H3M4.5S`, `PT90M`, `P2W`, with optional leading sign.
  *   Year/month designators are rejected (not fixed-length).
- * - Clock: `HH:mm[:ss[.fraction]]` with optional day prefix `D[T ]`, e.g.
+ * - Clock: `HH:mm[:ss[.fraction]]` with optional day-count prefix `D[T ]`, e.g.
  *   `02:03:04.005`, `36:00:00`, `1T02:03:04`, `-1 12:00:00`.
  */
 export function parseDuration(text: string): Result<Duration, TimeParseError> {
@@ -188,14 +197,18 @@ export function parseDuration(text: string): Result<Duration, TimeParseError> {
   )
 }
 
+/** `parseDuration` that throws the `TimeParseError` instead of returning it. */
+export const parseDurationOrThrow = (text: string): Duration => unwrap(parseDuration(text))
+
 // ---------------------------------------------------------------------------
 // Formatting
 
 const DURATION_TOKEN = /^(?:D+|H{1,2}|m{1,2}|s{1,2}|S{1,9})/
+const durationPatternCache = new Map<string, ReturnType<typeof tokenize>>()
 
 /** Canonical ISO 8601 form, e.g. `P1DT2H3M4.5S`; zero is `PT0S`. */
 function formatIsoDuration(d: Duration): string {
-  const c = durationComponents(d)
+  const c = durationToComponents(d)
   let out = c.sign < 0 ? '-P' : 'P'
   if (c.days > 0) out += `${String(c.days)}D`
   const time: string[] = []
@@ -210,24 +223,37 @@ function formatIsoDuration(d: Duration): string {
   return out
 }
 
+export type DurationFormat = StringWithHints<'iso' | 'clock'>
+
 /**
  * Formats a duration.
- * - `'iso'` → canonical ISO 8601 (`P1DT2H3M4.5S`).
+ * - `'iso'` (default) → canonical ISO 8601 (`P1DT2H3M4.5S`).
+ * - `'clock'` → `HH:mm:ss` with hours absorbing days (`36:00:00`), sub-seconds dropped.
  * - Token pattern with `D` (days, width = min digits), `HH`/`H`, `mm`/`m`,
  *   `ss`/`s`, `S…S` (fraction digits, truncated) and `[literal]`. The largest
  *   unit present absorbs everything above it: `HH:mm:ss` renders 1.5 days as
  *   `36:00:00`. Negative durations get a leading `-`.
  */
-export function formatDuration(d: Duration, pattern: StringWithHints<'iso'> = 'iso'): string {
+export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): string {
   if (pattern === 'iso') return formatIsoDuration(d)
-  const tokens = tokenize(pattern, DURATION_TOKEN)
-  const c = durationComponents(d)
-  const present = new Set(tokens.flatMap((t) => (t.kind === 'field' ? [t.name] : [])))
-  const largest = present.has('D') ? 'D' : present.has('H') ? 'H' : present.has('m') ? 'm' : 's'
-  const hours = largest === 'H' ? c.days * 24 + c.hours : c.hours
-  const minutes = largest === 'm' ? (c.days * 24 + c.hours) * 60 + c.minutes : c.minutes
-  const seconds =
-    largest === 's' ? ((c.days * 24 + c.hours) * 60 + c.minutes) * 60 + c.seconds : c.seconds
+  const resolved = pattern === 'clock' ? 'HH:mm:ss' : pattern
+  let tokens = durationPatternCache.get(resolved)
+  if (tokens === undefined) {
+    tokens = tokenize(resolved, DURATION_TOKEN)
+    if (durationPatternCache.size < 256) durationPatternCache.set(resolved, tokens)
+  }
+  const c = durationToComponents(d)
+  let largest: 'D' | 'H' | 'm' | 's' = 's'
+  for (const t of tokens) {
+    if (t.kind !== 'field') continue
+    if (t.name === 'D') largest = 'D'
+    else if (t.name === 'H' && largest !== 'D') largest = 'H'
+    else if (t.name === 'm' && largest === 's') largest = 'm'
+  }
+  const totalHours = c.days * 24 + c.hours
+  const hours = largest === 'H' ? totalHours : c.hours
+  const minutes = largest === 'm' ? totalHours * 60 + c.minutes : c.minutes
+  const seconds = largest === 's' ? (totalHours * 60 + c.minutes) * 60 + c.seconds : c.seconds
   let out = c.sign < 0 ? '-' : ''
   for (const token of tokens) {
     if (token.kind === 'literal') {

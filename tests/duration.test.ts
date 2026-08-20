@@ -5,24 +5,32 @@ import {
   addDurations,
   compareDurations,
   duration,
-  durationComponents,
+  durationFromDays,
+  durationFromHours,
   durationFromMillis,
+  durationFromMinutes,
   durationFromNanos,
   durationFromSeconds,
   durationsEqual,
+  durationToComponents,
+  durationToDays,
+  durationToHours,
   durationToMillis,
+  durationToMinutes,
   durationToNanos,
   durationToSeconds,
   formatDuration,
+  isDuration,
   isNegativeDuration,
   negateDuration,
   parseDuration,
+  parseDurationOrThrow,
   scaleDuration,
   subtractDurations,
   TimeParseError,
-  unwrap,
   ZERO_DURATION,
 } from '../src/index.js'
+import { expectErr } from './helpers.js'
 
 describe('duration construction', () => {
   it('sums components exactly in nanoseconds', () => {
@@ -38,25 +46,35 @@ describe('duration construction', () => {
     expect(durationToNanos(d)).toBe(93_784_005_006_007n)
   })
 
-  it('rounds fractional components to the nearest nanosecond', () => {
+  it('rounds fractional components half away from zero', () => {
     expect(durationToNanos(duration({ seconds: 0.1 }))).toBe(100_000_000n)
     expect(durationToNanos(duration({ hours: 1.5 }))).toBe(5_400_000_000_000n)
     expect(durationToNanos(duration({ nanos: 1.6 }))).toBe(2n)
     expect(durationToNanos(duration({ nanos: 5n }))).toBe(5n)
+    expect(durationToNanos(duration({ seconds: 1.5e-9 }))).toBe(2n)
+    expect(durationToNanos(duration({ seconds: -1.5e-9 }))).toBe(-2n)
+    expect(durationToNanos(duration({ days: 1e15 }))).toBe(86_400_000_000_000_000_000_000_000_000n)
   })
 
-  it('rejects non-finite components', () => {
-    expect(() => duration({ seconds: Number.NaN })).toThrow(RangeError)
+  it('rejects non-finite components with a RangeError', () => {
+    expect(() => duration({ seconds: Number.NaN })).toThrow(
+      new RangeError('Duration seconds must be a finite number, got NaN'),
+    )
+    expect(() => durationFromDays(Number.POSITIVE_INFINITY)).toThrow(RangeError)
   })
 
-  it('converts to seconds and millis', () => {
+  it('converts to and from units', () => {
     expect(durationToSeconds(durationFromSeconds(1.25))).toBe(1.25)
     expect(durationToMillis(durationFromMillis(-2.5))).toBe(-2.5)
+    expect(durationToMinutes(durationFromMinutes(90))).toBe(90)
+    expect(durationToHours(durationFromHours(1.5))).toBe(1.5)
+    expect(durationToDays(durationFromDays(2))).toBe(2)
     expect(durationToNanos(ZERO_DURATION)).toBe(0n)
+    expect(durationToSeconds(durationFromNanos(-1n))).toBe(-1e-9)
   })
 
   it('decomposes into components with sign', () => {
-    expect(durationComponents(durationFromNanos(-93_784_005_006_007n))).toStrictEqual({
+    expect(durationToComponents(durationFromNanos(-93_784_005_006_007n))).toStrictEqual({
       sign: -1,
       days: 1,
       hours: 2,
@@ -64,7 +82,7 @@ describe('duration construction', () => {
       seconds: 4,
       nanos: 5_006_007,
     })
-    expect(durationComponents(ZERO_DURATION).sign).toBe(1)
+    expect(durationToComponents(ZERO_DURATION).sign).toBe(1)
   })
 
   it('supports arithmetic and comparison', () => {
@@ -74,14 +92,40 @@ describe('duration construction', () => {
     expect(durationToSeconds(subtractDurations(a, b))).toBe(-2)
     expect(durationToSeconds(negateDuration(a))).toBe(-3)
     expect(durationToSeconds(absDuration(negateDuration(a)))).toBe(3)
-    expect(durationToSeconds(scaleDuration(a, 2))).toBe(6)
-    expect(durationToSeconds(scaleDuration(a, 0.5))).toBe(1.5)
-    expect(() => scaleDuration(a, Number.NaN)).toThrow(RangeError)
+    expect(absDuration(a)).toBe(a)
     expect(compareDurations(a, b)).toBe(-1)
     expect(compareDurations(b, a)).toBe(1)
     expect(compareDurations(a, durationFromSeconds(3))).toBe(0)
     expect(durationsEqual(a, durationFromSeconds(3))).toBe(true)
     expect(isNegativeDuration(negateDuration(a))).toBe(true)
+  })
+
+  it('scales exactly, including huge values and non-integer factors', () => {
+    const a = durationFromSeconds(3)
+    expect(durationToSeconds(scaleDuration(a, 2))).toBe(6)
+    expect(durationToSeconds(scaleDuration(a, 0.5))).toBe(1.5)
+    expect(durationToNanos(scaleDuration(duration({ days: 365, nanos: 1n }), 1.5))).toBe(
+      47_304_000_000_000_002n,
+    )
+    expect(
+      durationToNanos(scaleDuration(durationFromNanos(123_456_789_012_345_678_901n), 0.5)),
+    ).toBe(61_728_394_506_172_839_451n)
+    expect(durationToNanos(scaleDuration(durationFromNanos(5n), 0.5))).toBe(3n)
+    expect(durationToNanos(scaleDuration(durationFromNanos(-5n), 0.5))).toBe(-3n)
+    expect(durationToNanos(scaleDuration(durationFromNanos(7n), 0.1))).toBe(1n)
+    expect(() => scaleDuration(a, Number.NaN)).toThrow(
+      new RangeError('Duration factor must be a finite number, got NaN'),
+    )
+  })
+
+  it('values are frozen, branded and serialisable', () => {
+    const d = duration({ hours: 1, seconds: 0.5 })
+    expect(Object.isFrozen(d)).toBe(true)
+    expect(isDuration(d)).toBe(true)
+    expect(isDuration({ nanos: 1n })).toBe(false)
+    expect(JSON.stringify({ d })).toBe('{"d":"PT1H0.5S"}')
+    expect(String(d)).toBe('PT1H0.5S')
+    expect(durationsEqual(parseDurationOrThrow(String(d)), d)).toBe(true)
   })
 })
 
@@ -96,6 +140,7 @@ describe('parseDuration', () => {
     ['+P1D', 86_400_000_000_000n],
     ['PT0S', 0n],
     ['PT1.5H', 5_400_000_000_000n],
+    ['P99999999999999999999D', 8_639_999_999_999_999_999_913_600_000_000_000n],
     ['02:03:04.005', 7_384_005_000_000n],
     ['36:00:00', 129_600_000_000_000n],
     ['1T02:03:04', 93_784_000_000_000n],
@@ -104,7 +149,7 @@ describe('parseDuration', () => {
     ['12:30', 45_000_000_000_000n],
     ['00:00:00.123456789', 123_456_789n],
   ])('parses %s', (text, nanos) => {
-    expect(durationToNanos(unwrap(parseDuration(text)))).toBe(nanos)
+    expect(durationToNanos(parseDurationOrThrow(text))).toBe(nanos)
   })
 
   it.each([
@@ -113,24 +158,23 @@ describe('parseDuration', () => {
     ['P1M', 'year and month designators are not supported (not fixed-length)'],
     ['PT', 'malformed ISO 8601 duration'],
     ['P1DT', 'malformed ISO 8601 duration'],
+    ['P-1D', 'malformed ISO 8601 duration'],
     ['12:60', 'minutes must be 0–59'],
     ['12:00:60', 'seconds must be 0–59'],
     ['abc', 'expected ISO 8601 (P…T…) or clock (HH:mm:ss) duration'],
     ['', 'expected ISO 8601 (P…T…) or clock (HH:mm:ss) duration'],
-  ])('rejects %s', (text, reason) => {
-    const result = parseDuration(text)
-    expect(result.ok).toBe(false)
-    if (!result.ok) {
-      expect(result.error).toBeInstanceOf(TimeParseError)
-      expect(result.error.reason).toBe(reason)
-      expect(result.error.input).toBe(text)
-      expect(result.error.toJSON()).toStrictEqual({
-        code: 'TIME_PARSE',
-        input: text,
-        reason,
-        format: 'duration',
-      })
-    }
+  ])('rejects %j', (text, reason) => {
+    const error = expectErr(parseDuration(text))
+    expect(error).toBeInstanceOf(TimeParseError)
+    expect(error.toJSON()).toStrictEqual({
+      name: 'TimeParseError',
+      code: 'TIME_PARSE',
+      message: `Cannot parse ${JSON.stringify(text)} as duration: ${reason}`,
+      input: text,
+      reason,
+      format: 'duration',
+    })
+    expect(() => parseDurationOrThrow(text)).toThrow(TimeParseError)
   })
 })
 
@@ -148,19 +192,23 @@ describe('formatDuration', () => {
 
   it('lets the largest unit absorb higher units in token patterns', () => {
     const d = duration({ days: 1, hours: 12, minutes: 5, seconds: 9, millis: 250 })
+    expect(formatDuration(d, 'clock')).toBe('36:05:09')
     expect(formatDuration(d, 'HH:mm:ss')).toBe('36:05:09')
     expect(formatDuration(d, 'D[d] HH:mm:ss.SSS')).toBe('1d 12:05:09.250')
     expect(formatDuration(d, 'DDD[d] HH:mm:ss')).toBe('001d 12:05:09')
     expect(formatDuration(d, 'mm:ss')).toBe('2165:09')
     expect(formatDuration(d, 's.SSSSSSSSS')).toBe('129909.250000000')
     expect(formatDuration(d, 'H[h]')).toBe('36h')
+    expect(formatDuration(duration({ days: 1234 }), 'DD')).toBe('1234')
   })
 
   it('prefixes negative durations', () => {
     expect(formatDuration(duration({ minutes: -90 }), 'HH:mm:ss')).toBe('-01:30:00')
+    expect(formatDuration(duration({ minutes: -90 }), 'clock')).toBe('-01:30:00')
   })
 
-  it('keeps unknown letters literal', () => {
+  it('keeps unknown letters and unterminated brackets literal', () => {
     expect(formatDuration(duration({ seconds: 5 }), 'ss [seconds] x')).toBe('05 seconds x')
+    expect(formatDuration(duration({ seconds: 5 }), 'ss [open')).toBe('05 open')
   })
 })

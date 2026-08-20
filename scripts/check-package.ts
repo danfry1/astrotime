@@ -31,11 +31,12 @@ try {
     import { parseInstant, formatIso, unwrap, deltaAt } from 'astrotime'
     const i = unwrap(parseInstant('2016-12-31T23:59:60.5Z'))
     const tai = formatIso(i, { scale: 'tai', precision: 'auto' })
-    if (tai !== '2017-01-01T00:00:36.500' || deltaAt(i) !== 36) throw new Error('smoke test failed: ' + tai)
-    console.log('astrotime package smoke test passed')
+    if (tai !== '2017-01-01T00:00:36.500 TAI' || deltaAt(i) !== 36) throw new Error('smoke test failed: ' + tai)
+    console.log('astrotime package smoke test passed on', process.version)
   `
   writeFileSync(join(workDir, 'smoke.mjs'), script)
-  execFileSync(process.execPath, ['smoke.mjs'], { cwd: workDir, stdio: 'inherit' })
+  // Run under Node explicitly: when this script itself runs under bun, process.execPath is the bun binary.
+  execFileSync('node', ['smoke.mjs'], { cwd: workDir, stdio: 'inherit' })
 } finally {
   rmSync(workDir, { recursive: true, force: true })
 }

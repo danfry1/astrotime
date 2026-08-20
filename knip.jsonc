@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["tests/**/*.test.ts", "scripts/**/*.ts"],
+  "entry": ["tests/**/*.test.ts", "benchmarks/**/*.bench.ts", "scripts/**/*.ts"],
   "project": ["src/**/*.ts"],
   "ignoreDependencies": ["npm", "@arethetypeswrong/cli"],
   "rules": { "types": "off" }

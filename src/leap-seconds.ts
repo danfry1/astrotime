@@ -10,10 +10,12 @@ export type LeapSecondEntry = {
 }
 
 export type LeapSecondTable = {
-  /** Ascending by `unixSeconds`. */
+  /** Ascending by `unixSeconds`; consecutive entries differ by exactly ±1 s and start at a UTC midnight. */
   readonly entries: readonly LeapSecondEntry[]
   /** Unix seconds after which the table may be missing announcements (IERS Bulletin C expiry), or `null` if unknown. */
   readonly expires: number | null
+  /** Unix seconds at which the source list was last updated, or `null`/absent if unknown. */
+  readonly updated?: number | null | undefined
 }
 
 const NTP_TO_UNIX = 2_208_988_800
@@ -53,6 +55,7 @@ export const IERS_LEAP_SECONDS: LeapSecondTable = {
     { unixSeconds: 1_483_228_800, deltaAt: 37 }, // 2017-01-01
   ],
   expires: 1_814_140_800, // 2027-06-28
+  updated: 1_783_323_897, // 2026-07-06
 }
 
 /** TAI − UTC applied before the first table entry (UTC before 1972 used "rubber seconds"; 10 s is the 1972 value). */
@@ -62,10 +65,11 @@ export const PRE_1972_DELTA_AT = 10
  * TAI − UTC in effect at the given Unix time (seconds, ignoring leap seconds).
  * At a leap-second boundary the new offset applies from the midnight itself.
  */
-export function deltaAtForUnixSeconds(
+export function deltaAtUnixSeconds(
   unixSeconds: number,
-  table: LeapSecondTable = IERS_LEAP_SECONDS,
+  options: { readonly leapSeconds?: LeapSecondTable | undefined } = {},
 ): number {
+  const table = options.leapSeconds ?? IERS_LEAP_SECONDS
   const idx = leapEntryIndexForUnix(unixSeconds, table)
   return idx === -1 ? PRE_1972_DELTA_AT : (table.entries[idx]?.deltaAt ?? PRE_1972_DELTA_AT)
 }
@@ -88,48 +92,62 @@ export function leapEntryIndexForUnix(unixSeconds: number, table: LeapSecondTabl
   return found
 }
 
-/** Whether `unixSeconds` is past the table's declared expiry. */
-export const isLeapSecondTableExpired = (table: LeapSecondTable, unixSeconds: number): boolean =>
-  table.expires !== null && unixSeconds >= table.expires
-
-function validateTable(
-  entries: LeapSecondEntry[],
-  line: number,
-): Result<void, LeapSecondTableError> {
-  for (let i = 1; i < entries.length; i += 1) {
-    const prev = entries[i - 1]
+function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
+  for (let i = 0; i < entries.length; i += 1) {
     const cur = entries[i]
-    if (prev === undefined || cur === undefined) continue
-    if (cur.unixSeconds <= prev.unixSeconds)
-      return err(new LeapSecondTableError(line, 'entries are not in ascending order'))
-    if (Math.abs(cur.deltaAt - prev.deltaAt) !== 1) {
-      return err(
-        new LeapSecondTableError(line, 'TAI−UTC must change by exactly one second between entries'),
-      )
-    }
+    if (cur === undefined) continue
+    if (!Number.isInteger(cur.unixSeconds) || !Number.isInteger(cur.deltaAt))
+      return 'entries must be integers'
+    if (cur.unixSeconds % SECONDS_PER_DAY !== 0) return 'entries must start at a UTC midnight'
+    const prev = entries[i - 1]
+    if (prev === undefined) continue
+    if (cur.unixSeconds <= prev.unixSeconds) return 'entries are not in ascending order'
+    if (Math.abs(cur.deltaAt - prev.deltaAt) !== 1)
+      return 'TAI−UTC must change by exactly one second between entries'
   }
-  return ok(undefined)
+  return null
+}
+
+/** Checks a hand-built table for the invariants the UTC conversions rely on. */
+export function validateLeapSecondTable(
+  table: LeapSecondTable,
+): Result<LeapSecondTable, LeapSecondTableError> {
+  const problem = tableProblem(table.entries)
+  return problem === null ? ok(table) : err(new LeapSecondTableError(0, problem))
+}
+
+const validatedTables = new WeakSet<LeapSecondTable>()
+
+/** Internal: validates once per table object (cached), throwing `RangeError` for a malformed table. */
+export function assertValidLeapSecondTable(table: LeapSecondTable): void {
+  if (table === IERS_LEAP_SECONDS || validatedTables.has(table)) return
+  const problem = tableProblem(table.entries)
+  if (problem !== null) throw new RangeError(`Invalid leap-second table: ${problem}`)
+  validatedTables.add(table)
 }
 
 /**
  * Parses a leap-second list in either of the two public formats:
- * - IANA/NIST `leap-seconds.list` (`<NTP seconds> <TAI−UTC>` rows, `#@ <expiry>` line)
+ * - IANA/NIST `leap-seconds.list` (`<NTP seconds> <TAI−UTC>` rows, `#@ <expiry>` and `#$ <updated>` lines)
  * - IERS `Leap_Second.dat` (`<MJD> <day> <month> <year> <TAI−UTC>` rows, `#  File expires on` line)
  */
 export function parseLeapSecondsList(text: string): Result<LeapSecondTable, LeapSecondTableError> {
   const entries: LeapSecondEntry[] = []
   let expires: number | null = null
+  let iersExpires: number | null = null
+  let updated: number | null = null
   const lines = text.split(/\r?\n/)
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i] ?? ''
     const lineNo = i + 1
     const line = raw.trim()
     if (line === '') continue
-    if (line.startsWith('#@')) {
+    if (line.startsWith('#@') || line.startsWith('#$')) {
       const ntp = Number(line.slice(2).trim())
-      if (!Number.isInteger(ntp))
-        return err(new LeapSecondTableError(lineNo, 'malformed #@ expiry'))
-      expires = ntp - NTP_TO_UNIX
+      const what = line.startsWith('#@') ? '#@ expiry' : '#$ update stamp'
+      if (!Number.isInteger(ntp)) return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
+      if (line.startsWith('#@')) expires = ntp - NTP_TO_UNIX
+      else updated = ntp - NTP_TO_UNIX
       continue
     }
     const iersExpiry = /^#\s*File expires on\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i.exec(line)
@@ -137,7 +155,7 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       const [, day, monthName, year] = iersExpiry
       const month = MONTHS.indexOf((monthName ?? '').slice(0, 3).toLowerCase())
       if (month === -1) return err(new LeapSecondTableError(lineNo, 'unknown month in expiry'))
-      expires = Date.UTC(Number(year), month, Number(day)) / 1000
+      iersExpires = Date.UTC(Number(year), month, Number(day)) / 1000
       continue
     }
     if (line.startsWith('#')) continue
@@ -156,9 +174,9 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     return err(new LeapSecondTableError(lineNo, `unrecognised line ${JSON.stringify(raw)}`))
   }
   if (entries.length === 0) return err(new LeapSecondTableError(0, 'no leap-second entries found'))
-  const valid = validateTable(entries, lines.length)
-  if (!valid.ok) return valid
-  return ok({ entries, expires })
+  const problem = tableProblem(entries)
+  if (problem !== null) return err(new LeapSecondTableError(lines.length, problem))
+  return ok({ entries, expires: expires ?? iersExpires, updated })
 }
 
 const MONTHS: readonly string[] = [
