@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.4.0 - 2026-08-20
+
+Third review round: the leap-table history guarantee.
+
+- **Breaking**: custom leap-second tables must contain the complete known
+  history — every bundled entry, verbatim, in order — before any appended
+  future entries. The previous first-entry check admitted partial snapshots
+  that silently misapplied old ΔAT values (e.g. a one-row table producing a
+  26-second error for 2016 epochs); all such shapes are now rejected on every
+  entry point, and the test suite no longer endorses partial tables anywhere.
+- IERS `Leap_Second.dat` calendar columns and `File expires on` dates are
+  validated as real dates (rejecting JavaScript's silent normalization of
+  e.g. "31 June" to 1 July) and round-tripped against the MJD column.
+- Documentation drift: duration component cap corrected to 16 digits, the
+  full-history and `leapGap` policies documented in the README's UTC
+  guidance, gzip size claim updated to ~20 KB. Release tags are annotated
+  and signed from this version onward.
+
 ## 0.3.0 - 2026-08-20
 
 Second external-review round: make invalid temporal states unrepresentable and every accuracy claim mechanically honest.

@@ -83,8 +83,8 @@ describe('UTC ↔ instant', () => {
   it('rejects a second deleted by a negative leap second', () => {
     const table: LeapSecondTable = {
       entries: [
-        { unixSeconds: 63_072_000, deltaAt: 10 },
-        { unixSeconds: 1_893_456_000, deltaAt: 9 }, // hypothetical 2030-01-01 negative leap
+        ...IERS_LEAP_SECONDS.entries,
+        { unixSeconds: 1_893_456_000, deltaAt: 36 }, // hypothetical 2030-01-01 negative leap
       ],
       expires: null,
     }
@@ -178,20 +178,14 @@ describe('UTC ↔ instant', () => {
 
   it('validates hand-built tables once and rejects malformed ones', () => {
     const broken: LeapSecondTable = {
-      entries: [
-        { unixSeconds: 63_072_000, deltaAt: 10 },
-        { unixSeconds: 1, deltaAt: 11 },
-      ],
+      entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1, deltaAt: 38 }],
       expires: null,
     }
     expect(() => instantToUtc(UNIX_EPOCH_INSTANT, { leapSeconds: broken })).toThrow(
       new RangeError('Invalid leap-second table: entries must start at a UTC midnight'),
     )
     const jump: LeapSecondTable = {
-      entries: [
-        { unixSeconds: 63_072_000, deltaAt: 10 },
-        { unixSeconds: 78_796_800, deltaAt: 12 },
-      ],
+      entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1_893_456_000, deltaAt: 39 }],
       expires: null,
     }
     expect(() => deltaAt(UNIX_EPOCH_INSTANT, { leapSeconds: jump })).toThrow(RangeError)

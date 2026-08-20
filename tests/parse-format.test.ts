@@ -4,6 +4,7 @@ import {
   formatInstant,
   formatIso,
   formatOrdinal,
+  IERS_LEAP_SECONDS,
   InvalidTimeError,
   instantFromTaiNanos,
   instantsEqual,
@@ -111,10 +112,7 @@ describe('parseInstant iso', () => {
       'Invalid second 60: a leap second with a non-zero UTC offset is not supported',
     )
     const table: LeapSecondTable = {
-      entries: [
-        { unixSeconds: 63_072_000, deltaAt: 10 },
-        { unixSeconds: 1_893_456_000, deltaAt: 9 },
-      ],
+      entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1_893_456_000, deltaAt: 36 }],
       expires: null,
     }
     expect(

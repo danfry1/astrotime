@@ -11,7 +11,7 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 - **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET convention: exact epoch, approximate TDB model — < 30 µs vs CSPICE over 1972–2100), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
-- **Small and fast** — ~17 KB gzipped, tree-shakeable, no runtime dependencies; ~3M pattern formats/s and ~3.5M ISO parses/s on a laptop — on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. CI-verified on Node ≥ 22 and Bun; plain ES2022 with zero dependencies, so browsers, Deno and React Native ≥ 0.70 (Hermes) are supported targets.
+- **Small and fast** — ~20 KB gzipped, tree-shakeable, no runtime dependencies; ~3M pattern formats/s and ~3.5M ISO parses/s on a laptop — on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. CI-verified on Node ≥ 22 and Bun; plain ES2022 with zero dependencies, so browsers, Deno and React Native ≥ 0.70 (Hermes) are supported targets.
 
 ```ts
 import { parseInstantOrThrow, formatIso, formatOrdinal, durationBetween, durationToSeconds } from 'astrotime'
@@ -177,6 +177,13 @@ for plotting and display, where future timestamps are routine). Pass
 `{ tableValidity: 'reject' }` when uncertain UTC must not be presented as
 certain — every conversion path then errors past the expiry.
 
+Custom tables must contain the complete known leap-second history (the
+bundled entries, verbatim) before any appended future entries — a partial
+snapshot is rejected everywhere, because it would silently misapply old
+ΔAT values to modern epochs. If a negative leap second is ever announced,
+Unix labels inside the deleted second fold forward by default; pass
+`{ leapGap: 'reject' }` to error on them instead.
+
 ### Time scales, J2000, Julian dates, GPS
 
 ```ts
@@ -286,7 +293,7 @@ binary protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigin
 - Functions returning a float `number` carry double resolution (~0.1 µs for J2000 seconds today; ~50 µs for a single-float Julian date — use the two-part form).
 - `instantNow()` has millisecond precision (it reads `Date.now()`); nanosecond precision applies to stored and parsed timestamps.
 - UTC before 1972 is approximated with TAI − UTC = 10 s (the real pre-1972 "rubber second" UTC is out of scope); opt into rejection with `before1972: 'reject'`.
-- ISO duration parsing deviates from ISO 8601 deliberately: comma or dot fractions and a leading sign are accepted; weeks are exclusive (`P1W2D` rejected); only the last component may carry a fraction; components are capped at 15 digits.
+- ISO duration parsing deviates from ISO 8601 deliberately: comma or dot fractions and a leading sign are accepted; weeks are exclusive (`P1W2D` rejected); only the last component may carry a fraction; components are capped at 16 digits.
 - UT1 / ΔT, SCLK and SPICE kernels are out of scope.
 
 ## Intended use

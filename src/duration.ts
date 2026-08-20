@@ -181,7 +181,7 @@ function isoComponent(
  * - ISO 8601 (with two documented deviations): `P1DT2H3M4.5S`, `PT90M`,
  *   `P2W`, optionally signed. Weeks are exclusive (`P1W2D` is rejected), a
  *   fraction is only allowed on the last present component, components are
- *   capped at 15 digits, and — deviating from ISO — a comma or dot fraction
+ *   capped at 16 digits, and — deviating from ISO — a comma or dot fraction
  *   and a leading sign are both accepted. Year/month designators are
  *   rejected (not fixed-length).
  * - Clock: `HH:mm[:ss[.fraction]]` with optional day-count prefix `D[T ]`, e.g.

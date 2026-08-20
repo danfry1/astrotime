@@ -13,27 +13,32 @@ import {
 } from '../src/index.js'
 import { expectErr } from './helpers.js'
 
-const IANA_SAMPLE = `#	Leap seconds list
-#$	3992312697
-#@	4023129600
-2272060800	10	# 1 Jan 1972
-2287785600	11	# 1 Jul 1972
-2303683200	12	# 1 Jan 1973
-`
+const NTP_OFFSET = 2_208_988_800
 
-const IERS_SAMPLE = `#  Value of TAI-UTC in second valid beetween the initial value until
-#  the epoch given on the next line.
-#
-#  File expires on 28 June 2027
-#
-#    MJD        Date        TAI-UTC (s)
-#           day month year
-#    ---    --------------   ------
-#
-    41317.0    1  1 1972       10
-    41499.0    1  7 1972       11
-    41683.0    1  1 1973       12
-`
+/** Full IANA/NIST leap-seconds.list text generated from the bundled table. */
+const IANA_FULL = [
+  '#\tLeap seconds list',
+  '#$\t3992312697',
+  '#@\t4023129600',
+  ...IERS_LEAP_SECONDS.entries.map(
+    (e) => `${String(e.unixSeconds + NTP_OFFSET)}\t${String(e.deltaAt)}\t# entry`,
+  ),
+  '',
+].join('\n')
+
+/** Full IERS Leap_Second.dat text generated from the bundled table. */
+const IERS_FULL = [
+  '#  File expires on 28 June 2027',
+  '#    MJD        Date        TAI-UTC (s)',
+  ...IERS_LEAP_SECONDS.entries.map((e) => {
+    const date = new Date(e.unixSeconds * 1000)
+    const mjd = e.unixSeconds / 86_400 + 40_587
+    return `    ${String(mjd)}.0    ${String(date.getUTCDate())}  ${String(date.getUTCMonth() + 1)} ${String(date.getUTCFullYear())}       ${String(e.deltaAt)}`
+  }),
+  '',
+].join('\n')
+
+const FULL_ENTRIES = IERS_LEAP_SECONDS.entries.map((e) => ({ ...e }))
 
 describe('bundled table', () => {
   it('has 28 entries ending at 37 s, an expiry and an update stamp', () => {
@@ -62,34 +67,26 @@ describe('bundled table', () => {
 
 describe('parseLeapSecondsList', () => {
   it('parses the IANA/NIST format including expiry and update stamp', () => {
-    expect(unwrap(parseLeapSecondsList(IANA_SAMPLE))).toStrictEqual({
-      entries: [
-        { unixSeconds: 63_072_000, deltaAt: 10 },
-        { unixSeconds: 78_796_800, deltaAt: 11 },
-        { unixSeconds: 94_694_400, deltaAt: 12 },
-      ],
+    expect(unwrap(parseLeapSecondsList(IANA_FULL))).toStrictEqual({
+      entries: FULL_ENTRIES,
       expires: 1_814_140_800,
       updated: 1_783_323_897,
     })
   })
 
   it('parses the IERS Leap_Second.dat format including expiry', () => {
-    expect(unwrap(parseLeapSecondsList(IERS_SAMPLE))).toStrictEqual({
-      entries: [
-        { unixSeconds: 63_072_000, deltaAt: 10 },
-        { unixSeconds: 78_796_800, deltaAt: 11 },
-        { unixSeconds: 94_694_400, deltaAt: 12 },
-      ],
+    expect(unwrap(parseLeapSecondsList(IERS_FULL))).toStrictEqual({
+      entries: FULL_ENTRIES,
       expires: 1_814_140_800,
       updated: null,
     })
   })
 
   it('prefers the #@ expiry when both forms are present', () => {
-    const table = unwrap(
-      parseLeapSecondsList(`#@ 4023129600\n# File expires on 1 January 2030\n2272060800 10\n`),
-    )
-    expect(table.expires).toBe(1_814_140_800)
+    const text = `#@ 4023129600\n# File expires on 1 January 2030\n${IANA_FULL.split('\n')
+      .filter((l) => !l.startsWith('#'))
+      .join('\n')}`
+    expect(unwrap(parseLeapSecondsList(text)).expires).toBe(1_814_140_800)
   })
 
   it.each([
@@ -108,7 +105,7 @@ describe('parseLeapSecondsList', () => {
     [
       '2287785600 11',
       1,
-      'table must start with the canonical 1972-01-01 entry (unixSeconds 63072000, deltaAt 10) to cover the full UTC era',
+      'table must include the complete known leap-second history (got 1 of 28 known entries)',
     ],
   ])('rejects %j', (text, line, reason) => {
     const error = expectErr(parseLeapSecondsList(text))
@@ -130,10 +127,10 @@ describe('parseLeapSecondsList', () => {
     ).toBe('entries must be safe integers')
   })
 
-  it('a parsed table drives UTC conversions', () => {
-    const leapSeconds = unwrap(parseLeapSecondsList(IANA_SAMPLE))
+  it('a parsed table drives UTC conversions with the real modern offset', () => {
+    const leapSeconds = unwrap(parseLeapSecondsList(IANA_FULL))
     const i = parseInstantOrThrow('2026-08-19T00:00:00Z', { leapSeconds })
-    expect(deltaAt(i, { leapSeconds })).toBe(12)
-    expect(formatIso(i, { scale: 'tai' })).toBe('2026-08-19T00:00:12.000 TAI')
+    expect(deltaAt(i, { leapSeconds })).toBe(37)
+    expect(formatIso(i, { scale: 'tai', leapSeconds })).toBe('2026-08-19T00:00:37.000 TAI')
   })
 })

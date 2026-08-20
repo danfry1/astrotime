@@ -19,8 +19,6 @@ export type LeapSecondTable = {
 }
 
 const NTP_TO_UNIX = 2_208_988_800
-/** 1972-01-01T00:00:00 UTC as Unix seconds — where leap-second UTC (and every valid table) begins. */
-const UTC_START_SECONDS = 63_072_000
 const MJD_TO_UNIX_DAYS = 40_587
 const SECONDS_PER_DAY = 86_400
 
@@ -113,12 +111,19 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
     if (Math.abs(cur.deltaAt - prev.deltaAt) !== 1)
       return 'TAI−UTC must change by exactly one second between entries'
   }
-  const first = entries[0]
-  if (
-    first !== undefined &&
-    (first.unixSeconds !== UTC_START_SECONDS || first.deltaAt !== PRE_1972_DELTA_AT)
-  ) {
-    return 'table must start with the canonical 1972-01-01 entry (unixSeconds 63072000, deltaAt 10) to cover the full UTC era'
+  // The full known history is required: every bundled entry must appear
+  // verbatim, in order, before any appended (future) entries. A partial
+  // snapshot would silently misapply older ΔAT values to modern epochs.
+  if (entries.length < IERS_LEAP_SECONDS.entries.length) {
+    return `table must include the complete known leap-second history (got ${String(entries.length)} of ${String(IERS_LEAP_SECONDS.entries.length)} known entries)`
+  }
+  for (let i = 0; i < IERS_LEAP_SECONDS.entries.length; i += 1) {
+    const known = IERS_LEAP_SECONDS.entries[i]
+    const given = entries[i]
+    if (known === undefined || given === undefined) continue
+    if (given.unixSeconds !== known.unixSeconds || given.deltaAt !== known.deltaAt) {
+      return `entry ${String(i)} must match the known leap-second history (expected unixSeconds ${String(known.unixSeconds)}, deltaAt ${String(known.deltaAt)})`
+    }
   }
   return null
 }
@@ -223,7 +228,10 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       const [, day, monthName, year] = iersExpiry
       const month = MONTHS.indexOf((monthName ?? '').slice(0, 3).toLowerCase())
       if (month === -1) return err(new LeapSecondTableError(lineNo, 'unknown month in expiry'))
-      iersExpires = Date.UTC(Number(year), month, Number(day)) / 1000
+      const expirySeconds = strictUtcDateSeconds(Number(year), month + 1, Number(day))
+      if (expirySeconds === null)
+        return err(new LeapSecondTableError(lineNo, 'expiry date does not exist'))
+      iersExpires = expirySeconds
       continue
     }
     if (line.startsWith('#')) continue
@@ -234,7 +242,10 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       const mjd = Number(fields[0])
       const delta = Number(fields[4])
       const unixSeconds = (mjd - MJD_TO_UNIX_DAYS) * SECONDS_PER_DAY
-      const calendar = Date.UTC(Number(fields[3]), Number(fields[2]) - 1, Number(fields[1])) / 1000
+      const calendar = strictUtcDateSeconds(Number(fields[3]), Number(fields[2]), Number(fields[1]))
+      if (calendar === null) {
+        return err(new LeapSecondTableError(lineNo, 'day/month/year columns are not a real date'))
+      }
       if (calendar !== unixSeconds) {
         return err(
           new LeapSecondTableError(lineNo, 'MJD does not match the day/month/year columns'),
@@ -254,6 +265,22 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
   const problem = metadataProblem(table)
   if (problem !== null) return err(new LeapSecondTableError(lines.length, problem))
   return ok(freezeLeapSecondTable(table))
+}
+
+/** Date.UTC seconds for a calendar date, or null when the date does not exist (JS Date silently normalizes). */
+function strictUtcDateSeconds(year: number, month: number, day: number): number | null {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null
+  if (year < 1900 || year > 2400 || month < 1 || month > 12 || day < 1 || day > 31) return null
+  const millis = Date.UTC(year, month - 1, day)
+  const roundTrip = new Date(millis)
+  if (
+    roundTrip.getUTCFullYear() !== year ||
+    roundTrip.getUTCMonth() !== month - 1 ||
+    roundTrip.getUTCDate() !== day
+  ) {
+    return null
+  }
+  return millis / 1000
 }
 
 const MONTHS: readonly string[] = [

@@ -76,7 +76,7 @@ describe('leap-table integrity', () => {
   it('validateLeapSecondTable returns a deeply frozen copy', () => {
     const table = unwrap(
       validateLeapSecondTable({
-        entries: [{ unixSeconds: 63_072_000, deltaAt: 10 }],
+        entries: IERS_LEAP_SECONDS.entries.map((e) => ({ ...e })),
         expires: null,
       }),
     )
@@ -86,7 +86,10 @@ describe('leap-table integrity', () => {
   })
 
   it('parseLeapSecondsList output and the bundled table are frozen', () => {
-    const parsed = unwrap(parseLeapSecondsList('2272060800 10\n2287785600 11\n'))
+    const fullText = IERS_LEAP_SECONDS.entries
+      .map((e) => `${String(e.unixSeconds + 2_208_988_800)} ${String(e.deltaAt)}`)
+      .join('\n')
+    const parsed = unwrap(parseLeapSecondsList(`${fullText}\n`))
     expect(Object.isFrozen(parsed) && Object.isFrozen(parsed.entries)).toBe(true)
     expect(Object.isFrozen(IERS_LEAP_SECONDS) && Object.isFrozen(IERS_LEAP_SECONDS.entries)).toBe(
       true,
@@ -251,7 +254,7 @@ describe('review round 2 regressions', () => {
   it('rejects a partial table that would silently misapply the pre-1972 fallback', () => {
     const partial = { entries: [{ unixSeconds: 1_483_228_800, deltaAt: 37 }], expires: null }
     expect(expectErr(validateLeapSecondTable(partial)).reason).toContain(
-      'canonical 1972-01-01 entry',
+      'complete known leap-second history',
     )
     expect(() => instantToUtc(instantFromTaiNanos(0n), { leapSeconds: partial })).toThrow(
       RangeError,
