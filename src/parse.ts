@@ -198,7 +198,9 @@ function compilePattern(pattern: string): Compiled {
     }
     switch (token.name) {
       case 'Y':
-        source += String.raw`(-?\d{4})`
+        // Fixed widths keep adjacent digit tokens unambiguous: an expanded
+        // year is exactly a sign plus six digits (as the formatter emits).
+        source += String.raw`([+-]\d{6}|-?\d{4})`
         fields.push('Y')
         break
       case 'Z':

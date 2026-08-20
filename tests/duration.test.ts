@@ -73,6 +73,14 @@ describe('duration construction', () => {
     expect(durationToSeconds(durationFromNanos(-1n))).toBe(-1e-9)
   })
 
+  it('throws RangeError when the day count cannot be a safe integer', () => {
+    const huge = durationFromNanos(2n ** 105n)
+    expect(() => durationToComponents(huge)).toThrow(
+      new RangeError('Duration too large to decompose into safe-integer components'),
+    )
+    expect(() => formatDuration(huge)).toThrow(RangeError)
+  })
+
   it('decomposes into components with sign', () => {
     expect(durationToComponents(durationFromNanos(-93_784_005_006_007n))).toStrictEqual({
       sign: -1,
@@ -140,7 +148,7 @@ describe('parseDuration', () => {
     ['+P1D', 86_400_000_000_000n],
     ['PT0S', 0n],
     ['PT1.5H', 5_400_000_000_000n],
-    ['P99999999999999999999D', 8_639_999_999_999_999_999_913_600_000_000_000n],
+    ['P999999999999999D', 86_399_999_999_999_913_600_000_000_000n],
     ['02:03:04.005', 7_384_005_000_000n],
     ['36:00:00', 129_600_000_000_000n],
     ['1T02:03:04', 93_784_000_000_000n],
@@ -159,6 +167,10 @@ describe('parseDuration', () => {
     ['PT', 'malformed ISO 8601 duration'],
     ['P1DT', 'malformed ISO 8601 duration'],
     ['P-1D', 'malformed ISO 8601 duration'],
+    ['P99999999999999999999D', 'malformed ISO 8601 duration'],
+    ['P1W2D', 'a week component cannot be combined with other components'],
+    ['P1.5DT1H', 'only the last component may have a fraction'],
+    ['PT1.5H30M', 'only the last component may have a fraction'],
     ['12:60', 'minutes must be 0–59'],
     ['12:00:60', 'seconds must be 0–59'],
     ['abc', 'expected ISO 8601 (P…T…) or clock (HH:mm:ss) duration'],

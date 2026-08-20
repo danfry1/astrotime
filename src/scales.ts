@@ -158,8 +158,11 @@ export const instantToScaleSeconds = (
 // J2000
 
 /**
- * Seconds since the J2000 epoch (2000-01-01T12:00:00 TT) as read on `scale`.
- * `instantToJ2000Seconds(i, 'tdb')` is SPICE's "ephemeris time" (ET).
+ * Seconds since 2000-01-01T12:00:00 **as read on `scale`'s own clock** — the
+ * standard per-scale J2000 origin. `instantToJ2000Seconds(i, 'tdb')` is SPICE
+ * ephemeris time (ET/TDB seconds past J2000, NAIF convention: ET = 0 at
+ * 2000-01-01T12:00:00 TDB); `'tt'` gives TT seconds past the IAU J2000.0
+ * epoch. Origins of different scales differ by up to ΔAT + 32.184 s.
  * ~0.1 µs float resolution near the present; use `instantToJ2000Nanos` for exactness.
  */
 export const instantToJ2000Seconds = (
@@ -168,15 +171,19 @@ export const instantToJ2000Seconds = (
   options?: UtcOptions,
 ): number => fromNanos(instantToJ2000Nanos(instant, scale, options), NANOS_PER_SECOND)
 
-/** Exact nanoseconds since the J2000 epoch as read on `scale`. */
+/** J2000 UTC noon (2000-01-01T12:00:00Z) as Unix nanoseconds. */
+const J2000_UTC_UNIX_NANOS = 946_728_000n * NANOS_PER_SECOND
+
+const j2000OriginNanos = (scale: TimeScale): bigint =>
+  scale === 'utc' ? J2000_UTC_UNIX_NANOS : J2000_NANOS_FROM_1970
+
+/** Exact nanoseconds since 2000-01-01T12:00:00 as read on `scale` (see `instantToJ2000Seconds`). */
 export const instantToJ2000Nanos = (
   instant: Instant,
   scale: TimeScale,
   options?: UtcOptions,
-): bigint =>
-  instantToScaleNanos(instant, scale, options) - instantToScaleNanos(J2000_INSTANT, scale, options)
+): bigint => instantToScaleNanos(instant, scale, options) - j2000OriginNanos(scale)
 
-/** Instant from float seconds since J2000 on `scale` (rounded to the nearest ns). */
 export const instantFromJ2000Seconds = (
   seconds: number,
   scale: TimeScale,
@@ -184,13 +191,11 @@ export const instantFromJ2000Seconds = (
 ): Instant =>
   instantFromJ2000Nanos(toNanos(seconds, NANOS_PER_SECOND, 'J2000 seconds'), scale, options)
 
-/** Instant from exact nanoseconds since J2000 on `scale`. */
 export const instantFromJ2000Nanos = (
   nanos: bigint,
   scale: TimeScale,
   options?: UtcOptions,
-): Instant =>
-  instantFromScaleNanos(instantToScaleNanos(J2000_INSTANT, scale, options) + nanos, scale, options)
+): Instant => instantFromScaleNanos(j2000OriginNanos(scale) + nanos, scale, options)
 
 // ---------------------------------------------------------------------------
 // Julian dates

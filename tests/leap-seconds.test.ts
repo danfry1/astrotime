@@ -122,7 +122,7 @@ describe('parseLeapSecondsList', () => {
       expectErr(
         validateLeapSecondTable({ entries: [{ unixSeconds: 0.5, deltaAt: 10 }], expires: null }),
       ).reason,
-    ).toBe('entries must be integers')
+    ).toBe('entries must be safe integers')
   })
 
   it('a parsed table drives UTC conversions', () => {

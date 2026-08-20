@@ -4,6 +4,7 @@ import { InvalidTimeError } from './errors.js'
 import {
   assertValidLeapSecondTable,
   IERS_LEAP_SECONDS,
+  isCacheableTable,
   type LeapSecondTable,
   leapEntryIndexForUnix,
   PRE_1972_DELTA_AT,
@@ -18,7 +19,9 @@ declare const instantBrand: unique symbol
  * A point on the TAI timeline: whole nanoseconds since 1970-01-01T00:00:00 TAI.
  * TAI is uniform, so arithmetic is exact and independent of leap seconds.
  * Values are immutable; `JSON.stringify` / `String()` yield the canonical
- * nanosecond-precision UTC ISO string (`2026-08-19T12:34:56.789012345Z`).
+ * nanosecond-precision **TAI** string (`2026-08-19T12:35:33.789012345 TAI`),
+ * which is independent of any leap-second table and reads back losslessly
+ * with `parseInstant`. Format explicitly (`formatIso`) for UTC display.
  */
 export type Instant = InstantValue
 
@@ -31,6 +34,14 @@ export type UtcOptions = {
    * earlier times as TAI − 10 s; `'reject'` returns/throws an `InvalidTimeError`.
    */
   readonly before1972?: 'approximate' | 'reject' | undefined
+  /**
+   * Behaviour when converting an epoch past the table's `expires` stamp,
+   * where future leap seconds are unknowable. `'allow-stale'` (default)
+   * converts with the last known ΔAT — the right trade-off for display —
+   * while `'reject'` throws/returns an `InvalidTimeError` for authoritative
+   * uses that must not present uncertain UTC as certain.
+   */
+  readonly tableValidity?: 'allow-stale' | 'reject' | undefined
 }
 
 const SECONDS_PER_DAY = 86_400
@@ -48,17 +59,35 @@ class InstantValue {
     Object.freeze(this)
   }
   toJSON(): string {
-    return isoNanos(instantToUtc(this))
+    return `${isoNanos(civilFromTaiNanos(this.taiNanos))} TAI`
   }
   toString(): string {
-    return isoNanos(instantToUtc(this))
+    return `${isoNanos(civilFromTaiNanos(this.taiNanos))} TAI`
   }
 }
 
 const makeInstant = (taiNanos: bigint): Instant => new InstantValue(taiNanos)
 
+function isoYear(year: number): string {
+  if (year < -999_999 || year > 999_999) {
+    throw new RangeError(`Year ${String(year)} is outside the supported civil range (±999999)`)
+  }
+  if (year > 9999) return `+${pad(year, 6)}`
+  if (year < -9999) return `-${pad(-year, 6)}`
+  return year < 0 ? `-${pad(-year, 4)}` : pad(year, 4)
+}
+
 const isoNanos = (c: CivilDateTime): string =>
-  `${c.year < 0 ? `-${pad(-c.year, 4)}` : c.year > 9999 ? `+${pad(c.year, 6)}` : pad(c.year, 4)}-${pad(c.month, 2)}-${pad(c.day, 2)}T${pad(c.hour, 2)}:${pad(c.minute, 2)}:${pad(c.second, 2)}.${fractionDigits(c.nanosecond, 9)}Z`
+  `${isoYear(c.year)}-${pad(c.month, 2)}-${pad(c.day, 2)}T${pad(c.hour, 2)}:${pad(c.minute, 2)}:${pad(c.second, 2)}.${fractionDigits(c.nanosecond, 9)}`
+
+/** TAI clock reading as civil fields (uniform calendar, no table needed). */
+function civilFromTaiNanos(taiNanos: bigint): CivilDateTime {
+  const seconds = taiNanos / NANOS_PER_SECOND
+  const rem = taiNanos - seconds * NANOS_PER_SECOND
+  const floor = rem < 0n ? seconds - 1n : seconds
+  const nanos = rem < 0n ? rem + NANOS_PER_SECOND : rem
+  return civilFromUnixSeconds(Number(floor), Number(nanos))
+}
 
 /** Instant from exact TAI nanoseconds since 1970-01-01T00:00:00 TAI. */
 export const instantFromTaiNanos = (taiNanos: bigint): Instant => makeInstant(taiNanos)
@@ -87,13 +116,16 @@ const resolveTable = (options: UtcOptions): LeapSecondTable => {
 const taiBoundaryCache = new WeakMap<LeapSecondTable, Float64Array>()
 
 function taiBoundaries(table: LeapSecondTable): Float64Array {
-  const cached = taiBoundaryCache.get(table)
-  if (cached !== undefined) return cached
+  const cacheable = isCacheableTable(table)
+  if (cacheable) {
+    const cached = taiBoundaryCache.get(table)
+    if (cached !== undefined) return cached
+  }
   const bounds = new Float64Array(table.entries.length)
   table.entries.forEach((entry, i) => {
     bounds[i] = entry.unixSeconds + entry.deltaAt
   })
-  taiBoundaryCache.set(table, bounds)
+  if (cacheable) taiBoundaryCache.set(table, bounds)
   return bounds
 }
 
@@ -161,6 +193,24 @@ function rejectBefore1972(instant: Instant, options: UtcOptions): void {
   }
 }
 
+function staleError(unixSeconds: number): InvalidTimeError {
+  return new InvalidTimeError(
+    'unixSeconds',
+    unixSeconds,
+    'epoch is past the leap-second table expiry (future leap seconds are unknown)',
+  )
+}
+
+function rejectStaleUnix(unixSeconds: number, table: LeapSecondTable, options: UtcOptions): void {
+  if (
+    options.tableValidity === 'reject' &&
+    table.expires !== null &&
+    unixSeconds >= table.expires
+  ) {
+    throw staleError(unixSeconds)
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Unix time
 
@@ -170,7 +220,10 @@ function rejectBefore1972(instant: Instant, options: UtcOptions): void {
  */
 export function instantToUnixNanos(instant: Instant, options: UtcOptions = {}): bigint {
   rejectBefore1972(instant, options)
-  return instant.taiNanos - BigInt(deltaAt(instant, options)) * NANOS_PER_SECOND
+  const table = resolveTable(options)
+  const unixNanos = instant.taiNanos - BigInt(deltaAt(instant, options)) * NANOS_PER_SECOND
+  rejectStaleUnix(Number(unixNanos / NANOS_PER_SECOND), table, options)
+  return unixNanos
 }
 
 /** Unix nanoseconds (POSIX) → instant. Unix time is never ambiguous in this direction. */
@@ -180,6 +233,7 @@ export function instantFromUnixNanos(unixNanos: bigint, options: UtcOptions = {}
   if (options.before1972 === 'reject' && unixSeconds < UTC_START_UNIX_SECONDS) {
     throw new InvalidTimeError('unixSeconds', unixSeconds, 'UTC is undefined before 1972-01-01')
   }
+  rejectStaleUnix(unixSeconds, table, options)
   const delta = deltaAtIndex(table, leapEntryIndexForUnix(unixSeconds, table))
   return makeInstant(unixNanos + BigInt(delta) * NANOS_PER_SECOND)
 }
@@ -207,9 +261,18 @@ export const instantFromDate = (date: Date, options?: UtcOptions): Instant => {
   return instantFromUnixMillis(ms, options)
 }
 
-/** Nearest `Date` (millisecond precision, truncated toward −∞). A leap second renders as the following second. */
-export const instantToDate = (instant: Instant, options?: UtcOptions): Date =>
-  new Date(Number(splitNanos(instantToUnixNanos(instant, options), NANOS_PER_MILLI)))
+/**
+ * Nearest `Date` (millisecond precision, truncated toward −∞). A leap second
+ * renders as the following second. Throws `RangeError` outside the ECMAScript
+ * `Date` range (±8.64e15 ms) instead of returning an Invalid Date.
+ */
+export function instantToDate(instant: Instant, options?: UtcOptions): Date {
+  const millis = Number(splitNanos(instantToUnixNanos(instant, options), NANOS_PER_MILLI))
+  if (millis < -8.64e15 || millis > 8.64e15) {
+    throw new RangeError(`Instant is outside the representable Date range: ${String(millis)} ms`)
+  }
+  return new Date(millis)
+}
 
 const splitNanos = (nanos: bigint, unit: bigint): bigint => {
   const q = nanos / unit
@@ -342,6 +405,13 @@ export function instantFromResolvedUtc(
       new InvalidTimeError('year', civilFromDays(days).year, 'UTC is undefined before 1972-01-01'),
     )
   }
+  if (
+    options.tableValidity === 'reject' &&
+    table.expires !== null &&
+    days * SECONDS_PER_DAY >= table.expires
+  ) {
+    return err(staleError(days * SECONDS_PER_DAY))
+  }
   if (second === 60) {
     if (secondOfDay !== SECONDS_PER_DAY) {
       return err(new InvalidTimeError('second', 60, 'a leap second can only occur at 23:59:60'))
@@ -387,6 +457,13 @@ export function instantFromUtc(
 export function instantToUtc(instant: Instant, options: UtcOptions = {}): CivilDateTime {
   const table = resolveTable(options)
   rejectBefore1972(instant, options)
+  if (options.tableValidity === 'reject' && table.expires !== null) {
+    rejectStaleUnix(
+      Number(splitSeconds(instant.taiNanos).seconds) - deltaAt(instant, options),
+      table,
+      options,
+    )
+  }
   const { seconds: taiSeconds, nanos: nanosecond } = splitSeconds(instant.taiNanos)
   const idx = leapEntryIndexForTai(taiSeconds, table)
   const delta = deltaAtIndex(table, idx)

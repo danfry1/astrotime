@@ -30,6 +30,13 @@ const rows = golden.rows as Row[]
 const leapDayStarts = new Set(IERS_LEAP_SECONDS.entries.map((e) => e.unixSeconds - 86_400))
 const isLeapDay = (utc: string): boolean =>
   leapDayStarts.has(Date.parse(`${utc.slice(0, 10)}T00:00:00Z`) / 1000)
+/** Nanoseconds since epoch for a 'YYYY-MM-DDTHH:mm:ss.fffffffff' string on a uniform calendar. */
+function isoToEpochNanos(text: string): bigint {
+  const wholeSeconds = BigInt(Date.parse(`${text.slice(0, 19)}Z`) / 1000)
+  const fraction = text.slice(20).padEnd(9, '0')
+  return wholeSeconds * 1_000_000_000n + BigInt(fraction === '' ? 0 : fraction)
+}
+
 const jdDiffSeconds = (ours: { jd1: number; jd2: number }, ref: [number, number]): number =>
   Math.abs((ours.jd1 - ref[0] + (ours.jd2 - ref[1])) * 86_400)
 
@@ -44,12 +51,14 @@ describe('astropy golden vectors', () => {
     expect(formatIso(instant, { precision: 'nanos' })).toBe(`${row.utc}Z`)
     expect(formatInstant(instant, 'YYYY:DDD:HH:mm:ss.SSSSSSSSS')).toBe(row.yday)
 
-    // TDB: our three-term series vs ERFA's full dtdb — agree within 30 µs.
-    const tdbOurs = Date.parse(
-      `${formatIso(instant, { scale: 'tdb', precision: 'micros', designator: 'none' }).slice(0, 23)}Z`,
+    // TDB: our three-term series vs ERFA's full dtdb — agree within 30 µs,
+    // compared at full nanosecond precision (no millisecond truncation).
+    const tdbOurs = isoToEpochNanos(
+      formatIso(instant, { scale: 'tdb', precision: 'nanos', designator: 'none' }),
     )
-    const tdbRef = Date.parse(`${row.tdb.slice(0, 23)}Z`)
-    expect(Math.abs(tdbOurs - tdbRef)).toBeLessThanOrEqual(0.03)
+    const tdbRef = isoToEpochNanos(row.tdb)
+    const tdbErrorNanos = tdbOurs > tdbRef ? tdbOurs - tdbRef : tdbRef - tdbOurs
+    expect(tdbErrorNanos <= 30_000n).toBe(true)
 
     expect(jdDiffSeconds(instantToJulianDateParts(instant, 'tt'), row.jdTt)).toBeLessThan(1e-6)
     // UTC JD follows the SOFA quasi-JD convention, which astropy implements too — valid on leap days as well.

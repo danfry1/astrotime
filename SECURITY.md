@@ -16,6 +16,6 @@ You should expect a response within 48 hours. If confirmed, a fix will be priori
 
 - Zero runtime dependencies.
 - All devDependencies are exact-pinned; the lockfile is committed and CI installs are frozen.
-- `ignore-scripts=true` for installs; a 7-day minimum release age is enforced for new dependency versions.
-- Releases are staged to npm via OIDC trusted publishing (provenance attached) and promoted only after a 2FA approval.
+- Lifecycle scripts are not executed on install (`.npmrc ignore-scripts=true` for npm; Bun runs no untrusted lifecycle scripts by default and no `trustedDependencies` are declared); a 7-day minimum release age is enforced for new dependency versions.
+- From v0.2.0, releases are staged to npm from CI via OIDC trusted publishing (provenance attached) and promoted only after a 2FA approval. v0.1.0 was the bootstrap release, published locally with 2FA and therefore without a provenance attestation.
 - GitHub Actions are pinned to full commit SHAs and run with read-only tokens.

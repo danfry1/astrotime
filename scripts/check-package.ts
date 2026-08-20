@@ -32,11 +32,18 @@ try {
     const i = unwrap(parseInstant('2016-12-31T23:59:60.5Z'))
     const tai = formatIso(i, { scale: 'tai', precision: 'auto' })
     if (tai !== '2017-01-01T00:00:36.500 TAI' || deltaAt(i) !== 36) throw new Error('smoke test failed: ' + tai)
-    console.log('astrotime package smoke test passed on', process.version)
+    console.log('astrotime package smoke test passed on', typeof Bun === 'undefined' ? process.version : 'bun ' + Bun.version)
   `
   writeFileSync(join(workDir, 'smoke.mjs'), script)
-  // Run under Node explicitly: when this script itself runs under bun, process.execPath is the bun binary.
+  // Run under Node explicitly (when this script runs under bun, process.execPath is bun),
+  // then under Bun when available, so both claimed runtimes execute the packed artifact.
   execFileSync('node', ['smoke.mjs'], { cwd: workDir, stdio: 'inherit' })
+  try {
+    execFileSync('bun', ['smoke.mjs'], { cwd: workDir, stdio: 'inherit' })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    console.log('bun not found on PATH; skipped Bun smoke run')
+  }
 } finally {
   rmSync(workDir, { recursive: true, force: true })
 }

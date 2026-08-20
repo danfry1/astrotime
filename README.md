@@ -8,10 +8,10 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
 - **Leap-second-aware UTC** — `23:59:60` is a real, validated time; the IERS table ships in the box and can be replaced at runtime from `leap-seconds.list` / `Leap_Second.dat`.
-- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 (SPICE-style ET), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
+- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` is SPICE ET, NAIF convention), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
-- **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) golden vectors: every inserted leap second since 1972 probed at ±1 ns, plus hundreds of random instants, plus fast-check round-trip properties.
-- **Small and fast** — ~17 KB gzipped, tree-shakeable, no runtime dependencies; ~3M pattern formats/s and ~3.5M ISO parses/s on a laptop — on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. Works in browsers, Node ≥ 22, Bun, Deno and React Native ≥ 0.70 (Hermes).
+- **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
+- **Small and fast** — ~17 KB gzipped, tree-shakeable, no runtime dependencies; ~3M pattern formats/s and ~3.5M ISO parses/s on a laptop — on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. CI-verified on Node ≥ 22 and Bun; plain ES2022 with zero dependencies, so browsers, Deno and React Native ≥ 0.70 (Hermes) are supported targets.
 
 ```ts
 import { parseInstantOrThrow, formatIso, formatOrdinal, durationBetween, durationToSeconds } from 'astrotime'
@@ -171,6 +171,12 @@ UTC is only defined from 1972. Earlier instants are approximated with
 TAI − UTC = 10 s by default; pass `{ before1972: 'reject' }` to get an
 `InvalidTimeError` instead, and use `isUtcDefined(i)` to test.
 
+Future leap seconds are unknowable: past the table's `expires` stamp,
+conversions **fail open by default** (last known ΔAT — the right trade-off
+for plotting and display, where future timestamps are routine). Pass
+`{ tableValidity: 'reject' }` when uncertain UTC must not be presented as
+certain — every conversion path then errors past the expiry.
+
 ### Time scales, J2000, Julian dates, GPS
 
 ```ts
@@ -180,7 +186,7 @@ import {
   instantToCivil, J2000_INSTANT, GPS_EPOCH_INSTANT,
 } from 'astrotime'
 
-instantToJ2000Seconds(i, 'tdb')       // 840414965.97… — SPICE "ET" seconds past J2000
+instantToJ2000Seconds(i, 'tdb')       // 840414965.97… — SPICE ET (= 0 at 2000-01-01T12:00:00 TDB, NAIF convention)
 instantToJ2000Seconds(i, 'tt')
 instantFromJ2000Seconds(8.4e8, 'tdb')
 
@@ -259,10 +265,13 @@ if (isLeapSecondTableExpired(IERS_LEAP_SECONDS, instantNow())) {
 
 ### Serialization
 
-`Instant` and `Duration` are frozen objects with `toJSON`, so `JSON.stringify`
-just works (`"2026-08-19T12:34:56.789012345Z"`, `"PT1H30M"`), and
-`parseInstant` / `parseDuration` read those forms back losslessly. For binary
-protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigint`).
+`Instant` and `Duration` are frozen objects with `toJSON`. An instant
+serializes as its **TAI** reading (`"2026-08-19T12:35:33.789012345 TAI"`),
+never as UTC: the TAI string is independent of any leap-second table, so a
+value constructed with a custom or future table still round-trips losslessly
+through `parseInstant`. Durations serialize as ISO 8601 (`"PT1H30M"`). Format
+explicitly with `formatIso(i)` when you want a UTC string for display. For
+binary protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigint`).
 
 ## Interop
 
@@ -273,11 +282,22 @@ protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigint`).
 
 ## Precision & limits
 
-- `Instant` and `Duration` are exact to 1 ns at any magnitude (`bigint`); civil/ISO conversions accept years −999 999 … +999 999.
+- `Instant` and `Duration` arithmetic is exact to 1 ns at any magnitude (`bigint`). Civil/ISO conversions cover years −999 999 … +999 999 and **throw `RangeError`** beyond, rather than emitting strings that cannot round-trip; `instantToDate` throws outside the ECMAScript `Date` range; decomposing/formatting a duration throws past 2^53 days.
 - Functions returning a float `number` carry double resolution (~0.1 µs for J2000 seconds today; ~50 µs for a single-float Julian date — use the two-part form).
 - `instantNow()` has millisecond precision (it reads `Date.now()`); nanosecond precision applies to stored and parsed timestamps.
 - UTC before 1972 is approximated with TAI − UTC = 10 s (the real pre-1972 "rubber second" UTC is out of scope); opt into rejection with `before1972: 'reject'`.
+- ISO duration parsing deviates from ISO 8601 deliberately: comma or dot fractions and a leading sign are accepted; weeks are exclusive (`P1W2D` rejected); only the last component may carry a fraction; components are capped at 15 digits.
 - UT1 / ΔT, SCLK and SPICE kernels are out of scope.
+
+## Intended use
+
+astrotime is built and verified for ground tooling: displays, dashboards,
+plotting, log analysis, mission-planning UIs. It is **not** certified for
+flight, navigation, command, or safety-critical paths — those carry
+process requirements (NPR 7150.2 class assessment, IV&V) that no library
+can satisfy on its own. Correctness evidence: astropy/ERFA and NAIF CSPICE
+golden vectors, property-based round-trips, and an adversarial suite, all in
+CI on Node and Bun.
 
 ## Development
 
@@ -286,9 +306,7 @@ bun install
 bun run test            # vitest: astropy golden + drift vectors, fast-check properties
 bun run bench           # vitest benchmarks
 bun run check:release   # format, lint, knip, typecheck, coverage, packed-package smoke test
-pip install astropy==6.0.1
-python3 scripts/generate-golden.py > tests/fixtures/astropy-golden.json  # regenerate reference data
-python3 scripts/generate-drift.py  > tests/fixtures/astropy-drift.json
+pip install astropy==6.0.1 spiceypy==6.0.0   # regenerate reference fixtures (see CONTRIBUTING.md)
 ```
 
 ## API reference
@@ -303,7 +321,7 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 | Scales | `instantToScaleNanos/Seconds` · `instantFromScaleNanos` · `instantToJ2000Seconds/Nanos` · `instantFromJ2000Seconds/Nanos` · `instantToJulianDate[Parts]` · `instantFromJulianDate[Parts]` · `instantToModifiedJulianDate` · `instantFromModifiedJulianDate` · `instantToGpsWeek/Seconds` · `instantFromGpsWeek/Seconds` |
 | Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
 | Arithmetic & order | `addDuration` · `subtractDuration` · `durationBetween` · `compareInstants` · `instantsEqual` · `isBefore` · `isAfter` · `minInstant` · `maxInstant` · `clampInstant` · `instantRange` · `truncateInstant(i, unit, scale)` |
-| Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
+| Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `freezeLeapSecondTable` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
 | Calendar | `isLeapYear` · `daysInMonth` · `daysInYear` · `dayOfYear` · `daysFromCivil` · `civilFromDays` · `civilFromOrdinal` |
 | Constants | `J2000_INSTANT` · `GPS_EPOCH_INSTANT` · `UNIX_EPOCH_INSTANT` · `UTC_START_INSTANT` · `TT_MINUS_TAI_NANOS` · `GPS_MINUS_TAI_NANOS` · `JD_UNIX_EPOCH` · `JD_J2000` · `MJD_OFFSET` · `NANOS_PER_*` · `TIME_SCALES` · `TIME_SCALE_LABELS` |
 | Results & errors | `unwrap` · `unwrapOr` · `ok` · `err` · `isAstrotimeError` · `TimeParseError` · `InvalidTimeError` · `LeapSecondTableError` · `isInstant` · `isDuration` |

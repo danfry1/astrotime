@@ -30,9 +30,19 @@ export const INSTANT_TOKEN = /^(?:YYYY|MM|DDD|DD|HH|mm|ss|S{1,9}|Z)/
 
 const instantTokens = tokenCache(INSTANT_TOKEN)
 
-/** ISO 8601 year: 4 digits, `-` prefix for negative years, `+` prefix for 5–6 digit years. */
-const formatYear = (year: number): string =>
-  year < 0 ? `-${pad(-year, 4)}` : year > 9999 ? `+${pad(year, 6)}` : pad(year, 4)
+/**
+ * ISO 8601 year: 4 digits, or an expanded sign+6-digit form outside
+ * 0000–9999. Throws `RangeError` beyond the supported ±999 999 civil range
+ * rather than emitting a string that cannot round-trip.
+ */
+const formatYear = (year: number): string => {
+  if (year < -999_999 || year > 999_999) {
+    throw new RangeError(`Year ${String(year)} is outside the supported civil range (±999999)`)
+  }
+  if (year > 9999) return `+${pad(year, 6)}`
+  if (year < -9999) return `-${pad(-year, 6)}`
+  return year < 0 ? `-${pad(-year, 4)}` : pad(year, 4)
+}
 
 const scaleDesignator = (scale: TimeScale): string =>
   scale === 'utc' ? 'Z' : TIME_SCALE_LABELS[scale]

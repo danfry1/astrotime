@@ -282,9 +282,9 @@ describe('values', () => {
     expect(Object.isFrozen(i)).toBe(true)
     expect(isInstant(i)).toBe(true)
     expect(isInstant({ taiNanos: 0n })).toBe(false)
-    expect(JSON.stringify({ at: i })).toBe('{"at":"2026-08-19T12:34:56.789012345Z"}')
-    expect(String(iso('-0044-03-15T00:00:00Z'))).toBe('-0044-03-15T00:00:00.000000000Z')
-    expect(String(iso('+010000-01-01T00:00:00Z'))).toBe('+010000-01-01T00:00:00.000000000Z')
+    // Serialization is TAI (table-independent): correct under any leap table.
+    expect(JSON.stringify({ at: i })).toBe('{"at":"2026-08-19T12:35:33.789012345 TAI"}')
+    expect(String(iso('-0044-03-15T00:00:00Z'))).toBe('-0044-03-15T00:00:10.000000000 TAI')
     expect(instantsEqual(parseInstantOrThrow(String(i)), i)).toBe(true)
   })
 })

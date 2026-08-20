@@ -65,6 +65,7 @@ export {
 // Leap seconds
 export {
   deltaAtUnixSeconds,
+  freezeLeapSecondTable,
   IERS_LEAP_SECONDS,
   type LeapSecondEntry,
   type LeapSecondTable,

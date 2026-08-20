@@ -15,11 +15,12 @@ jobs:
     if: github.repository == 'danfry1/astrotime'
 
     permissions:
-      contents: write
       id-token: write
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -70,6 +71,15 @@ jobs:
           npm pack --ignore-scripts --pack-destination /tmp
           bun run attw /tmp/astrotime-*.tgz --ignore-rules no-resolution cjs-resolves-to-esm
 
+      - name: Generate SBOM (CycloneDX)
+        run: npm sbom --sbom-format cyclonedx > astrotime-sbom.cdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sbom
+          path: astrotime-sbom.cdx.json
+
       - name: Stage publish to npm
         # Uploads the tarball to npm's stage queue. Provenance is auto-generated
         # via OIDC trusted publishing. The version is NOT installable until a
@@ -80,8 +90,26 @@ jobs:
       - name: Staged-publish approval reminder
         run: echo "::notice::Version staged to npm. Approve it (npm stage approve <id>, or on npmjs.com) with 2FA to make it installable."
 
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: release
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Download SBOM
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: sbom
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$TAG_NAME" --generate-notes
+        run: gh release create "$TAG_NAME" --generate-notes astrotime-sbom.cdx.json

@@ -57,6 +57,9 @@ export const IERS_LEAP_SECONDS: LeapSecondTable = {
   expires: 1_814_140_800, // 2027-06-28
   updated: 1_783_323_897, // 2026-07-06
 }
+for (const entry of IERS_LEAP_SECONDS.entries) Object.freeze(entry)
+Object.freeze(IERS_LEAP_SECONDS.entries)
+Object.freeze(IERS_LEAP_SECONDS)
 
 /** TAI − UTC applied before the first table entry (UTC before 1972 used "rubber seconds"; 10 s is the 1972 value). */
 export const PRE_1972_DELTA_AT = 10
@@ -93,11 +96,13 @@ export function leapEntryIndexForUnix(unixSeconds: number, table: LeapSecondTabl
 }
 
 function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
+  if (entries.length === 0) return 'table has no entries'
   for (let i = 0; i < entries.length; i += 1) {
     const cur = entries[i]
     if (cur === undefined) continue
-    if (!Number.isInteger(cur.unixSeconds) || !Number.isInteger(cur.deltaAt))
-      return 'entries must be integers'
+    if (!Number.isSafeInteger(cur.unixSeconds) || !Number.isSafeInteger(cur.deltaAt)) {
+      return 'entries must be safe integers'
+    }
     if (cur.unixSeconds % SECONDS_PER_DAY !== 0) return 'entries must start at a UTC midnight'
     const prev = entries[i - 1]
     if (prev === undefined) continue
@@ -108,35 +113,87 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
   return null
 }
 
-/** Checks a hand-built table for the invariants the UTC conversions rely on. */
+function metadataProblem(table: LeapSecondTable): string | null {
+  if (table.expires !== null && !Number.isSafeInteger(table.expires))
+    return 'expires must be a safe integer or null'
+  if (
+    table.updated !== undefined &&
+    table.updated !== null &&
+    !Number.isSafeInteger(table.updated)
+  ) {
+    return 'updated must be a safe integer, null, or absent'
+  }
+  return tableProblem(table.entries)
+}
+
+const isDeeplyFrozen = (table: LeapSecondTable): boolean =>
+  Object.isFrozen(table) &&
+  Object.isFrozen(table.entries) &&
+  table.entries.every((e) => Object.isFrozen(e))
+
+/** Deep-freezes a table (copying when any layer is still mutable). */
+export function freezeLeapSecondTable(table: LeapSecondTable): LeapSecondTable {
+  if (isDeeplyFrozen(table)) return table
+  return Object.freeze({
+    entries: Object.freeze(
+      table.entries.map((e) => Object.freeze({ unixSeconds: e.unixSeconds, deltaAt: e.deltaAt })),
+    ),
+    expires: table.expires,
+    updated: table.updated ?? null,
+  })
+}
+
+/**
+ * Checks a hand-built table for the invariants the UTC conversions rely on
+ * and returns a deeply frozen copy, so identity-keyed caches stay valid.
+ */
 export function validateLeapSecondTable(
   table: LeapSecondTable,
 ): Result<LeapSecondTable, LeapSecondTableError> {
-  const problem = tableProblem(table.entries)
-  return problem === null ? ok(table) : err(new LeapSecondTableError(0, problem))
+  const problem = metadataProblem(table)
+  return problem === null
+    ? ok(freezeLeapSecondTable(table))
+    : err(new LeapSecondTableError(0, problem))
 }
 
 const validatedTables = new WeakSet<LeapSecondTable>()
 
-/** Internal: validates once per table object (cached), throwing `RangeError` for a malformed table. */
+/**
+ * Internal: validates a table, throwing `RangeError` when malformed. Results
+ * are cached by identity only for deeply frozen tables — a mutable table is
+ * re-validated on every use, so post-hoc mutation cannot poison the caches.
+ */
 export function assertValidLeapSecondTable(table: LeapSecondTable): void {
   if (table === IERS_LEAP_SECONDS || validatedTables.has(table)) return
-  const problem = tableProblem(table.entries)
+  const problem = metadataProblem(table)
   if (problem !== null) throw new RangeError(`Invalid leap-second table: ${problem}`)
-  validatedTables.add(table)
+  if (isDeeplyFrozen(table)) {
+    validatedTables.add(table)
+  }
 }
+
+/** Internal: whether identity-keyed caches may be used for this table. */
+export const isCacheableTable = (table: LeapSecondTable): boolean =>
+  table === IERS_LEAP_SECONDS || validatedTables.has(table)
 
 /**
  * Parses a leap-second list in either of the two public formats:
  * - IANA/NIST `leap-seconds.list` (`<NTP seconds> <TAI−UTC>` rows, `#@ <expiry>` and `#$ <updated>` lines)
  * - IERS `Leap_Second.dat` (`<MJD> <day> <month> <year> <TAI−UTC>` rows, `#  File expires on` line)
  */
+const MAX_LIST_LINES = 10_000
+
 export function parseLeapSecondsList(text: string): Result<LeapSecondTable, LeapSecondTableError> {
   const entries: LeapSecondEntry[] = []
   let expires: number | null = null
   let iersExpires: number | null = null
   let updated: number | null = null
   const lines = text.split(/\r?\n/)
+  if (lines.length > MAX_LIST_LINES) {
+    return err(
+      new LeapSecondTableError(MAX_LIST_LINES + 1, `list exceeds ${String(MAX_LIST_LINES)} lines`),
+    )
+  }
   for (let i = 0; i < lines.length; i += 1) {
     const raw = lines[i] ?? ''
     const lineNo = i + 1
@@ -176,7 +233,7 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
   if (entries.length === 0) return err(new LeapSecondTableError(0, 'no leap-second entries found'))
   const problem = tableProblem(entries)
   if (problem !== null) return err(new LeapSecondTableError(lines.length, problem))
-  return ok({ entries, expires: expires ?? iersExpires, updated })
+  return ok(freezeLeapSecondTable({ entries, expires: expires ?? iersExpires, updated }))
 }
 
 const MONTHS: readonly string[] = [

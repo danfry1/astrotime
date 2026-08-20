@@ -34,9 +34,11 @@ Time-scale conversions are tested against reference vectors generated with
 [astropy](https://www.astropy.org/) (ERFA/SOFA):
 
 ```bash
-pip install astropy==6.0.1
+pip install astropy==6.0.1 spiceypy==6.0.0
 python3 scripts/generate-golden.py > tests/fixtures/astropy-golden.json
 python3 scripts/generate-drift.py  > tests/fixtures/astropy-drift.json
+curl -sLO https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls
+python3 scripts/generate-spice.py naif0012.tls > tests/fixtures/cspice-golden.json
 ```
 
 If you change any conversion code, the fixtures must still pass unchanged.

@@ -27,8 +27,14 @@ import {
   TIME_SCALES,
 } from '../src/index.js'
 
-// ±2^60 ns ≈ ±36 000 years around 1970 — well inside the calendar's range.
-const taiNanos = fc.bigInt({ min: -(2n ** 60n), max: 2n ** 60n })
+// ±10^22 ns ≈ ±317 000 years around 1970 — exercises expanded-year formatting
+// and a wide slice of the documented ±999 999-year civil range.
+const taiNanos = fc.bigInt({ min: -(10n ** 22n), max: 10n ** 22n })
+// The full documented civil range for parse/format identity.
+const fullRangeTaiNanos = fc.bigInt({
+  min: -31_400_000_000_000_000_000_000n,
+  max: 31_400_000_000_000_000_000_000n,
+})
 // 1972–2200, where leap seconds exist and are dense enough to be hit.
 const modernTaiNanos = fc.bigInt({ min: 63_072_010_000_000_000n, max: 7_258_118_400_000_000_000n })
 const RUNS = { numRuns: 2_000 }
@@ -47,7 +53,7 @@ describe('round-trip properties', () => {
 
   it('ISO format at nanosecond precision parses back to the same instant (all scales)', () => {
     fc.assert(
-      fc.property(taiNanos, fc.constantFrom(...TIME_SCALES), (n, scale) => {
+      fc.property(fullRangeTaiNanos, fc.constantFrom(...TIME_SCALES), (n, scale) => {
         const i = instantFromTaiNanos(n)
         expect(
           instantToTaiNanos(parseInstantOrThrow(formatIso(i, { precision: 'nanos', scale }))),

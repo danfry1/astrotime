@@ -37,19 +37,25 @@ import { expectErr } from './helpers.js'
 const iso = parseInstantOrThrow
 
 describe('J2000', () => {
-  it('is 2000-01-01T12:00:00 TT = 11:58:55.816 UTC', () => {
+  it("uses each scale's own noon as its origin (NAIF/SPICE convention for TDB)", () => {
     expect(formatIso(J2000_INSTANT, { scale: 'tt' })).toBe('2000-01-01T12:00:00.000 TT')
     expect(formatIso(J2000_INSTANT)).toBe('2000-01-01T11:58:55.816Z')
     expect(instantToJ2000Seconds(J2000_INSTANT, 'tt')).toBe(0)
-    expect(instantToJ2000Nanos(J2000_INSTANT, 'tdb')).toBe(0n)
+    // SPICE ET = 0 at 2000-01-01T12:00:00 TDB, not TT: at TT noon, ET is the
+    // (negative) TDB−TT offset, ≈ −92.7 µs from the truncated series.
+    expect(instantToJ2000Nanos(J2000_INSTANT, 'tdb')).toBe(-92_704n)
+    expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 TDB'), 'tdb')).toBe(0n)
+    expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00Z'), 'utc')).toBe(0n)
+    expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 TAI'), 'tai')).toBe(0n)
+    expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 GPS'), 'gps')).toBe(0n)
   })
 
-  it('counts seconds on each scale', () => {
-    const later = iso('2000-01-02T11:58:55.816Z')
-    for (const scale of ['utc', 'tai', 'tt', 'gps'] as const)
-      expect(instantToJ2000Seconds(later, scale)).toBe(86_400)
-    // TDB ticks at a slightly different rate (periodic term), so a TT day is not exactly a TDB day.
-    expect(instantToJ2000Seconds(later, 'tdb')).toBeCloseTo(86_400, 3)
+  it("counts seconds on each scale from that scale's own noon", () => {
+    for (const scale of TIME_SCALES) {
+      const oneDayLater = instantFromJ2000Seconds(86_400, scale)
+      expect(instantToJ2000Seconds(oneDayLater, scale)).toBe(86_400)
+    }
+    expect(instantToJ2000Seconds(iso('2000-01-02T12:00:00Z'), 'utc')).toBe(86_400)
   })
 
   it('round-trips through every scale', () => {

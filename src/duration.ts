@@ -112,10 +112,19 @@ export type DurationComponents = {
   readonly nanos: number
 }
 
-/** Decomposes a duration into non-negative components plus a sign. */
+const MAX_COMPONENT_DAYS = 9_007_199_254_740_991n // Number.MAX_SAFE_INTEGER
+
+/**
+ * Decomposes a duration into non-negative components plus a sign.
+ * Throws `RangeError` when the day count exceeds `Number.MAX_SAFE_INTEGER`
+ * (the only case a float day count could silently lose nanoseconds).
+ */
 export function durationToComponents(d: Duration): DurationComponents {
   const sign: 1 | -1 = d.nanos < 0n ? -1 : 1
   const abs = d.nanos < 0n ? -d.nanos : d.nanos
+  if (abs / NANOS_PER_DAY > MAX_COMPONENT_DAYS) {
+    throw new RangeError('Duration too large to decompose into safe-integer components')
+  }
   return {
     sign,
     days: Number(abs / NANOS_PER_DAY),
@@ -149,11 +158,12 @@ export const isNegativeDuration = (d: Duration): boolean => d.nanos < 0n
 // ---------------------------------------------------------------------------
 // Parsing
 
-const DECIMAL = String.raw`(\d+)(?:[.,](\d{1,9}))?`
+const DECIMAL = String.raw`(\d{1,15})(?:[.,](\d{1,9}))?`
 const ISO_DURATION = new RegExp(
   `^([+-])?P(?:${DECIMAL}W)?(?:${DECIMAL}D)?(?:T(?=\\d)(?:${DECIMAL}H)?(?:${DECIMAL}M)?(?:${DECIMAL}S)?)?$`,
 )
-const CLOCK_DURATION = /^([+-])?(?:(\d+)[T ])?(\d+):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?$/
+const CLOCK_DURATION =
+  /^([+-])?(?:(\d{1,15})[T ])?(\d{1,15}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?$/
 
 const FORMAT_NAME = 'duration'
 
@@ -168,8 +178,12 @@ function isoComponent(
 
 /**
  * Parses a duration string. Accepted forms:
- * - ISO 8601: `P1DT2H3M4.5S`, `PT90M`, `P2W`, with optional leading sign.
- *   Year/month designators are rejected (not fixed-length).
+ * - ISO 8601 (with two documented deviations): `P1DT2H3M4.5S`, `PT90M`,
+ *   `P2W`, optionally signed. Weeks are exclusive (`P1W2D` is rejected), a
+ *   fraction is only allowed on the last present component, components are
+ *   capped at 15 digits, and — deviating from ISO — a comma or dot fraction
+ *   and a leading sign are both accepted. Year/month designators are
+ *   rejected (not fixed-length).
  * - Clock: `HH:mm[:ss[.fraction]]` with optional day-count prefix `D[T ]`, e.g.
  *   `02:03:04.005`, `36:00:00`, `1T02:03:04`, `-1 12:00:00`.
  */
@@ -185,6 +199,23 @@ export function parseDuration(text: string): Result<Duration, TimeParseError> {
       s === undefined
     ) {
       return err(new TimeParseError(text, 'at least one component is required', FORMAT_NAME))
+    }
+    if (w !== undefined && (d ?? h ?? m ?? s) !== undefined) {
+      return err(
+        new TimeParseError(
+          text,
+          'a week component cannot be combined with other components',
+          FORMAT_NAME,
+        ),
+      )
+    }
+    const fractions = [wf, df, hf, mf, sf]
+    const present = [w, d, h, m, s]
+    const lastPresent = present.reduce((last, value, i) => (value === undefined ? last : i), -1)
+    if (fractions.some((f, i) => f !== undefined && i !== lastPresent)) {
+      return err(
+        new TimeParseError(text, 'only the last component may have a fraction', FORMAT_NAME),
+      )
     }
     const nanos =
       isoComponent(w, wf, 7n * NANOS_PER_DAY) +

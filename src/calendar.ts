@@ -22,7 +22,15 @@ export function daysInMonth(year: number, month: number): number {
 export const daysInYear = (year: number): 365 | 366 => (isLeapYear(year) ? 366 : 365)
 
 /** Days since 1970-01-01 for a civil date. Valid for all integer years. */
+const assertIntegers = (values: readonly number[], what: string): void => {
+  for (const value of values) {
+    if (!Number.isInteger(value))
+      throw new RangeError(`${what} arguments must be integers, got ${String(value)}`)
+  }
+}
+
 export function daysFromCivil(year: number, month: number, day: number): number {
+  assertIntegers([year, month, day], 'daysFromCivil')
   const y = month <= 2 ? year - 1 : year
   const era = Math.floor(y / YEARS_PER_ERA)
   const yoe = y - era * YEARS_PER_ERA
@@ -34,6 +42,7 @@ export function daysFromCivil(year: number, month: number, day: number): number 
 
 /** Civil date for a count of days since 1970-01-01. */
 export function civilFromDays(days: number): CivilDate {
+  assertIntegers([days], 'civilFromDays')
   const z = days + DAYS_TO_UNIX_EPOCH
   const era = Math.floor(z / DAYS_PER_ERA)
   const doe = z - era * DAYS_PER_ERA
