@@ -1,6 +1,6 @@
 {
   "name": "astrotime",
-  "version": "0.11.0",
+  "version": "0.11.1",
   "description": "Zero-dependency spacecraft & astronomy time for TypeScript: nanosecond instants, leap-second-aware UTC, TAI/TT/GPS/TDB, Julian dates, strict ISO-8601 / day-of-year / duration parse & format",
   "type": "module",
   "sideEffects": false,

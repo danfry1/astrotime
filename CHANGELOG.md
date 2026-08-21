@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.1 - 2026-08-21
+
+- **Fix**: stray letters separated by a `[literal]` were still reported as
+  one run, so `'x[foo]y'` named an unknown token `"xy"` that appears nowhere
+  in the pattern. 0.11.0 fixed this for letters separated by a *field* token
+  and missed the bracket path. Diagnostics only — both patterns were, and
+  are, correctly rejected.
+
 ## 0.11.0 - 2026-08-21
 
 - **Fix**: a parse pattern combining `DDD` with only one of `MM`/`DD` silently

@@ -331,9 +331,12 @@ describe('format pattern validation', () => {
     expect(() => formatInstant(i, 'YYYY-MM-DD DD')).toThrow(RangeError)
   })
 
-  it('reports stray letters per run, not merged across the tokens between them', () => {
-    // 'xYYYYy' once reported a token "xy" that appears nowhere in it.
+  it('reports stray letters per run, not merged across what separates them', () => {
+    // These once reported a token "xy" / "xyz" that appears nowhere in the
+    // pattern. A bracketed literal ends a run just as a field token does.
     expect(formatPatternError('xYYYYy')).toBe('unknown token(s) "x", "y"')
+    expect(formatPatternError('x[foo]y')).toBe('unknown token(s) "x", "y"')
+    expect(formatPatternError('x[a]y[b]z')).toBe('unknown token(s) "x", "y", "z"')
   })
 
   it('treats a non-ASCII letter as literal text, since no token is one', () => {

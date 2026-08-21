@@ -102,7 +102,8 @@ export function patternProblem(
   const unknown: string[] = []
   const seen = new Map<string, string>()
   // Runs are collected per literal segment, not from the concatenation of
-  // all of them: in 'xYYYYy' the stray letters are 'x' and 'y', not 'xy'.
+  // all of them: in 'xYYYYy' and 'x[foo]y' alike the stray letters are 'x'
+  // and 'y', not one token 'xy' that appears nowhere in the pattern.
   const collectRuns = (segment: string): void => {
     for (const run of segment.match(/[A-Za-z]+/g) ?? []) {
       if (!unknown.includes(run)) unknown.push(run)
@@ -117,6 +118,10 @@ export function patternProblem(
       if (close === -1) {
         return `unterminated ${quote('[')} at position ${String(i)} — every ${quote('[')} needs a closing ${quote(']')}`
       }
+      // A literal ends a run just as a token does, so 'x[foo]y' has two
+      // stray letters rather than one non-existent token 'xy'.
+      collectRuns(literal)
+      literal = ''
       i = close + 1
       continue
     }
