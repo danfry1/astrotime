@@ -123,12 +123,6 @@ export const formatPatternError = (pattern: string): string | null =>
 export const isValidFormatPattern = (pattern: string): boolean =>
   formatPatternError(pattern) === null
 
-/** Internal: throws the same `RangeError` `formatInstant` would, for the parser to share. */
-export function assertInstantPattern(pattern: string): void {
-  const problem = formatPatternError(pattern)
-  if (problem !== null) throw new RangeError(describeInstantProblem(pattern, problem))
-}
-
 /** Formats an instant with a token pattern, e.g. `YYYY-DDDTHH:mm:ss.SSSSSS`. */
 export function formatInstant(
   instant: Instant,

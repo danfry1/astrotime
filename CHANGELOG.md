@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.11.0 - 2026-08-21
+
+- **Fix**: a parse pattern combining `DDD` with only one of `MM`/`DD` silently
+  discarded the field it was given and returned the date the ordinal named —
+  `parseInstant('2026-12 231', { format: 'YYYY-MM DDD' })` read as 19 August,
+  ignoring month 12. There is no complete calendar date to check the ordinal
+  one against in that shape, so the pattern is now rejected. `YYYY-MM-DD DDD`
+  is still cross-checked and `YYYY DDD` still stands on its own.
+- New: `parsePatternError`, and parse errors now point at it rather than at
+  `formatPatternError`. The two directions genuinely differ — `'HH:mm'`
+  renders perfectly well and names no instant to read back — so one
+  validator could not answer for both, and the old message recommended a
+  check that returned `null` for a pattern parsing would reject.
+- **Fix**: stray letters were merged across the valid tokens between them,
+  so `'xYYYYy'` reported an unknown token `"xy"` that appears nowhere in it.
+  They are now reported per run: `"x"`, `"y"`.
+- A non-ASCII letter is documented as literal text rather than a suspected
+  token: every token is ASCII, so `'YYYY年MM月DD日'` is a pattern with three
+  literal labels. The cost, noted deliberately, is that a Latin-looking
+  homoglyph such as a Greek `Μ` passes as literal.
+
 ## 0.10.0 - 2026-08-21
 
 - **Breaking**: `formatInstant`, `formatDuration` and pattern-based

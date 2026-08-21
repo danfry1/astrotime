@@ -1,5 +1,5 @@
 import { InvalidTimeError, TimeParseError } from './errors.js'
-import { assertInstantPattern, INSTANT_TOKEN } from './format.js'
+import { formatPatternError, INSTANT_TOKEN } from './format.js'
 import {
   type CivilFields,
   civilFromUnixSeconds,
@@ -186,12 +186,61 @@ type Compiled = { readonly regex: RegExp; readonly fields: readonly string[] }
 const compiledPatterns = new Map<string, Compiled>()
 const MAX_COMPILED_PATTERNS = 256
 
+/**
+ * Why `fields` cannot read a date, or `null`. Parsing asks more of a pattern
+ * than formatting does: formatting only has to render whatever fields are
+ * present, while parsing has to reconstruct a whole instant from them.
+ */
+function fieldsProblem(fields: readonly string[]): string | null {
+  if (!fields.includes('Y')) return 'no year (YYYY), so it cannot identify a date'
+  if (!fields.includes('doy')) return null
+  const hasMonth = fields.includes('M')
+  const hasDay = fields.includes('D')
+  if (hasMonth === hasDay) return null
+  // With DDD and only one of MM/DD there is no complete calendar date to
+  // check the ordinal one against, and silently dropping the field it does
+  // have would make 'YYYY-MM DDD' ignore the month it was given.
+  return `combines DDD with ${hasMonth ? 'MM but not DD' : 'DD but not MM'}, which names no date it can check`
+}
+
+/** Field codes a pattern reads, in order: 'Y' 'M' 'D' 'doy' 'H' 'm' 's' 'S' 'Z'. */
+function patternFields(pattern: string): readonly string[] {
+  const fields: string[] = []
+  for (const token of tokenize(pattern, INSTANT_TOKEN)) {
+    if (token.kind !== 'field') continue
+    if (token.name === 'D') fields.push(token.width === 3 ? 'doy' : 'D')
+    else fields.push(token.name)
+  }
+  return fields
+}
+
+/**
+ * Explains why `pattern` cannot be used to parse, or `null` when it can.
+ * Distinct from `formatPatternError` because the two directions differ:
+ * `'HH:mm'` is a perfectly good pattern to *render* and cannot name an
+ * instant to *read*.
+ *
+ * @example
+ * parsePatternError('YYYY-MM-DD HH:mm') // null
+ * parsePatternError('HH:mm')            // 'no year (YYYY), so it cannot identify a date'
+ * parsePatternError('YYYY-MM DDD')      // 'combines DDD with MM but not DD, …'
+ */
+export function parsePatternError(pattern: string): string | null {
+  if (pattern === 'iso' || pattern === 'ordinal') return null
+  return formatPatternError(pattern) ?? fieldsProblem(patternFields(pattern))
+}
+
+const describeParseProblem = (pattern: string, problem: string): string =>
+  `Parse pattern ${JSON.stringify(pattern)} is invalid: ${problem}. ` +
+  `Use [text] for a literal, or parsePatternError() to check a pattern first.`
+
 function compilePattern(pattern: string): Compiled {
   const cached = compiledPatterns.get(pattern)
   if (cached !== undefined) return cached
   // A defect in the pattern is a defect in the caller's source, not in the
   // text being parsed; reporting it as a parse failure would blame the data.
-  assertInstantPattern(pattern)
+  const problem = parsePatternError(pattern)
+  if (problem !== null) throw new RangeError(describeParseProblem(pattern, problem))
   let source = '^'
   const fields: string[] = []
   for (const token of tokenize(pattern, INSTANT_TOKEN)) {
@@ -223,12 +272,6 @@ function compilePattern(pattern: string): Compiled {
         fields.push(token.name)
     }
   }
-  if (!fields.includes('Y')) {
-    throw new RangeError(
-      `Parse pattern ${JSON.stringify(pattern)} is invalid: no year (YYYY), so it cannot ` +
-        `identify an instant. Use formatPatternError() to check a pattern first.`,
-    )
-  }
   const compiled = { regex: new RegExp(`${source}$`), fields }
   if (compiledPatterns.size >= MAX_COMPILED_PATTERNS) compiledPatterns.clear()
   compiledPatterns.set(pattern, compiled)
@@ -259,11 +302,13 @@ function parseWithPattern(
     second: Number(values['s'] ?? 0),
     nanosecond: parseFraction(values['S']),
   }
+  // compilePattern rejects DDD alongside only one of MM/DD, so either the
+  // calendar date is complete or there is none and the ordinal one stands.
   const doy = values['doy']
   const month = values['M']
   const day = values['D']
   const civil: CivilFields =
-    doy !== undefined && (month === undefined || day === undefined)
+    doy !== undefined && month === undefined && day === undefined
       ? { year: Number(year), dayOfYear: Number(doy), ...time }
       : {
           year: Number(year),

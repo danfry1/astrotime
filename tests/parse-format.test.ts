@@ -13,6 +13,7 @@ import {
   type LeapSecondTable,
   parseInstant,
   parseInstantOrThrow,
+  parsePatternError,
   TimeParseError,
   formatPatternError,
 } from '../src/index.js'
@@ -330,6 +331,18 @@ describe('format pattern validation', () => {
     expect(() => formatInstant(i, 'YYYY-MM-DD DD')).toThrow(RangeError)
   })
 
+  it('reports stray letters per run, not merged across the tokens between them', () => {
+    // 'xYYYYy' once reported a token "xy" that appears nowhere in it.
+    expect(formatPatternError('xYYYYy')).toBe('unknown token(s) "x", "y"')
+  })
+
+  it('treats a non-ASCII letter as literal text, since no token is one', () => {
+    // Rejecting every non-ASCII letter would reject a legitimate localised
+    // pattern; the cost is that a Latin-looking homoglyph passes as literal.
+    expect(formatPatternError('YYYY年MM月DD日')).toBeNull()
+    expect(formatInstant(i, 'YYYY年MM月DD日')).toBe('2026年08月19日')
+  })
+
   it('names the offending tokens when formatting rejects a pattern', () => {
     // The silent-failure case this exists to prevent: the pattern looks
     // plausible and would otherwise render plausible-but-wrong output.
@@ -357,6 +370,27 @@ describe('parse pattern validation', () => {
       /unknown token\(s\) "hh"/,
     )
     expect(() => parseInstant('2026', { format: 'YYYY [' })).toThrow(RangeError)
+  })
+
+  it('separates what parsing needs from what formatting needs', () => {
+    // 'HH:mm' renders perfectly well and names no instant to read back, so
+    // one validator cannot answer for both directions.
+    expect(formatPatternError('HH:mm')).toBeNull()
+    expect(parsePatternError('HH:mm')).toMatch(/no year \(YYYY\)/)
+    expect(parsePatternError('YYYY-MM-DD HH:mm')).toBeNull()
+    expect(parsePatternError('iso')).toBeNull()
+    expect(parsePatternError('ordinal')).toBeNull()
+  })
+
+  it('rejects DDD alongside only part of a calendar date', () => {
+    // 'YYYY-MM DDD' silently ignored the month it was given and returned the
+    // date DDD named, so a parse of '2026-12 231' came back as 19 August.
+    expect(parsePatternError('YYYY-MM DDD')).toMatch(/combines DDD with MM but not DD/)
+    expect(parsePatternError('YYYY-DD DDD')).toMatch(/combines DDD with DD but not MM/)
+    expect(() => parseInstant('2026-12 231', { format: 'YYYY-MM DDD' })).toThrow(RangeError)
+    // A complete calendar date is cross-checked, and an ordinal-only one stands.
+    expect(parsePatternError('YYYY-MM-DD DDD')).toBeNull()
+    expect(parsePatternError('YYYY DDD')).toBeNull()
   })
 
   it('rejects a pattern with no year whatever the text is', () => {

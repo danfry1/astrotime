@@ -64,7 +64,7 @@ is backed by something you can re-run:
 | Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
 | Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
 | Output is identical everywhere | A 110 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
-| The documentation is true | 32 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
+| The documentation is true | 34 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
 | The tests would notice a bug | Mutation testing (86.6%) with a published [survivor analysis](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
 | The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an [evidence bundle](https://github.com/danfry1/astrotime/releases) attached to every release |
 | Leap-second data stays current | A monthly job compares the bundled table with IANA and fails on drift; `#h` integrity records are verified when parsing |
@@ -195,7 +195,17 @@ that share a letter, so a pattern may legitimately carry both, and
 
 A parse pattern is held to the same standard, and a defect in it throws
 rather than reporting the *text* as unparseable — the pattern comes from
-your source, the text does not.
+your source, the text does not. Parsing asks more of a pattern than
+formatting does, so it has its own check: `'HH:mm'` renders perfectly well
+and names no instant to read back.
+
+```ts
+import { parsePatternError } from 'astrotime'
+
+parsePatternError('YYYY-MM-DD HH:mm') // null
+parsePatternError('HH:mm')            // 'no year (YYYY), so it cannot identify a date'
+parsePatternError('YYYY-MM DDD')      // 'combines DDD with MM but not DD, …'
+```
 
 When a pattern comes from configuration or a user, check it first rather
 than catching:
@@ -438,7 +448,7 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 |---|---|
 | Construct | `instantFromUnixMillis/Seconds/Nanos` · `instantFromDate` · `instantNow` · `instantFromTaiNanos` · `instantFromUtc(fields) → R` · `instantFromCivil(fields, scale) → R` |
 | Read | `instantToUnixMillis/Seconds/Nanos` · `instantToDate` · `instantToTaiNanos` · `instantToUtc` · `instantToCivil(i, scale)` |
-| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` · `isValidFormatPattern` · `formatPatternError` |
+| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` · `isValidFormatPattern` · `formatPatternError` · `parsePatternError` |
 | Scales | `instantToScaleNanos/Seconds` · `instantFromScaleNanos/Seconds` · `instantToJ2000Seconds/Nanos` · `instantFromJ2000Seconds/Nanos` · `instantToJulianDate[Parts]` · `instantFromJulianDate[Parts]` · `instantToModifiedJulianDate` · `instantFromModifiedJulianDate` · `instantToGpsWeek/Seconds` · `instantFromGpsWeek/Seconds` |
 | Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `durationPatternError` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
 | Numeric interop | `instantToOffsetMillis/Seconds` · `instantFromOffsetMillis/Seconds` · `unixMillisResolutionNanos` |

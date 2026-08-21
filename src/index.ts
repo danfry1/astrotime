@@ -177,4 +177,5 @@ export {
   type ParseOptions,
   parseInstant,
   parseInstantOrThrow,
+  parsePatternError,
 } from './parse.js'

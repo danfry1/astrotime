@@ -87,7 +87,11 @@ const quote = (s: string): string => JSON.stringify(s)
  * - a letter belonging to no token, which is rendered verbatim.
  *
  * A `]` outside a bracket is *not* a defect: it renders exactly as written,
- * so nothing is hidden from the reader of the pattern.
+ * so nothing is hidden from the reader of the pattern. Neither is a
+ * non-ASCII letter: every token is ASCII, so `'YYYY年MM月DD日'` is a pattern
+ * with three literal labels and nothing that could be mistaken for a field.
+ * (A Latin-looking homoglyph such as a Greek `Μ` therefore passes as
+ * literal text — the cost of not rejecting every non-Latin label.)
  */
 export function patternProblem(
   pattern: string,
@@ -97,6 +101,13 @@ export function patternProblem(
   const sticky = stickyOf(tokenRegex)
   const unknown: string[] = []
   const seen = new Map<string, string>()
+  // Runs are collected per literal segment, not from the concatenation of
+  // all of them: in 'xYYYYy' the stray letters are 'x' and 'y', not 'xy'.
+  const collectRuns = (segment: string): void => {
+    for (const run of segment.match(/[A-Za-z]+/g) ?? []) {
+      if (!unknown.includes(run)) unknown.push(run)
+    }
+  }
   let literal = ''
   let i = 0
   while (i < pattern.length) {
@@ -116,6 +127,8 @@ export function patternProblem(
       i += 1
       continue
     }
+    collectRuns(literal)
+    literal = ''
     const text = match[0]
     const name = text[0] ?? ''
     let end = i + text.length
@@ -133,9 +146,7 @@ export function patternProblem(
     seen.set(key, text)
     i = end
   }
-  for (const run of literal.match(/[A-Za-z]+/g) ?? []) {
-    if (!unknown.includes(run)) unknown.push(run)
-  }
+  collectRuns(literal)
   if (unknown.length > 0) {
     return `unknown token(s) ${unknown.map(quote).join(', ')}`
   }
