@@ -13,6 +13,9 @@ import {
   IERS_LEAP_SECONDS,
   InvalidTimeError,
   instantFromTaiNanos,
+  instantFromOffsetMillis,
+  instantFromOffsetSeconds,
+  instantFromUnixMillis,
   instantFromUnixNanos,
   instantFromUtc,
   instantRange,
@@ -20,6 +23,9 @@ import {
   instantToDate,
   instantToJulianDateParts,
   instantToModifiedJulianDate,
+  instantToOffsetMillis,
+  instantToOffsetSeconds,
+  instantToUnixMillis,
   instantToTaiNanos,
   instantToUnixNanos,
   instantToUnixSeconds,
@@ -30,6 +36,7 @@ import {
   parseInstantOrThrow,
   parseLeapSecondsList,
   truncateInstant,
+  unixMillisResolutionNanos,
   unwrap,
   validateLeapSecondTable,
 } from '../src/index.js'
@@ -441,5 +448,35 @@ describe('mutation-testing survivors (leap-table internals)', () => {
     expect(table.expires).toBe(1_814_140_800)
     const short = unwrap(parseLeapSecondsList(`#  File expires on 28 Jun 2027\n${rows}\n`))
     expect(short.expires).toBe(1_814_140_800)
+  })
+})
+
+describe('numeric interop (offsets vs absolute epoch milliseconds)', () => {
+  const instant = parseInstantOrThrow('2026-08-19T12:34:56.789012345Z')
+
+  it('an offset from a nearby origin round-trips exactly, unlike absolute Unix millis', () => {
+    const origin = truncateInstant(instant, 'day', 'utc')
+    const offset = instantToOffsetMillis(instant, origin)
+    expect(offset).toBe(45_296_789.012345)
+    expect(instantsEqual(instantFromOffsetMillis(offset, origin), instant)).toBe(true)
+    // The same value carried as absolute Unix milliseconds loses the sub-microsecond part.
+    expect(instantsEqual(instantFromUnixMillis(instantToUnixMillis(instant)), instant)).toBe(false)
+  })
+
+  it('offset seconds round-trip exactly too', () => {
+    const origin = truncateInstant(instant, 'hour', 'utc')
+    const offset = instantToOffsetSeconds(instant, origin)
+    expect(instantsEqual(instantFromOffsetSeconds(offset, origin), instant)).toBe(true)
+  })
+
+  it('reports the resolution actually available from absolute Unix millis', () => {
+    // ~244 ns at present epochs: microseconds are marginal, nanoseconds impossible.
+    const resolution = unixMillisResolutionNanos(instant)
+    expect(resolution).toBeGreaterThan(200)
+    expect(resolution).toBeLessThan(300)
+    // Far from the epoch the magnitude is smaller, so the resolution is finer.
+    expect(unixMillisResolutionNanos(parseInstantOrThrow('1970-01-02T00:00:00Z'))).toBeLessThan(
+      resolution,
+    )
   })
 })

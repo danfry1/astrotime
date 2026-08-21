@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.0 - 2026-08-21
+
+- New: `instantToOffsetMillis` / `instantFromOffsetMillis`,
+  `instantToOffsetSeconds` / `instantFromOffsetSeconds`, and
+  `unixMillisResolutionNanos`, plus a README section on working with numeric
+  APIs. Double precision depends on magnitude, so absolute Unix milliseconds
+  resolve to only ~244 ns today, while an offset from a nearby origin (the
+  start of the view window, say) resolves to picoseconds and round-trips
+  exactly. This lets sub-microsecond timestamps survive a journey through
+  plot scales and other `number`-only APIs without changing their types.
+
 ## 0.7.0 - 2026-08-21
 
 Assurance evidence, no behavior change to documented APIs.

@@ -309,6 +309,49 @@ export const instantNow = (
 ): Instant => instantFromUnixMillis((options.now ?? Date.now)(), options)
 
 // ---------------------------------------------------------------------------
+// Numeric interop (plots, charts, and APIs that require a `number`)
+
+/**
+ * Milliseconds from `origin` to `instant`, as a float.
+ *
+ * Prefer this over `instantToUnixMillis` whenever a value has to travel
+ * through an API that only accepts `number` — plot scales, chart libraries,
+ * existing code. Double precision depends on *magnitude*, not on the type:
+ * absolute Unix milliseconds (~1.8e12 today) resolve to about 0.24 µs, while
+ * an offset from the start of the day (~4.5e7 ms) resolves to about 7 ps.
+ * Keep the exact `Instant` and carry the offset.
+ */
+export const instantToOffsetMillis = (instant: Instant, origin: Instant): number =>
+  fromNanos(instant.taiNanos - origin.taiNanos, NANOS_PER_MILLI)
+
+/** Inverse of `instantToOffsetMillis`, rounded to the nearest nanosecond. */
+export const instantFromOffsetMillis = (millis: number, origin: Instant): Instant =>
+  makeInstant(origin.taiNanos + toNanos(millis, NANOS_PER_MILLI, 'offset milliseconds'))
+
+/** Seconds from `origin` to `instant`, as a float (see `instantToOffsetMillis`). */
+export const instantToOffsetSeconds = (instant: Instant, origin: Instant): number =>
+  fromNanos(instant.taiNanos - origin.taiNanos, NANOS_PER_SECOND)
+
+/** Inverse of `instantToOffsetSeconds`, rounded to the nearest nanosecond. */
+export const instantFromOffsetSeconds = (seconds: number, origin: Instant): Instant =>
+  makeInstant(origin.taiNanos + toNanos(seconds, NANOS_PER_SECOND, 'offset seconds'))
+
+/**
+ * The finest difference a double can represent at this instant's Unix
+ * millisecond magnitude, in nanoseconds — i.e. the precision actually
+ * available if the timestamp is carried as `instantToUnixMillis(i)`.
+ * Around 244 ns at present epochs, which is why microseconds are marginal
+ * and nanoseconds impossible in that representation; use an offset instead.
+ */
+export function unixMillisResolutionNanos(instant: Instant, options?: UtcOptions): number {
+  const millis = instantToUnixMillis(instant, options)
+  const view = new DataView(new ArrayBuffer(8))
+  view.setFloat64(0, Math.abs(millis))
+  view.setBigUint64(0, view.getBigUint64(0) + 1n)
+  return (view.getFloat64(0) - Math.abs(millis)) * 1e6
+}
+
+// ---------------------------------------------------------------------------
 // Civil time
 
 /** Broken-down civil time in some scale. `second` is 60 only for UTC during an inserted leap second. */

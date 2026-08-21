@@ -314,6 +314,36 @@ if (isLeapSecondTableExpired(IERS_LEAP_SECONDS, instantNow())) {
 }
 ```
 
+### Working with numeric APIs (plots, charts, existing code)
+
+Plot scales, chart libraries and most existing code accept a `number`, not a
+`bigint`. The precision you get from a double depends on its **magnitude**,
+not on the library that produced it — and absolute Unix milliseconds are a
+large magnitude:
+
+| Carried as | Value today | Finest representable difference |
+|---|---|---|
+| Unix milliseconds since 1970 | ~1.8 × 10¹² | **~244 ns** |
+| Offset in ms from the start of the day | ~4.5 × 10⁷ | **~7 ps** |
+| Offset in ms from the start of the hour | ~2.1 × 10⁶ | **~0.2 ps** |
+
+So keep the exact `Instant`, and hand the numeric layer an *offset from a
+nearby origin* — typically the start of your view window:
+
+```ts
+import { instantFromOffsetMillis, instantToOffsetMillis, truncateInstant, unixMillisResolutionNanos } from 'astrotime'
+
+const origin = truncateInstant(i, 'day', 'utc')   // any nearby instant works
+const x = instantToOffsetMillis(i, origin)        // 45296789.012345 — feed this to the plot
+const back = instantFromOffsetMillis(x, origin)   // exactly i, to the nanosecond
+
+unixMillisResolutionNanos(i)                      // 244.1 — what you'd have lost
+```
+
+`instantToOffsetSeconds` / `instantFromOffsetSeconds` are the same in seconds.
+Because the round trip is exact, sub-microsecond timestamps survive a journey
+through a plain-`number` API that would otherwise quantise them.
+
 ### Serialization
 
 `Instant` and `Duration` are frozen objects with `toJSON`. An instant
@@ -374,6 +404,7 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 | Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` |
 | Scales | `instantToScaleNanos/Seconds` · `instantFromScaleNanos/Seconds` · `instantToJ2000Seconds/Nanos` · `instantFromJ2000Seconds/Nanos` · `instantToJulianDate[Parts]` · `instantFromJulianDate[Parts]` · `instantToModifiedJulianDate` · `instantFromModifiedJulianDate` · `instantToGpsWeek/Seconds` · `instantFromGpsWeek/Seconds` |
 | Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
+| Numeric interop | `instantToOffsetMillis/Seconds` · `instantFromOffsetMillis/Seconds` · `unixMillisResolutionNanos` |
 | Arithmetic & order | `addDuration` · `subtractDuration` · `durationBetween` · `compareInstants` · `instantsEqual` · `isBefore` · `isAfter` · `minInstant` · `maxInstant` · `clampInstant` · `instantRange` · `truncateInstant(i, unit, scale)` |
 | Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `freezeLeapSecondTable` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
 | Calendar | `isLeapYear` · `daysInMonth` · `daysInYear` · `dayOfYear` · `daysFromCivil` · `civilFromDays` · `civilFromOrdinal` |
