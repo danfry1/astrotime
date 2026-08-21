@@ -245,7 +245,7 @@ import { compareInstants, duration, instantRange, parseInstantOrThrow, truncateI
 const start = parseInstantOrThrow('2026-08-19T00:00:00Z')
 const end = parseInstantOrThrow('2026-08-19T00:30:00Z')
 const ticks = [...instantRange(start, end, duration({ minutes: 10 }))] // 00:00, 00:10, 00:20
-;[end, start].sort(compareInstants)                                   // → [start, end]
+const ordered = [end, start].sort(compareInstants)                    // → [start, end]
 
 const i = parseInstantOrThrow('2026-08-19T12:34:56.789Z')
 formatIso(truncateInstant(i, 'day', 'utc'))  // '2026-08-19T00:00:00.000Z' (scale-aware: TAI days differ by ΔAT)
