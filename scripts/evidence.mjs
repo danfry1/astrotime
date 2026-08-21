@@ -20,9 +20,17 @@ const attempt = (fn, fallback = null) => {
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
-// Reproducible build: the packed tarball's integrity hash.
+// Reproducible build: the packed tarball's integrity hash. npm <= 11 emits
+// an array of packed entries; npm >= 12 emits an object keyed by package
+// name. Accept both so a package-manager bump cannot silently break this.
 const packOutput = JSON.parse(run('npm', ['pack', '--dry-run', '--json', '--ignore-scripts']))
-const tarball = packOutput[0]
+const packed = Array.isArray(packOutput) ? packOutput : Object.values(packOutput)
+const tarball = packed[0]
+if (tarball?.shasum === undefined) {
+  throw new Error(
+    `Unrecognised 'npm pack --json' output shape: ${JSON.stringify(packOutput).slice(0, 200)}`,
+  )
+}
 
 // Conformance digests (the same sweep under each available engine).
 const conformance = {

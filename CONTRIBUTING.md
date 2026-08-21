@@ -10,7 +10,7 @@ cd astrotime
 bun install
 ```
 
-Requires [Bun](https://bun.sh/) and Node.js 22+.
+Requires [Bun](https://bun.sh/) and Node.js 24.15+ (the pinned npm 12 toolchain needs `^22.22.2 || ^24.15.0 || >=26`). The published package itself supports Node 22+.
 
 ## Development commands
 

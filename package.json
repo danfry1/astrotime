@@ -41,7 +41,7 @@
     "knip": "knip",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check:package": "bun run build && bun run scripts/check-package.ts",
-    "check:release": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package && bun run test:dist && bun run check:traceability && bun run conformance",
+    "check:release": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package && bun run test:dist && bun run check:traceability && bun run conformance && bun run evidence",
     "prepare": "test -n \"$CI\" || lefthook install",
     "prepublishOnly": "bun run check:release",
     "bench": "vitest bench --run",
@@ -85,12 +85,12 @@
     "fast-check": "4.9.0",
     "knip": "6.26.0",
     "lefthook": "2.1.10",
-    "npm": "11.15.0",
+    "npm": "12.0.2",
     "oxfmt": "0.58.0",
     "oxlint": "1.73.0",
-    "oxlint-tsgolint": "0.24.0",
+    "oxlint-tsgolint": "7.0.2001",
     "tsdown": "0.22.4",
-    "typescript": "6.0.3",
+    "typescript": "7.0.2",
     "vitest": "4.1.10"
   }
 }
