@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.11.2 - 2026-08-21
+
+- Docs: corrects a claim about NASA Open MCT. Earlier text said its
+  notification timestamps had a bug "of exactly that shape" as this
+  library's stray-letter case. The root cause is shared — a mistyped
+  pattern accepted in silence — but the output is not: Open MCT stamps
+  notifications with `'YYYY-MM-DD hh:mm:ss.ms'`, which Moment renders as
+  `2026-08-19 12:34:56.3456`, repeating the minute and second rather than
+  emitting a literal `.ms`. That is this library's *duration* failure mode,
+  not its instant one. Restated accurately, with the 12-hour `hh` noted too.
+
 ## 0.11.1 - 2026-08-21
 
 - **Fix**: stray letters separated by a `[literal]` were still reported as
@@ -37,9 +48,8 @@
   format patterns consistent with the rest of the library, which already
   throws rather than emit a year outside the round-trippable range. Four
   defects are rejected, each one previously silent:
-  - a letter belonging to no token — `'HH:mm:ss.ms'` rendered `'12:34:56.ms'`;
-    a bug of exactly that shape sat in NASA Open MCT's notification
-    timestamps for years, and `'YYYY-MM-DDTHH:mm:ss'` silently lost its `T`;
+  - a letter belonging to no token — `'HH:mm:ss.ms'` rendered `'12:34:56.ms'`
+    — and `'YYYY-MM-DDTHH:mm:ss'` silently lost its `T`;
   - an unterminated `[`, which swallowed the bracket and turned the rest of
     the pattern into literal text — `'YYYY [MM'` rendered `'2026 MM'`;
   - a letter run longer than its longest token, which split into two fields:

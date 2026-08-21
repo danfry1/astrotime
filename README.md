@@ -173,8 +173,14 @@ formatInstant(i, 'YYYY-DDD[T]HH:mm:ss.SSSSSS')    // '2026-231T12:34:56.789012'
 Formatting **rejects a pattern it cannot render faithfully** rather than
 quietly producing something else, on the same principle as the year-range
 check: a plausible-but-wrong string is worse than an error. Use `[text]` for
-a literal. A bug of exactly this shape — `'.ms'` where `.SSS` was meant — sat
-in NASA Open MCT's notification timestamps for years.
+a literal.
+
+This is not a hypothetical class of bug. NASA Open MCT stamps notifications
+with `'YYYY-MM-DD hh:mm:ss.ms'`, which Moment renders as
+`2026-08-19 12:34:56.3456` — `.ms` is not milliseconds but the minute and
+second over again, and `hh` is a 12-hour clock with no AM/PM to disambiguate
+it. Every library involved accepted the pattern and returned a string that
+looks like a timestamp.
 
 ```ts
 formatInstant(i, 'YYYY-MM-DD HH:mm:ss.SSS')   // fine
