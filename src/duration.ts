@@ -1,6 +1,6 @@
 import { TimeParseError } from './errors.js'
 import { fromNanos, scaleNanosExact, toNanos } from './numeric.js'
-import { fractionDigits, fractionToNanos, pad, tokenize } from './pattern.js'
+import { fractionDigits, fractionToNanos, pad, tokenize, unknownTokensIn } from './pattern.js'
 import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
 
@@ -299,6 +299,14 @@ export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): st
   let tokens = durationPatternCache.get(resolved)
   if (tokens === undefined) {
     tokens = tokenize(resolved, DURATION_TOKEN)
+    const unknown = unknownTokensIn(resolved, DURATION_TOKEN)
+    if (unknown.length > 0) {
+      throw new RangeError(
+        `Duration format ${JSON.stringify(resolved)} contains unknown token(s) ${unknown
+          .map((t) => JSON.stringify(t))
+          .join(', ')}. Use [text] for a literal.`,
+      )
+    }
     if (durationPatternCache.size < 256) durationPatternCache.set(resolved, tokens)
   }
   const c = durationToComponents(d)

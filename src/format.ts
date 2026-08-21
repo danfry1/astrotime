@@ -1,6 +1,6 @@
 import { assertNever } from './assert.js'
 import type { CivilDateTime, Instant, UtcOptions } from './instant.js'
-import { fractionDigits, pad, tokenCache } from './pattern.js'
+import { fractionDigits, pad, tokenCache, unknownTokensIn } from './pattern.js'
 import { instantToCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
 
 export type FormatOptions = UtcOptions & {
@@ -28,7 +28,24 @@ export type IsoFormatOptions = FormatOptions & {
  */
 export const INSTANT_TOKEN = /^(?:YYYY|MM|DDD|DD|HH|mm|ss|S{1,9}|Z)/
 
-const instantTokens = tokenCache(INSTANT_TOKEN)
+const rawInstantTokens = tokenCache(INSTANT_TOKEN)
+const checkedPatterns = new Set<string>()
+
+/** Tokenises, rejecting a pattern whose stray letters would be rendered verbatim. */
+function instantTokens(pattern: string): ReturnType<typeof rawInstantTokens> {
+  if (!checkedPatterns.has(pattern)) {
+    const unknown = unknownFormatTokens(pattern)
+    if (unknown.length > 0) {
+      throw new RangeError(
+        `Format pattern ${JSON.stringify(pattern)} contains unknown token(s) ${unknown
+          .map((t) => JSON.stringify(t))
+          .join(', ')}. Use [text] for a literal, or isValidFormatPattern() to check first.`,
+      )
+    }
+    checkedPatterns.add(pattern)
+  }
+  return rawInstantTokens(pattern)
+}
 
 /**
  * ISO 8601 year: 4 digits, or an expanded sign+6-digit form outside
@@ -85,6 +102,26 @@ function formatCivil(civil: CivilDateTime, pattern: string, scale: TimeScale): s
   }
   return out
 }
+
+/**
+ * Letters in `pattern` that are neither part of a known token nor inside a
+ * `[literal]` block, in order of appearance and without duplicates.
+ *
+ * Unknown letters are rendered verbatim, so a mistyped pattern produces
+ * plausible but wrong output rather than an error: `'HH:mm:ss.ms'` yields
+ * `'12:34:56.ms'`. Call this when the pattern comes from configuration or a
+ * user, or in a test, to turn that silent failure into a visible one.
+ *
+ * @example
+ * unknownFormatTokens('YYYY-MM-DD HH:mm:ss.SSS') // []
+ * unknownFormatTokens('YYYY-MM-DD hh:mm:ss.ms')  // ['hh', 'ms']
+ */
+export const unknownFormatTokens = (pattern: string): readonly string[] =>
+  unknownTokensIn(pattern, INSTANT_TOKEN)
+
+/** `true` when every letter in `pattern` belongs to a known token or a `[literal]` block. */
+export const isValidFormatPattern = (pattern: string): boolean =>
+  unknownFormatTokens(pattern).length === 0
 
 /** Formats an instant with a token pattern, e.g. `YYYY-DDDTHH:mm:ss.SSSSSS`. */
 export function formatInstant(

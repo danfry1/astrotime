@@ -76,6 +76,24 @@ export function tokenCache(
   }
 }
 
+/**
+ * Letters in `pattern` that are neither part of a token matched by
+ * `tokenRegex` nor inside a `[literal]` block, in order and deduplicated.
+ * Bracketed text is removed before tokenising: `tokenize` reports it as an
+ * ordinary literal, which would otherwise be indistinguishable from a typo.
+ */
+export function unknownTokensIn(pattern: string, tokenRegex: RegExp): readonly string[] {
+  const withoutEscapes = pattern.replace(/\[[^\]]*\]/g, '')
+  const unknown: string[] = []
+  for (const token of tokenize(withoutEscapes, tokenRegex)) {
+    if (token.kind !== 'literal') continue
+    for (const run of token.text.match(/[A-Za-z]+/g) ?? []) {
+      if (!unknown.includes(run)) unknown.push(run)
+    }
+  }
+  return unknown
+}
+
 /** Zero-pads a non-negative integer to at least `width` digits. */
 export function pad(value: number, width: number): string {
   if (width === 2) return value < 10 ? `0${String(value)}` : String(value)

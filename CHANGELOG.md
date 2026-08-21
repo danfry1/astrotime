@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0 - 2026-08-21
+
+- **Breaking**: `formatInstant` and `formatDuration` now throw `RangeError`
+  for a pattern containing a letter that is neither part of a known token nor
+  inside a `[literal]` block, instead of rendering it verbatim. Previously
+  `'HH:mm:ss.ms'` silently produced `'12:34:56.ms'` — a bug of exactly that
+  shape sat in NASA Open MCT's notification timestamps for years. This makes
+  format patterns consistent with the rest of the library, which already
+  throws rather than emit a year outside the round-trippable range. An
+  unterminated `[` is likewise a typo rather than a literal.
+- New: `unknownFormatTokens` and `isValidFormatPattern`, for checking a
+  pattern that comes from configuration or a user before formatting with it.
+- Validation is memoised per pattern, so formatting throughput is unchanged.
+
 ## 0.8.0 - 2026-08-21
 
 - New: `instantToOffsetMillis` / `instantFromOffsetMillis`,

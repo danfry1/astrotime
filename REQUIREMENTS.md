@@ -34,6 +34,7 @@ reference. Backticked fragments must appear verbatim in `vitest list` output.
 | REQ-PARSE-001 | UTC offsets are range-validated; scale designators parse and must agree with the requested scale. | `resolves scales from designators and the scale option` |
 | REQ-PARSE-002 | Parsers return Results and never throw on arbitrary text. | `parseInstant / parseDuration / parseLeapSecondsList return Results for arbitrary text`, `survives pathological parser input without throwing` |
 | REQ-FMT-001 | Formatting throws RangeError outside the supported civil range rather than emitting non-round-trippable strings. | `toJSON throws rather than emitting a year that cannot round-trip` |
+| REQ-FMT-003 | A format pattern containing a stray letter is rejected rather than rendered verbatim. | `names the offending tokens when formatting rejects a pattern`, `rejects stray letters rather than rendering them verbatim`, `rejects stray letters rather than rendering them literally` |
 | REQ-FMT-002 | ISO output at nanosecond precision parses back to the same instant on every scale, across the full civil range. | `ISO format at nanosecond precision parses back to the same instant (all scales)` |
 | REQ-DET-001 | Outputs are bit-identical across JavaScript engines (deterministic sine; no engine-dependent math), including Hermes for React Native. | CI job `Cross-engine conformance (V8 vs JSC)`; `Conformance under Hermes (React Native engine)`; `sha1 (FIPS 180 vectors)` |
 

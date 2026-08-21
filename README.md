@@ -170,6 +170,28 @@ formatOrdinal(i)                                  // '2026-231T12:34:56.789'
 formatInstant(i, 'YYYY-DDD[T]HH:mm:ss.SSSSSS')    // '2026-231T12:34:56.789012'
 ```
 
+Formatting **rejects a pattern containing a stray letter** rather than
+rendering it verbatim, on the same principle as the year-range check: a
+plausible-but-wrong string is worse than an error. Use `[text]` for a
+literal. A bug of exactly this shape — `'.ms'` where `.SSS` was meant — sat
+in NASA Open MCT's notification timestamps for years.
+
+```ts
+formatInstant(i, 'YYYY-MM-DD HH:mm:ss.SSS')   // fine
+formatInstant(i, 'YYYY-MM-DD[T]HH:mm:ss[Z]')  // fine — bracketed text is a literal
+formatInstant(i, 'YYYY-MM-DD hh:mm:ss.ms')    // RangeError: unknown token(s) "hh", "ms"
+```
+
+When a pattern comes from configuration or a user, check it first rather
+than catching:
+
+```ts
+import { isValidFormatPattern, unknownFormatTokens } from 'astrotime'
+
+isValidFormatPattern(fromConfig)   // false
+unknownFormatTokens(fromConfig)    // ['hh', 'ms'] — report these to the operator
+```
+
 Non-UTC ISO output carries its scale (`… TT`) by default so the string is never
 ambiguous, and `parseInstant` accepts it back — the convention SPICE, astropy and
 Orekit use. Fractions are truncated, not rounded, when digits are dropped.
@@ -401,7 +423,7 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 |---|---|
 | Construct | `instantFromUnixMillis/Seconds/Nanos` · `instantFromDate` · `instantNow` · `instantFromTaiNanos` · `instantFromUtc(fields) → R` · `instantFromCivil(fields, scale) → R` |
 | Read | `instantToUnixMillis/Seconds/Nanos` · `instantToDate` · `instantToTaiNanos` · `instantToUtc` · `instantToCivil(i, scale)` |
-| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` |
+| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` · `isValidFormatPattern` · `unknownFormatTokens` |
 | Scales | `instantToScaleNanos/Seconds` · `instantFromScaleNanos/Seconds` · `instantToJ2000Seconds/Nanos` · `instantFromJ2000Seconds/Nanos` · `instantToJulianDate[Parts]` · `instantFromJulianDate[Parts]` · `instantToModifiedJulianDate` · `instantFromModifiedJulianDate` · `instantToGpsWeek/Seconds` · `instantFromGpsWeek/Seconds` |
 | Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
 | Numeric interop | `instantToOffsetMillis/Seconds` · `instantFromOffsetMillis/Seconds` · `unixMillisResolutionNanos` |

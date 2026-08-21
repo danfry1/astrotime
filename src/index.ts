@@ -166,7 +166,9 @@ export {
   formatOrdinal,
   type FractionPrecision,
   INSTANT_TOKEN,
+  isValidFormatPattern,
   type IsoFormatOptions,
+  unknownFormatTokens,
 } from './format.js'
 export {
   isValidInstant,

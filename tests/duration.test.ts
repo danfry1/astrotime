@@ -219,8 +219,9 @@ describe('formatDuration', () => {
     expect(formatDuration(duration({ minutes: -90 }), 'clock')).toBe('-01:30:00')
   })
 
-  it('keeps unknown letters and unterminated brackets literal', () => {
-    expect(formatDuration(duration({ seconds: 5 }), 'ss [seconds] x')).toBe('05 seconds x')
-    expect(formatDuration(duration({ seconds: 5 }), 'ss [open')).toBe('05 open')
+  it('rejects stray letters rather than rendering them literally', () => {
+    expect(formatDuration(duration({ seconds: 5 }), 'ss [seconds]')).toBe('05 seconds')
+    expect(() => formatDuration(duration({ seconds: 5 }), 'ss [seconds] x')).toThrow(RangeError)
+    expect(() => formatDuration(duration({ seconds: 5 }), 'ss [open')).toThrow(RangeError)
   })
 })

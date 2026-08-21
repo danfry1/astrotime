@@ -8,11 +8,13 @@ import {
   InvalidTimeError,
   instantFromTaiNanos,
   instantsEqual,
+  isValidFormatPattern,
   isValidInstant,
   type LeapSecondTable,
   parseInstant,
   parseInstantOrThrow,
   TimeParseError,
+  unknownFormatTokens,
 } from '../src/index.js'
 import { expectErr, expectInstanceOf } from './helpers.js'
 
@@ -222,12 +224,18 @@ describe('token patterns', () => {
     )
   })
 
-  it('formats negative and expanded years, unknown letters and unterminated brackets', () => {
+  it('formats negative and expanded years, and honours bracketed literals', () => {
     const bce = iso('-0044-03-15T00:00:00Z')
-    expect(formatInstant(bce, 'YYYY-MM-DD x')).toBe('-0044-03-15 x')
+    expect(formatInstant(bce, 'YYYY-MM-DD [x]')).toBe('-0044-03-15 x')
     expect(formatInstant(bce, '[YYYY]')).toBe('YYYY')
-    expect(formatInstant(bce, 'YYYY [unterminated')).toBe('-0044 unterminated')
     expect(formatInstant(iso('+012345-01-01T00:00:00Z'), 'YYYY')).toBe('+012345')
+  })
+
+  it('rejects stray letters rather than rendering them verbatim', () => {
+    const bce = iso('-0044-03-15T00:00:00Z')
+    expect(() => formatInstant(bce, 'YYYY-MM-DD x')).toThrow(RangeError)
+    // An unterminated bracket is a typo, not a literal.
+    expect(() => formatInstant(bce, 'YYYY [unterminated')).toThrow(RangeError)
   })
 })
 
@@ -271,5 +279,29 @@ describe('formatIso / formatOrdinal', () => {
 
   it('formats instants before 1970 and before 1972', () => {
     expect(formatIso(instantFromTaiNanos(0n))).toBe('1969-12-31T23:59:50.000Z')
+  })
+})
+
+describe('format pattern validation', () => {
+  it.each([
+    ['YYYY-MM-DD HH:mm:ss.SSS', []],
+    ['YYYY-MM-DD[T]HH:mm:ss[Z]', []],
+    ['YYYY-DDD[T]HH:mm:ss.SSSSSSSSS', []],
+    ['YYYY-MM-DD hh:mm:ss.ms', ['hh', 'ms']],
+    ['qq YYYY zz qq', ['qq', 'zz']],
+    ['', []],
+  ] as const)('reports unknown letters in %j', (pattern, expected) => {
+    expect(unknownFormatTokens(pattern)).toStrictEqual(expected)
+    expect(isValidFormatPattern(pattern)).toBe(expected.length === 0)
+  })
+
+  it('names the offending tokens when formatting rejects a pattern', () => {
+    // The silent-failure case this exists to prevent: the pattern looks
+    // plausible and would otherwise render plausible-but-wrong output.
+    const pattern = 'YYYY-MM-DD hh:mm:ss.ms'
+    expect(unknownFormatTokens(pattern)).toStrictEqual(['hh', 'ms'])
+    expect(() => formatInstant(iso('2026-08-19T12:34:56.789Z'), pattern)).toThrow(
+      /unknown token\(s\) "hh", "ms"/,
+    )
   })
 })
