@@ -1,6 +1,12 @@
 import { TimeParseError } from './errors.js'
 import { fromNanos, scaleNanosExact, toNanos } from './numeric.js'
-import { fractionDigits, fractionToNanos, pad, tokenize, unknownTokensIn } from './pattern.js'
+import {
+  fractionDigits,
+  fractionToNanos,
+  pad,
+  patternProblem,
+  validatedTokenCache,
+} from './pattern.js'
 import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
 
@@ -261,7 +267,32 @@ export const parseDurationOrThrow = (text: string): Duration => unwrap(parseDura
 
 const DURATION_TOKEN = /^(?:D+|H{1,2}|m{1,2}|s{1,2}|S{1,9})/
 const padBig = (value: bigint, width: number): string => String(value).padStart(width, '0')
-const durationPatternCache = new Map<string, ReturnType<typeof tokenize>>()
+
+/** Width is padding only: `m` and `mm` are the same field, unlike an instant's `DD`/`DDD`. */
+const durationFieldKey = (name: string): string => name
+
+const describeDurationProblem = (pattern: string, problem: string): string =>
+  `Duration format ${JSON.stringify(pattern)} is invalid: ${problem}. ` +
+  `Use [text] for a literal, or durationPatternError() to check a pattern first.`
+
+const durationTokens = validatedTokenCache(
+  DURATION_TOKEN,
+  durationFieldKey,
+  describeDurationProblem,
+)
+
+/**
+ * Explains why `pattern` is not a usable duration pattern, or `null` when it
+ * is. `formatDuration` throws on exactly these patterns.
+ *
+ * @example
+ * durationPatternError('HH:mm:ss.SSS') // null
+ * durationPatternError('HH:mm:ss.ms')  // 'fields "mm" and "m" are the same field, used twice'
+ */
+export const durationPatternError = (pattern: string): string | null =>
+  pattern === 'iso' || pattern === 'clock'
+    ? null
+    : patternProblem(pattern, DURATION_TOKEN, durationFieldKey)
 
 /** Canonical ISO 8601 form, e.g. `P1DT2H3M4.5S`; zero is `PT0S`. */
 function formatIsoDuration(d: Duration): string {
@@ -296,19 +327,7 @@ export type DurationFormat = StringWithHints<'iso' | 'clock'>
 export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): string {
   if (pattern === 'iso') return formatIsoDuration(d)
   const resolved = pattern === 'clock' ? 'HH:mm:ss' : pattern
-  let tokens = durationPatternCache.get(resolved)
-  if (tokens === undefined) {
-    tokens = tokenize(resolved, DURATION_TOKEN)
-    const unknown = unknownTokensIn(resolved, DURATION_TOKEN)
-    if (unknown.length > 0) {
-      throw new RangeError(
-        `Duration format ${JSON.stringify(resolved)} contains unknown token(s) ${unknown
-          .map((t) => JSON.stringify(t))
-          .join(', ')}. Use [text] for a literal.`,
-      )
-    }
-    if (durationPatternCache.size < 256) durationPatternCache.set(resolved, tokens)
-  }
+  const tokens = durationTokens(resolved)
   const c = durationToComponents(d)
   let largest: 'D' | 'H' | 'm' | 's' = 's'
   for (const t of tokens) {

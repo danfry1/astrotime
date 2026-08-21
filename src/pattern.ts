@@ -60,38 +60,111 @@ export function tokenize(pattern: string, tokenRegex: RegExp): readonly PatternT
   return tokens
 }
 
-/** Bounded memo of tokenized patterns (cleared when full, so caller-supplied patterns cannot grow memory unboundedly). */
-export function tokenCache(
+/**
+ * How a repeated field is identified when checking for duplicates. Width
+ * matters only where two widths of one letter are different fields (`DD` is
+ * the day of the month, `DDD` the day of the year); elsewhere width is just
+ * padding or precision, so `mm` and `m` are the same field.
+ */
+export type FieldKey = (name: string, width: number) => string
+
+const quote = (s: string): string => JSON.stringify(s)
+
+/**
+ * The first structural defect in `pattern`, or `null` when it is sound.
+ *
+ * Every defect here is one that would otherwise produce output silently
+ * different from what the pattern appears to say, so each is reported
+ * rather than rendered:
+ *
+ * - an unterminated `[`, which swallows the bracket and turns the rest of
+ *   the pattern into literal text;
+ * - a letter run longer than its longest token, which splits into two
+ *   tokens (`SSSSSSSSSS` → `SSSSSSSSS` + `S`) and emits a fraction that
+ *   does not read back;
+ * - the same field twice, which repeats a number instead of formatting the
+ *   one the letter was mistaken for (`HH:mm:ss.ms` → `12:34:56.3456`);
+ * - a letter belonging to no token, which is rendered verbatim.
+ *
+ * A `]` outside a bracket is *not* a defect: it renders exactly as written,
+ * so nothing is hidden from the reader of the pattern.
+ */
+export function patternProblem(
+  pattern: string,
   tokenRegex: RegExp,
+  fieldKey: FieldKey,
+): string | null {
+  const sticky = stickyOf(tokenRegex)
+  const unknown: string[] = []
+  const seen = new Map<string, string>()
+  let literal = ''
+  let i = 0
+  while (i < pattern.length) {
+    const ch = pattern[i] ?? ''
+    if (ch === '[') {
+      const close = pattern.indexOf(']', i + 1)
+      if (close === -1) {
+        return `unterminated ${quote('[')} at position ${String(i)} — every ${quote('[')} needs a closing ${quote(']')}`
+      }
+      i = close + 1
+      continue
+    }
+    sticky.lastIndex = i
+    const match = sticky.exec(pattern)
+    if (match === null) {
+      literal += ch
+      i += 1
+      continue
+    }
+    const text = match[0]
+    const name = text[0] ?? ''
+    let end = i + text.length
+    while (pattern[end] === name) end += 1
+    if (end > i + text.length) {
+      return `${quote(pattern.slice(i, end))} is longer than the longest ${quote(name)} token (${quote(text)}), so it would split into two fields`
+    }
+    const key = fieldKey(name, text.length)
+    const previous = seen.get(key)
+    if (previous !== undefined) {
+      return previous === text
+        ? `field ${quote(text)} appears more than once`
+        : `fields ${quote(previous)} and ${quote(text)} are the same field, used twice`
+    }
+    seen.set(key, text)
+    i = end
+  }
+  for (const run of literal.match(/[A-Za-z]+/g) ?? []) {
+    if (!unknown.includes(run)) unknown.push(run)
+  }
+  if (unknown.length > 0) {
+    return `unknown token(s) ${unknown.map(quote).join(', ')}`
+  }
+  return null
+}
+
+/**
+ * Bounded memo of patterns already checked and tokenized. Validation is
+ * folded into the cache so a valid pattern is checked once, and the bound is
+ * the cache's — a caller supplying endless distinct patterns cannot grow
+ * memory, it only re-validates after a clear.
+ */
+export function validatedTokenCache(
+  tokenRegex: RegExp,
+  fieldKey: FieldKey,
+  describe: (pattern: string, problem: string) => string,
   max = 256,
 ): (pattern: string) => readonly PatternToken[] {
   const cache = new Map<string, readonly PatternToken[]>()
   return (pattern) => {
     const cached = cache.get(pattern)
     if (cached !== undefined) return cached
+    const problem = patternProblem(pattern, tokenRegex, fieldKey)
+    if (problem !== null) throw new RangeError(describe(pattern, problem))
     const tokens = tokenize(pattern, tokenRegex)
     if (cache.size >= max) cache.clear()
     cache.set(pattern, tokens)
     return tokens
   }
-}
-
-/**
- * Letters in `pattern` that are neither part of a token matched by
- * `tokenRegex` nor inside a `[literal]` block, in order and deduplicated.
- * Bracketed text is removed before tokenising: `tokenize` reports it as an
- * ordinary literal, which would otherwise be indistinguishable from a typo.
- */
-export function unknownTokensIn(pattern: string, tokenRegex: RegExp): readonly string[] {
-  const withoutEscapes = pattern.replace(/\[[^\]]*\]/g, '')
-  const unknown: string[] = []
-  for (const token of tokenize(withoutEscapes, tokenRegex)) {
-    if (token.kind !== 'literal') continue
-    for (const run of token.text.match(/[A-Za-z]+/g) ?? []) {
-      if (!unknown.includes(run)) unknown.push(run)
-    }
-  }
-  return unknown
 }
 
 /** Zero-pads a non-negative integer to at least `width` digits. */

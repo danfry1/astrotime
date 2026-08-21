@@ -37,6 +37,7 @@ export {
   durationFromMinutes,
   durationFromNanos,
   durationFromSeconds,
+  durationPatternError,
   durationsEqual,
   durationToComponents,
   durationToDays,
@@ -165,10 +166,10 @@ export {
   type FormatOptions,
   formatOrdinal,
   type FractionPrecision,
+  formatPatternError,
   INSTANT_TOKEN,
   isValidFormatPattern,
   type IsoFormatOptions,
-  unknownFormatTokens,
 } from './format.js'
 export {
   isValidInstant,

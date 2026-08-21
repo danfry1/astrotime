@@ -14,7 +14,7 @@ import {
   parseInstant,
   parseInstantOrThrow,
   TimeParseError,
-  unknownFormatTokens,
+  formatPatternError,
 } from '../src/index.js'
 import { expectErr, expectInstanceOf } from './helpers.js'
 
@@ -192,8 +192,10 @@ describe('token patterns', () => {
   })
 
   it('requires a year token', () => {
-    expect(expectErr(parseInstant('12:34:56', { format: 'HH:mm:ss' })).message).toBe(
-      'Cannot parse "12:34:56" as HH:mm:ss: pattern must include a year (YYYY)',
+    // A pattern that cannot name a date is a defect in the caller's source,
+    // so it throws rather than reporting the text as unparseable.
+    expect(() => parseInstant('12:34:56', { format: 'HH:mm:ss' })).toThrow(
+      /Parse pattern "HH:mm:ss" is invalid: no year \(YYYY\)/,
     )
   })
 
@@ -283,25 +285,95 @@ describe('formatIso / formatOrdinal', () => {
 })
 
 describe('format pattern validation', () => {
+  const i = iso('2026-08-19T12:34:56.789Z')
+
   it.each([
-    ['YYYY-MM-DD HH:mm:ss.SSS', []],
-    ['YYYY-MM-DD[T]HH:mm:ss[Z]', []],
-    ['YYYY-DDD[T]HH:mm:ss.SSSSSSSSS', []],
-    ['YYYY-MM-DD hh:mm:ss.ms', ['hh', 'ms']],
-    ['qq YYYY zz qq', ['qq', 'zz']],
-    ['', []],
-  ] as const)('reports unknown letters in %j', (pattern, expected) => {
-    expect(unknownFormatTokens(pattern)).toStrictEqual(expected)
-    expect(isValidFormatPattern(pattern)).toBe(expected.length === 0)
+    ['YYYY-MM-DD HH:mm:ss.SSS', null],
+    ['YYYY-MM-DD[T]HH:mm:ss[Z]', null],
+    ['YYYY-DDD[T]HH:mm:ss.SSSSSSSSS', null],
+    // DD and DDD are different fields, so a pattern may carry both.
+    ['YYYY-MM-DD [(doy )]DDD', null],
+    ['YYYY[]MM', null],
+    // A ] outside a bracket renders exactly as written, so it hides nothing.
+    ['YYYY ]', null],
+    ['', null],
+    ['YYYY-MM-DD hh:mm:ss.ms', 'unknown token(s) "hh", "ms"'],
+    ['qq YYYY zz qq', 'unknown token(s) "qq", "zz"'],
+    // The Moment-ism that silently loses the T.
+    ['YYYY-MM-DDTHH:mm:ss', 'unknown token(s) "T"'],
+  ] as const)('accepts or explains %j', (pattern, expected) => {
+    expect(formatPatternError(pattern)).toBe(expected)
+    expect(isValidFormatPattern(pattern)).toBe(expected === null)
+  })
+
+  it('rejects an unterminated bracket, which would swallow the rest as literal', () => {
+    // 'YYYY [123' used to render '2026 123': the bracket vanishes silently.
+    for (const pattern of ['YYYY [', 'YYYY [123', 'YYYY [MM']) {
+      expect(formatPatternError(pattern)).toMatch(/unterminated "\["/)
+      expect(() => formatInstant(i, pattern)).toThrow(RangeError)
+    }
+  })
+
+  it('rejects a letter run longer than its token, which would not read back', () => {
+    // 'SSSSSSSSSS' split into SSSSSSSSS + S and rendered '.7890000007',
+    // which parses back as .700000000 — a silent corruption.
+    const pattern = 'YYYY-MM-DD HH:mm:ss.SSSSSSSSSS'
+    expect(formatPatternError(pattern)).toMatch(/longer than the longest "S" token/)
+    expect(() => formatInstant(i, pattern)).toThrow(RangeError)
+    for (const overlong of ['MMM', 'HHH', 'ZZ', 'YYYYY']) {
+      expect(isValidFormatPattern(overlong)).toBe(false)
+    }
+  })
+
+  it('rejects the same field twice, which would repeat a number', () => {
+    expect(formatPatternError('HH:mm HH:mm')).toMatch(/appears more than once/)
+    expect(() => formatInstant(i, 'YYYY-MM-DD DD')).toThrow(RangeError)
   })
 
   it('names the offending tokens when formatting rejects a pattern', () => {
     // The silent-failure case this exists to prevent: the pattern looks
     // plausible and would otherwise render plausible-but-wrong output.
     const pattern = 'YYYY-MM-DD hh:mm:ss.ms'
-    expect(unknownFormatTokens(pattern)).toStrictEqual(['hh', 'ms'])
-    expect(() => formatInstant(iso('2026-08-19T12:34:56.789Z'), pattern)).toThrow(
-      /unknown token\(s\) "hh", "ms"/,
+    expect(() => formatInstant(i, pattern)).toThrow(/unknown token\(s\) "hh", "ms"/)
+  })
+
+  it('checks a pattern once however many times it is used', () => {
+    // Validation is folded into the bounded token cache, so a hot format
+    // loop pays for it once and no per-pattern set grows without limit.
+    for (let n = 0; n < 1000; n += 1) {
+      expect(formatInstant(i, 'YYYY-MM-DD HH:mm:ss')).toBe('2026-08-19 12:34:56')
+    }
+    for (let n = 0; n < 600; n += 1) {
+      expect(() => formatInstant(i, `[p${String(n)}]YYYY`)).not.toThrow()
+    }
+  })
+})
+
+describe('parse pattern validation', () => {
+  it('blames the pattern, not the text, for a defective pattern', () => {
+    // Before: this returned a Result error saying the *text* did not match,
+    // which sends the reader looking for a bug in their data.
+    expect(() => parseInstant('2026-08-19 12:34:56', { format: 'YYYY-MM-DD hh:mm:ss' })).toThrow(
+      /unknown token\(s\) "hh"/,
     )
+    expect(() => parseInstant('2026', { format: 'YYYY [' })).toThrow(RangeError)
+  })
+
+  it('rejects a pattern with no year whatever the text is', () => {
+    // Thrown at compile time, so it does not depend on the text matching.
+    expect(() => parseInstant('12:34', { format: 'HH:mm' })).toThrow(/no year \(YYYY\)/)
+    expect(() => parseInstant('nonsense', { format: 'HH:mm' })).toThrow(/no year \(YYYY\)/)
+  })
+
+  it('cross-checks day-of-year against month/day when a pattern carries both', () => {
+    const agreeing = parseInstant('2026-08-19 231', { format: 'YYYY-MM-DD DDD' })
+    expect(agreeing.ok).toBe(true)
+    const conflicting = parseInstant('2026-08-19 001', { format: 'YYYY-MM-DD DDD' })
+    expect(conflicting.ok).toBe(false)
+  })
+
+  it('still reports a genuine text mismatch as a Result', () => {
+    const result = parseInstant('not a date', { format: 'YYYY-MM-DD' })
+    expect(result.ok).toBe(false)
   })
 })

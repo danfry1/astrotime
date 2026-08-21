@@ -1,5 +1,5 @@
 import { InvalidTimeError, TimeParseError } from './errors.js'
-import { INSTANT_TOKEN } from './format.js'
+import { assertInstantPattern, INSTANT_TOKEN } from './format.js'
 import {
   type CivilFields,
   civilFromUnixSeconds,
@@ -189,6 +189,9 @@ const MAX_COMPILED_PATTERNS = 256
 function compilePattern(pattern: string): Compiled {
   const cached = compiledPatterns.get(pattern)
   if (cached !== undefined) return cached
+  // A defect in the pattern is a defect in the caller's source, not in the
+  // text being parsed; reporting it as a parse failure would blame the data.
+  assertInstantPattern(pattern)
   let source = '^'
   const fields: string[] = []
   for (const token of tokenize(pattern, INSTANT_TOKEN)) {
@@ -220,6 +223,12 @@ function compilePattern(pattern: string): Compiled {
         fields.push(token.name)
     }
   }
+  if (!fields.includes('Y')) {
+    throw new RangeError(
+      `Parse pattern ${JSON.stringify(pattern)} is invalid: no year (YYYY), so it cannot ` +
+        `identify an instant. Use formatPatternError() to check a pattern first.`,
+    )
+  }
   const compiled = { regex: new RegExp(`${source}$`), fields }
   if (compiledPatterns.size >= MAX_COMPILED_PATTERNS) compiledPatterns.clear()
   compiledPatterns.set(pattern, compiled)
@@ -240,9 +249,8 @@ function parseWithPattern(
   fields.forEach((name, i) => {
     values[name] = match[i + 1]
   })
-  const year = values['Y']
-  if (year === undefined)
-    return err(new TimeParseError(text, 'pattern must include a year (YYYY)', pattern))
+  // compilePattern guarantees a year field, so the capture is always present.
+  const year = values['Y'] ?? ''
   const designator = parseDesignator(values['Z'], text, pattern)
   if (!designator.ok) return designator
   const time = {
@@ -252,13 +260,17 @@ function parseWithPattern(
     nanosecond: parseFraction(values['S']),
   }
   const doy = values['doy']
+  const month = values['M']
+  const day = values['D']
   const civil: CivilFields =
-    doy !== undefined
+    doy !== undefined && (month === undefined || day === undefined)
       ? { year: Number(year), dayOfYear: Number(doy), ...time }
       : {
           year: Number(year),
-          month: Number(values['M'] ?? 1),
-          day: Number(values['D'] ?? 1),
+          month: Number(month ?? 1),
+          day: Number(day ?? 1),
+          // A pattern carrying DD and DDD must agree on the date it names.
+          ...(doy === undefined ? {} : { dayOfYear: Number(doy) }),
           ...time,
         }
   return resolveFields(civil, designator.value, requested, text, pattern, options)

@@ -1,6 +1,12 @@
 import { assertNever } from './assert.js'
 import type { CivilDateTime, Instant, UtcOptions } from './instant.js'
-import { fractionDigits, pad, tokenCache, unknownTokensIn } from './pattern.js'
+import {
+  fractionDigits,
+  type FieldKey,
+  pad,
+  patternProblem,
+  validatedTokenCache,
+} from './pattern.js'
 import { instantToCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
 
 export type FormatOptions = UtcOptions & {
@@ -28,24 +34,18 @@ export type IsoFormatOptions = FormatOptions & {
  */
 export const INSTANT_TOKEN = /^(?:YYYY|MM|DDD|DD|HH|mm|ss|S{1,9}|Z)/
 
-const rawInstantTokens = tokenCache(INSTANT_TOKEN)
-const checkedPatterns = new Set<string>()
+/**
+ * `DD` (day of the month) and `DDD` (day of the year) are different fields
+ * that share a letter, so both may appear in one pattern; every other letter
+ * names a single field whatever its width.
+ */
+const instantFieldKey: FieldKey = (name, width) => (name === 'D' ? `D${String(width)}` : name)
 
-/** Tokenises, rejecting a pattern whose stray letters would be rendered verbatim. */
-function instantTokens(pattern: string): ReturnType<typeof rawInstantTokens> {
-  if (!checkedPatterns.has(pattern)) {
-    const unknown = unknownFormatTokens(pattern)
-    if (unknown.length > 0) {
-      throw new RangeError(
-        `Format pattern ${JSON.stringify(pattern)} contains unknown token(s) ${unknown
-          .map((t) => JSON.stringify(t))
-          .join(', ')}. Use [text] for a literal, or isValidFormatPattern() to check first.`,
-      )
-    }
-    checkedPatterns.add(pattern)
-  }
-  return rawInstantTokens(pattern)
-}
+const describeInstantProblem = (pattern: string, problem: string): string =>
+  `Format pattern ${JSON.stringify(pattern)} is invalid: ${problem}. ` +
+  `Use [text] for a literal, or formatPatternError() to check a pattern first.`
+
+const instantTokens = validatedTokenCache(INSTANT_TOKEN, instantFieldKey, describeInstantProblem)
 
 /**
  * ISO 8601 year: 4 digits, or an expanded sign+6-digit form outside
@@ -104,24 +104,30 @@ function formatCivil(civil: CivilDateTime, pattern: string, scale: TimeScale): s
 }
 
 /**
- * Letters in `pattern` that are neither part of a known token nor inside a
- * `[literal]` block, in order of appearance and without duplicates.
- *
- * Unknown letters are rendered verbatim, so a mistyped pattern produces
- * plausible but wrong output rather than an error: `'HH:mm:ss.ms'` yields
- * `'12:34:56.ms'`. Call this when the pattern comes from configuration or a
- * user, or in a test, to turn that silent failure into a visible one.
+ * Explains why `pattern` is not a usable format pattern, or `null` when it
+ * is. `formatInstant` throws on exactly these patterns, so this is the
+ * check-first alternative for a pattern that arrives from configuration or
+ * a user rather than from source.
  *
  * @example
- * unknownFormatTokens('YYYY-MM-DD HH:mm:ss.SSS') // []
- * unknownFormatTokens('YYYY-MM-DD hh:mm:ss.ms')  // ['hh', 'ms']
+ * formatPatternError('YYYY-MM-DD HH:mm:ss.SSS') // null
+ * formatPatternError('YYYY-MM-DD hh:mm:ss.ms')  // 'unknown token(s) "hh", "ms"'
+ * formatPatternError('YYYY-MM-DDTHH:mm:ss')     // 'unknown token(s) "T"'
+ * formatPatternError('HH:mm:ss.SSSSSSSSSS')     // '"SSSSSSSSSS" is longer than …'
+ * formatPatternError('YYYY [')                  // 'unterminated "[" at position 5 …'
  */
-export const unknownFormatTokens = (pattern: string): readonly string[] =>
-  unknownTokensIn(pattern, INSTANT_TOKEN)
+export const formatPatternError = (pattern: string): string | null =>
+  patternProblem(pattern, INSTANT_TOKEN, instantFieldKey)
 
-/** `true` when every letter in `pattern` belongs to a known token or a `[literal]` block. */
+/** `true` when `formatInstant` accepts `pattern`. */
 export const isValidFormatPattern = (pattern: string): boolean =>
-  unknownFormatTokens(pattern).length === 0
+  formatPatternError(pattern) === null
+
+/** Internal: throws the same `RangeError` `formatInstant` would, for the parser to share. */
+export function assertInstantPattern(pattern: string): void {
+  const problem = formatPatternError(pattern)
+  if (problem !== null) throw new RangeError(describeInstantProblem(pattern, problem))
+}
 
 /** Formats an instant with a token pattern, e.g. `YYYY-DDDTHH:mm:ss.SSSSSS`. */
 export function formatInstant(

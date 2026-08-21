@@ -1,18 +1,43 @@
 # Changelog
 
-## 0.9.0 - 2026-08-21
+## 0.10.0 - 2026-08-21
 
-- **Breaking**: `formatInstant` and `formatDuration` now throw `RangeError`
-  for a pattern containing a letter that is neither part of a known token nor
-  inside a `[literal]` block, instead of rendering it verbatim. Previously
-  `'HH:mm:ss.ms'` silently produced `'12:34:56.ms'` — a bug of exactly that
-  shape sat in NASA Open MCT's notification timestamps for years. This makes
+- **Breaking**: `formatInstant`, `formatDuration` and pattern-based
+  `parseInstant` now throw `RangeError` for a pattern they cannot render or
+  read faithfully, instead of quietly producing something else. This makes
   format patterns consistent with the rest of the library, which already
-  throws rather than emit a year outside the round-trippable range. An
-  unterminated `[` is likewise a typo rather than a literal.
-- New: `unknownFormatTokens` and `isValidFormatPattern`, for checking a
-  pattern that comes from configuration or a user before formatting with it.
-- Validation is memoised per pattern, so formatting throughput is unchanged.
+  throws rather than emit a year outside the round-trippable range. Four
+  defects are rejected, each one previously silent:
+  - a letter belonging to no token — `'HH:mm:ss.ms'` rendered `'12:34:56.ms'`;
+    a bug of exactly that shape sat in NASA Open MCT's notification
+    timestamps for years, and `'YYYY-MM-DDTHH:mm:ss'` silently lost its `T`;
+  - an unterminated `[`, which swallowed the bracket and turned the rest of
+    the pattern into literal text — `'YYYY [MM'` rendered `'2026 MM'`;
+  - a letter run longer than its longest token, which split into two fields:
+    `'.SSSSSSSSSS'` rendered `'.7890000007'`, which reads back as
+    `.700000000`;
+  - the same field twice, which repeated a number rather than formatting the
+    field the letter was mistaken for: `'HH:mm:ss.ms'` as a *duration*
+    rendered `'12:34:56.3456'`, since `m` and `s` are both valid duration
+    tokens. `DD` and `DDD` are exempt — they are different fields that share
+    a letter, so a pattern may carry both, and `parseInstant` now checks that
+    they agree.
+
+  A `]` outside a bracket is still a literal: it renders exactly as written,
+  so it hides nothing from the reader of the pattern.
+- **Breaking**: a defective *parse* pattern now throws instead of returning a
+  `Result`. Previously `parseInstant(text, { format: 'YYYY-MM-DD hh:mm:ss' })`
+  reported that the **text** could not be parsed, sending the reader looking
+  for a bug in their data. A pattern comes from the caller's source, so it
+  follows the documented split: expected failures return `Result`, bugs
+  throw. A pattern with no `YYYY` throws for the same reason, and now does so
+  whether or not the text happens to match.
+- New: `formatPatternError` and `durationPatternError` return the same
+  explanation the throw would carry, or `null`, for a pattern that comes from
+  configuration or a user; `isValidFormatPattern` is the boolean form.
+- Validation is folded into the bounded pattern cache, so a valid pattern is
+  checked once, formatting throughput is unchanged, and a caller supplying
+  endless distinct patterns cannot grow memory.
 
 ## 0.8.0 - 2026-08-21
 

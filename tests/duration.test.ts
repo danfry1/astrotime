@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  durationPatternError,
   absDuration,
   addDurations,
   compareDurations,
@@ -223,5 +224,36 @@ describe('formatDuration', () => {
     expect(formatDuration(duration({ seconds: 5 }), 'ss [seconds]')).toBe('05 seconds')
     expect(() => formatDuration(duration({ seconds: 5 }), 'ss [seconds] x')).toThrow(RangeError)
     expect(() => formatDuration(duration({ seconds: 5 }), 'ss [open')).toThrow(RangeError)
+  })
+})
+
+describe('duration pattern validation', () => {
+  const d = duration({ hours: 12, minutes: 34, seconds: 56, nanos: 345_600_000 })
+
+  it.each([
+    ['HH:mm:ss', null],
+    ['HH:mm:ss.SSS', null],
+    ['D[d] HH:mm:ss', null],
+    ['H[h] m[m]', null],
+    ['iso', null],
+    ['clock', null],
+    // Width is padding only, so 'm' and 'mm' name the same field: 'ms' looked
+    // like milliseconds but rendered minutes-then-seconds as '.3456'.
+    ['HH:mm:ss.ms', 'fields "mm" and "m" are the same field, used twice'],
+    ['HH:mm:ss.zzz', 'unknown token(s) "zzz"'],
+  ] as const)('accepts or explains %j', (pattern, expected) => {
+    expect(durationPatternError(pattern)).toBe(expected)
+  })
+
+  it('rejects the patterns it cannot render faithfully', () => {
+    for (const pattern of ['HH:mm:ss.ms', 'HHH', 'ss.SSSSSSSSSS', 'ss [open']) {
+      expect(() => formatDuration(d, pattern)).toThrow(RangeError)
+    }
+  })
+
+  it('still renders every pattern it accepts', () => {
+    expect(formatDuration(d, 'HH:mm:ss.SSS')).toBe('12:34:56.345')
+    expect(formatDuration(d, 'H[h] m[m]')).toBe('12h 34m')
+    expect(formatDuration(d, 'D[d] HH:mm:ss')).toBe('0d 12:34:56')
   })
 })

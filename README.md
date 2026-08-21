@@ -64,7 +64,7 @@ is backed by something you can re-run:
 | Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
 | Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
 | Output is identical everywhere | A 110 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
-| The documentation is true | 29 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
+| The documentation is true | 32 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
 | The tests would notice a bug | Mutation testing (86.6%) with a published [survivor analysis](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
 | The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an [evidence bundle](https://github.com/danfry1/astrotime/releases) attached to every release |
 | Leap-second data stays current | A monthly job compares the bundled table with IANA and fails on drift; `#h` integrity records are verified when parsing |
@@ -170,26 +170,41 @@ formatOrdinal(i)                                  // '2026-231T12:34:56.789'
 formatInstant(i, 'YYYY-DDD[T]HH:mm:ss.SSSSSS')    // '2026-231T12:34:56.789012'
 ```
 
-Formatting **rejects a pattern containing a stray letter** rather than
-rendering it verbatim, on the same principle as the year-range check: a
-plausible-but-wrong string is worse than an error. Use `[text]` for a
-literal. A bug of exactly this shape — `'.ms'` where `.SSS` was meant — sat
+Formatting **rejects a pattern it cannot render faithfully** rather than
+quietly producing something else, on the same principle as the year-range
+check: a plausible-but-wrong string is worse than an error. Use `[text]` for
+a literal. A bug of exactly this shape — `'.ms'` where `.SSS` was meant — sat
 in NASA Open MCT's notification timestamps for years.
 
 ```ts
 formatInstant(i, 'YYYY-MM-DD HH:mm:ss.SSS')   // fine
 formatInstant(i, 'YYYY-MM-DD[T]HH:mm:ss[Z]')  // fine — bracketed text is a literal
 formatInstant(i, 'YYYY-MM-DD hh:mm:ss.ms')    // RangeError: unknown token(s) "hh", "ms"
+formatInstant(i, 'YYYY-MM-DDTHH:mm:ss')       // RangeError: unknown token(s) "T"
+formatInstant(i, 'YYYY [MM')                  // RangeError: unterminated "["
+formatInstant(i, 'HH:mm:ss.SSSSSSSSSS')       // RangeError: longer than the longest "S" token
+formatInstant(i, 'YYYY-MM-DD DD')             // RangeError: field "DD" appears more than once
 ```
+
+The last two are the quiet ones. Ten `S`es split into a nine-digit token
+plus a one-digit token and rendered `.7890000007`, which reads back as
+`.700000000`; and a repeated field printed the same number twice. Both
+produced a string that looked right. `DD` and `DDD` are different fields
+that share a letter, so a pattern may legitimately carry both, and
+`parseInstant` checks that they agree.
+
+A parse pattern is held to the same standard, and a defect in it throws
+rather than reporting the *text* as unparseable — the pattern comes from
+your source, the text does not.
 
 When a pattern comes from configuration or a user, check it first rather
 than catching:
 
 ```ts
-import { isValidFormatPattern, unknownFormatTokens } from 'astrotime'
+import { formatPatternError, isValidFormatPattern } from 'astrotime'
 
-isValidFormatPattern(fromConfig)   // false
-unknownFormatTokens(fromConfig)    // ['hh', 'ms'] — report these to the operator
+isValidFormatPattern(fromConfig) // false
+formatPatternError(fromConfig)   // 'unknown token(s) "hh", "ms"' — show this to the operator
 ```
 
 Non-UTC ISO output carries its scale (`… TT`) by default so the string is never
@@ -423,9 +438,9 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 |---|---|
 | Construct | `instantFromUnixMillis/Seconds/Nanos` · `instantFromDate` · `instantNow` · `instantFromTaiNanos` · `instantFromUtc(fields) → R` · `instantFromCivil(fields, scale) → R` |
 | Read | `instantToUnixMillis/Seconds/Nanos` · `instantToDate` · `instantToTaiNanos` · `instantToUtc` · `instantToCivil(i, scale)` |
-| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` · `isValidFormatPattern` · `unknownFormatTokens` |
+| Parse / format | `parseInstant → R` · `parseInstantOrThrow` · `isValidInstant` · `formatIso` · `formatOrdinal` · `formatInstant(i, pattern)` · `INSTANT_TOKEN` · `isValidFormatPattern` · `formatPatternError` |
 | Scales | `instantToScaleNanos/Seconds` · `instantFromScaleNanos/Seconds` · `instantToJ2000Seconds/Nanos` · `instantFromJ2000Seconds/Nanos` · `instantToJulianDate[Parts]` · `instantFromJulianDate[Parts]` · `instantToModifiedJulianDate` · `instantFromModifiedJulianDate` · `instantToGpsWeek/Seconds` · `instantFromGpsWeek/Seconds` |
-| Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
+| Durations | `duration({…})` · `durationFromDays/Hours/Minutes/Seconds/Millis/Nanos` · `durationToDays/…/Nanos` · `durationToComponents` · `parseDuration → R` · `parseDurationOrThrow` · `formatDuration(d, 'iso' \| 'clock' \| pattern)` · `addDurations` · `subtractDurations` · `negateDuration` · `absDuration` · `scaleDuration` · `durationPatternError` · `compareDurations` · `durationsEqual` · `isNegativeDuration` · `ZERO_DURATION` |
 | Numeric interop | `instantToOffsetMillis/Seconds` · `instantFromOffsetMillis/Seconds` · `unixMillisResolutionNanos` |
 | Arithmetic & order | `addDuration` · `subtractDuration` · `durationBetween` · `compareInstants` · `instantsEqual` · `isBefore` · `isAfter` · `minInstant` · `maxInstant` · `clampInstant` · `instantRange` · `truncateInstant(i, unit, scale)` |
 | Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `freezeLeapSecondTable` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
