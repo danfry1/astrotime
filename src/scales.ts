@@ -162,7 +162,12 @@ export const instantToScaleSeconds = (
   options?: UtcOptions,
 ): number => fromNanos(instantToScaleNanos(instant, scale, options), NANOS_PER_SECOND)
 
-/** Inverse of `instantToScaleSeconds` (rounded to the nearest nanosecond; UTC input follows POSIX semantics). */
+/**
+ * Converts float scale seconds back to an instant. Float seconds near the
+ * present carry ~240 ns double resolution (ULP at ~1.8e9 s), so the round
+ * trip with `instantToScaleSeconds` is exact only to that resolution — use
+ * the `*ScaleNanos` pair for exactness. UTC input follows POSIX semantics.
+ */
 export const instantFromScaleSeconds = (
   seconds: number,
   scale: TimeScale,

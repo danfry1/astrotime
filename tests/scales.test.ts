@@ -15,6 +15,7 @@ import {
   instantFromScaleNanos,
   instantFromScaleSeconds,
   instantsEqual,
+  instantToTaiNanos,
   instantToCivil,
   instantToGpsSeconds,
   instantToGpsWeek,
@@ -74,10 +75,12 @@ describe('J2000', () => {
     )
     expect(instantToScaleSeconds(iso('1970-01-01T00:00:00.5Z'), 'tai')).toBe(10.5)
     for (const scale of TIME_SCALES) {
+      // Float seconds have ~240 ns double resolution at this magnitude, so
+      // the float round trip is bounded, not exact (the nanos pair is exact).
       const sample = iso('2026-08-19T12:34:56.25Z')
-      expect(
-        instantsEqual(instantFromScaleSeconds(instantToScaleSeconds(sample, scale), scale), sample),
-      ).toBe(true)
+      const back = instantFromScaleSeconds(instantToScaleSeconds(sample, scale), scale)
+      const diff = instantToTaiNanos(back) - instantToTaiNanos(sample)
+      expect(diff <= 240n && diff >= -240n).toBe(true)
     }
   })
 })
