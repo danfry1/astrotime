@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0 - 2026-08-21
+
+- New: `instantFromScaleSeconds` — inverse of `instantToScaleSeconds`, closing the one asymmetric pair in the export surface.
+- New: `API-STABILITY.md` — the public surface is frozen-additive until 1.0; open questions (Result naming, bound-context constructor, sub-path exports) are recorded there for a 1.0 decision.
+
 ## 0.5.0 - 2026-08-20
 
 Fourth review round: appended-entry coverage and file integrity.

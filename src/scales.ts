@@ -162,6 +162,14 @@ export const instantToScaleSeconds = (
   options?: UtcOptions,
 ): number => fromNanos(instantToScaleNanos(instant, scale, options), NANOS_PER_SECOND)
 
+/** Inverse of `instantToScaleSeconds` (rounded to the nearest nanosecond; UTC input follows POSIX semantics). */
+export const instantFromScaleSeconds = (
+  seconds: number,
+  scale: TimeScale,
+  options?: UtcOptions,
+): Instant =>
+  instantFromScaleNanos(toNanos(seconds, NANOS_PER_SECOND, 'scale seconds'), scale, options)
+
 // ---------------------------------------------------------------------------
 // J2000
 

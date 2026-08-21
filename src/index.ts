@@ -129,6 +129,7 @@ export {
   instantFromJulianDateParts,
   instantFromModifiedJulianDate,
   instantFromScaleNanos,
+  instantFromScaleSeconds,
   instantToCivil,
   instantToGpsSeconds,
   instantToGpsWeek,
