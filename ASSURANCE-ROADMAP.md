@@ -49,7 +49,7 @@ be covered by a test).
 
 | Release | Overall | Weakest module | Strongest |
 |---|---|---|---|
-| 0.7.0 | 86.48% (2160 mutants) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
+| 0.7.0 | 86.60% (2148 mutants, Stryker 9.6.1) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
 
 **Why not higher, honestly.** The surviving mutants were categorized rather
 than chased. Three classes dominate and are not worth killing:

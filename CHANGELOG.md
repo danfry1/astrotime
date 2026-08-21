@@ -15,7 +15,7 @@ Assurance evidence, no behavior change to documented APIs.
   release gate) fails if a referenced test disappears or a requirement has no
   verifying test.
 - **Mutation testing** with a published score and survivor analysis
-  (`ASSURANCE-ROADMAP.md`): 86.48% overall, `sha1` 95.96%, `parse` 93.18%.
+  (`ASSURANCE-ROADMAP.md`): 86.60% overall, `sha1` 95.96%, `parse` 93.18%.
 - New `ASSURANCE-ROADMAP.md` states the certification position plainly: this
   library targets certifiable-grade *evidence* for ground tooling; safety
   classification attaches to adopting systems and their processes, and
