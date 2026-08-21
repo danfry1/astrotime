@@ -41,7 +41,7 @@
     "knip": "knip",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check:package": "bun run build && bun run scripts/check-package.ts",
-    "check:release": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package && bun run test:dist && bun run check:traceability && bun run conformance && bun run evidence",
+    "check:release": "bun run check:deps && bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package && bun run test:dist && bun run check:traceability && bun run conformance && bun run evidence",
     "prepare": "test -n \"$CI\" || lefthook install",
     "prepublishOnly": "bun run check:release",
     "bench": "vitest bench --run",
@@ -49,7 +49,8 @@
     "check:traceability": "node scripts/check-traceability.mjs",
     "test:mutation": "stryker run",
     "test:dist": "vitest run --config vitest.dist.config.ts",
-    "evidence": "node scripts/evidence.mjs"
+    "evidence": "node scripts/evidence.mjs",
+    "check:deps": "syncpack lint"
   },
   "keywords": [
     "time",
@@ -89,7 +90,8 @@
     "oxfmt": "0.58.0",
     "oxlint": "1.73.0",
     "oxlint-tsgolint": "7.0.2001",
-    "tsdown": "0.22.4",
+    "syncpack": "15.3.3",
+    "tsdown": "0.22.14",
     "typescript": "7.0.2",
     "vitest": "4.1.10"
   }

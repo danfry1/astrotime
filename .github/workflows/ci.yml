@@ -32,6 +32,9 @@ jobs:
       - name: Audit dependencies
         run: bun audit --audit-level=high
 
+      - name: Dependency pinning (syncpack)
+        run: bun run check:deps
+
       - name: Format
         run: bun run format:check
 

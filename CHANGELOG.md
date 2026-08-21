@@ -10,6 +10,11 @@
   start of the view window, say) resolves to picoseconds and round-trips
   exactly. This lets sub-microsecond timestamps survive a journey through
   plot scales and other `number`-only APIs without changing their types.
+- Tooling: `tsdown` 0.22.14 (0.22.4 declared a TypeScript peer range of
+  `^5 || ^6`, which the TypeScript 7 upgrade violated — `bun install` tolerates
+  peer mismatches, so only npm's stricter SBOM step caught it). Dependency
+  pinning is now enforced by `syncpack lint` in CI and the release gate, so a
+  range specifier fails the build rather than reaching a release.
 
 ## 0.7.0 - 2026-08-21
 

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/syncpack@15/dist/schema.json",
+  "versionGroups": [
+    {
+      "label": "Every dependency is pinned to an exact version: ranges let an unreviewed release into the tree, and the lockfile is the only thing that should decide versions.",
+      "dependencies": ["**"],
+      "packages": ["**"],
+      "preferVersion": "highestSemver"
+    }
+  ],
+  "semverGroups": [
+    {
+      "label": "Exact versions only (no ^ or ~).",
+      "range": "",
+      "dependencies": ["**"],
+      "dependencyTypes": ["prod", "dev", "peer", "resolutions", "overrides"],
+      "packages": ["**"]
+    }
+  ]
+}
