@@ -20,6 +20,9 @@ qualified implementations.
 | Cross-engine bit-identity (deterministic sine; V8 vs JSC digest over 110k outputs) | `scripts/conformance.mjs`, CI `conformance` job |
 | Requirements-to-tests traceability, enforced in CI | `REQUIREMENTS.md`, `scripts/check-traceability.mjs` |
 | Mutation testing, with survivor analysis | `stryker.config.json`, scores below |
+| Large-scale differential sweep vs astropy (100 000 random instants, monthly + on demand) | `scripts/differential.py`, `.github/workflows/differential.yml` |
+| Suite runs against the built artifact, not only source | `vitest.dist.config.ts`, CI `Suite against the built artifact` |
+| Suite runs under five exotic time zones (no local-time dependency) | CI `Suite under exotic time zones` |
 | Supply chain: zero deps, SLSA provenance, SBOM, signed tags, staged 2FA publish | `SECURITY.md`, release workflow |
 | Leap-data freshness monitor (monthly vs IANA) + `#h` integrity verification | `.github/workflows/leap-seconds.yml`, parser |
 | Five external adversarial review rounds, all findings closed | CHANGELOG 0.2.0–0.6.0 |

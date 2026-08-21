@@ -50,6 +50,13 @@ jobs:
       - name: Requirements traceability
         run: bun run check:traceability
 
+      - name: Suite under exotic time zones (no local-time dependency)
+        run: |
+          for tz in Asia/Kathmandu Pacific/Chatham America/St_Johns Pacific/Kiritimati Etc/GMT+12; do
+            echo "== $tz"
+            TZ=$tz bun run test
+          done
+
       - name: Build
         run: bun run build
 
