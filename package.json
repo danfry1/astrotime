@@ -1,6 +1,6 @@
 {
   "name": "astrotime",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Zero-dependency spacecraft & astronomy time for TypeScript: nanosecond instants, leap-second-aware UTC, TAI/TT/GPS/TDB, Julian dates, strict ISO-8601 / day-of-year / duration parse & format",
   "type": "module",
   "sideEffects": false,
@@ -41,10 +41,13 @@
     "knip": "knip",
     "typecheck": "tsc -p tsconfig.typecheck.json --noEmit",
     "check:package": "bun run build && bun run scripts/check-package.ts",
-    "check:release": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package",
+    "check:release": "bun run format:check && bun run lint && bun run knip && bun run typecheck && bun run test:coverage && bun run check:package && bun run check:traceability && bun run conformance",
     "prepare": "test -n \"$CI\" || lefthook install",
     "prepublishOnly": "bun run check:release",
-    "bench": "vitest bench --run"
+    "bench": "vitest bench --run",
+    "conformance": "node scripts/conformance.mjs",
+    "check:traceability": "node scripts/check-traceability.mjs",
+    "test:mutation": "stryker run"
   },
   "keywords": [
     "time",
@@ -73,6 +76,8 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/node": "22.20.1",
     "@vitest/coverage-v8": "4.1.10",
     "fast-check": "4.9.0",

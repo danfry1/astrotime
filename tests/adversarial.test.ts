@@ -403,3 +403,43 @@ describe('input hardening', () => {
     }
   })
 })
+
+describe('mutation-testing survivors (leap-table internals)', () => {
+  it('freezeLeapSecondTable copies when any layer is mutable, and reuses fully frozen tables', () => {
+    const entries = IERS_LEAP_SECONDS.entries.map((e) => ({ ...e }))
+    // Outer object frozen but entries mutable: must return a distinct, deeply frozen copy.
+    const outerOnly = Object.freeze({ entries, expires: null })
+    const copied = unwrap(validateLeapSecondTable(outerOnly))
+    expect(copied).not.toBe(outerOnly)
+    expect(Object.isFrozen(copied.entries)).toBe(true)
+    expect(Object.isFrozen(copied.entries[0])).toBe(true)
+    // Entries array frozen but one element mutable: still copies.
+    const mutableElement = IERS_LEAP_SECONDS.entries.map((e, i) => (i === 5 ? { ...e } : e))
+    const elementMutable = Object.freeze({ entries: Object.freeze(mutableElement), expires: null })
+    const copied2 = unwrap(validateLeapSecondTable(elementMutable))
+    expect(copied2).not.toBe(elementMutable)
+    // Fully frozen input is returned as-is (identity preserved for caching).
+    const full = unwrap(validateLeapSecondTable({ entries, expires: null }))
+    expect(unwrap(validateLeapSecondTable(full))).toBe(full)
+  })
+
+  it('deltaAtUnixSeconds boundary is inclusive at each entry start', () => {
+    // Exactly at an entry's unixSeconds the new offset applies ('<=', not '<').
+    expect(deltaAtUnixSeconds(1_136_073_600)).toBe(33)
+    expect(deltaAtUnixSeconds(1_136_073_599)).toBe(32)
+  })
+
+  it('IERS expiry month matching is case-insensitive and prefix-based', () => {
+    const rows = IERS_LEAP_SECONDS.entries
+      .map((e) => {
+        const date = new Date(e.unixSeconds * 1000)
+        const mjd = e.unixSeconds / 86_400 + 40_587
+        return `    ${String(mjd)}.0    ${String(date.getUTCDate())}  ${String(date.getUTCMonth() + 1)} ${String(date.getUTCFullYear())}       ${String(e.deltaAt)}`
+      })
+      .join('\n')
+    const table = unwrap(parseLeapSecondsList(`#  File expires on 28 JUNE 2027\n${rows}\n`))
+    expect(table.expires).toBe(1_814_140_800)
+    const short = unwrap(parseLeapSecondsList(`#  File expires on 28 Jun 2027\n${rows}\n`))
+    expect(short.expires).toBe(1_814_140_800)
+  })
+})

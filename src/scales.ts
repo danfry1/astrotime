@@ -18,7 +18,7 @@ import {
   type UtcOptions,
 } from './instant.js'
 import { IERS_LEAP_SECONDS, leapEntryIndexForUnix, PRE_1972_DELTA_AT } from './leap-seconds.js'
-import { assertInteger, floorDiv, fromNanos, toNanos } from './numeric.js'
+import { assertInteger, deterministicSin, floorDiv, fromNanos, toNanos } from './numeric.js'
 import { err, ok, type Result } from './result.js'
 
 /**
@@ -85,7 +85,12 @@ function tdbMinusTt(daysSinceJ2000Tt: number): number {
   const centuries = daysSinceJ2000Tt / 36_525
   const g = 6.2401 + 628.3076 * centuries
   const jupiter = 4.297 + 575.3385 * centuries
-  return 0.001_657 * Math.sin(g) + 0.000_022 * Math.sin(jupiter) + 0.000_014 * Math.sin(2 * g)
+  // deterministicSin keeps TDB bit-identical across JS engines (Math.sin is not specified exactly).
+  return (
+    0.001_657 * deterministicSin(g) +
+    0.000_022 * deterministicSin(jupiter) +
+    0.000_014 * deterministicSin(2 * g)
+  )
 }
 
 const tdbOffsetNanos = (ttNanos: bigint): bigint =>

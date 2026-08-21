@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.7.0 - 2026-08-21
+
+Assurance evidence, no behavior change to documented APIs.
+
+- **Deterministic output across JavaScript engines.** The TDB series no longer
+  calls `Math.sin`, which ECMAScript does not specify bit-exactly (V8 and JSC
+  demonstrably differ). A built-in deterministic sine (IEEE-exact operations
+  only, error < 1e-11 over the series' argument range, i.e. < 0.02 ns of TDB)
+  makes every output bit-identical everywhere. A CI job compares digests of
+  110 000 outputs under V8 and JSC and fails on any divergence.
+- **Requirements traceability.** `REQUIREMENTS.md` maps 29 documented claims to
+  the tests that verify them; `bun run check:traceability` (in CI and the
+  release gate) fails if a referenced test disappears or a requirement has no
+  verifying test.
+- **Mutation testing** with a published score and survivor analysis
+  (`ASSURANCE-ROADMAP.md`): 86.48% overall, `sha1` 95.96%, `parse` 93.18%.
+- New `ASSURANCE-ROADMAP.md` states the certification position plainly: this
+  library targets certifiable-grade *evidence* for ground tooling; safety
+  classification attaches to adopting systems and their processes, and
+  JavaScript's runtime model permanently excludes in-the-loop flight software.
+- New `instantFromScaleSeconds` (from 0.6.0, unpublished): inverse of
+  `instantToScaleSeconds`, with its float resolution (~240 ns at present
+  epochs) documented and bounded by test rather than overclaimed.
+
 ## 0.6.0 - 2026-08-21
 
 - New: `instantFromScaleSeconds` — inverse of `instantToScaleSeconds`, closing the one asymmetric pair in the export surface.

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-js/master/packages/core/schema/stryker-schema.json",
+  "testRunner": "vitest",
+  "mutate": [
+    "src/**/*.ts",
+    "!src/index.ts",
+    "!src/types.ts",
+    "!src/assert.ts"
+  ],
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "reporters": [
+    "clear-text",
+    "json"
+  ],
+  "thresholds": {
+    "high": 95,
+    "low": 90,
+    "break": null
+  },
+  "tempDirName": ".stryker-tmp",
+  "concurrency": 8
+}

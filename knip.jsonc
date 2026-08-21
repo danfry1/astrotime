@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": ["tests/**/*.test.ts", "benchmarks/**/*.bench.ts", "scripts/**/*.ts"],
+  "entry": ["tests/**/*.test.ts", "benchmarks/**/*.bench.ts", "scripts/**/*.ts", "scripts/**/*.mjs"],
   "project": ["src/**/*.ts"],
   "ignoreDependencies": ["npm", "@arethetypeswrong/cli"],
   // scripts/check-package.ts executes the packed smoke file via bun; not a package binary.

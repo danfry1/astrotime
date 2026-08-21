@@ -94,7 +94,7 @@
     },
     {
       "files": [
-        "scripts/**/*.ts"
+        "scripts/**"
       ],
       "rules": {
         "no-console": "off"
