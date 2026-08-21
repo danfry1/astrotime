@@ -48,7 +48,8 @@
     "conformance": "node scripts/conformance.mjs",
     "check:traceability": "node scripts/check-traceability.mjs",
     "test:mutation": "stryker run",
-    "test:dist": "vitest run --config vitest.dist.config.ts"
+    "test:dist": "vitest run --config vitest.dist.config.ts",
+    "evidence": "node scripts/evidence.mjs"
   },
   "keywords": [
     "time",

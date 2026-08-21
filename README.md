@@ -2,6 +2,9 @@
 
 [![CI](https://github.com/danfry1/astrotime/actions/workflows/ci.yml/badge.svg)](https://github.com/danfry1/astrotime/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/astrotime.svg)](https://www.npmjs.com/package/astrotime)
+[![dependencies: 0](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
+[![provenance](https://img.shields.io/badge/npm-SLSA%20provenance-blue.svg)](https://www.npmjs.com/package/astrotime#provenance)
+[![verified against astropy + CSPICE](https://img.shields.io/badge/verified-astropy%20%2B%20CSPICE-8a2be2.svg)](#why-you-can-trust-the-numbers)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Zero-dependency spacecraft & astronomy time for TypeScript.
@@ -50,6 +53,46 @@ around and reach for `moment` or `luxon` for formatting, which means:
 Time zones and locale formatting are deliberately left to `Intl` (see [Interop](#interop)).
 The model (uniform-scale epoch + integer nanoseconds + explicit scales) is the same one used by
 astropy, SOFA/ERFA, Rust's hifitime and Orekit's `AbsoluteDate`.
+
+## Why you can trust the numbers
+
+Time libraries are easy to write and hard to get right, so every claim here
+is backed by something you can re-run:
+
+| Claim | How it is checked |
+|---|---|
+| Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
+| Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
+| Output is identical everywhere | A 110 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
+| The documentation is true | 29 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
+| The tests would notice a bug | Mutation testing (86.6%) with a published [survivor analysis](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
+| The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an [evidence bundle](https://github.com/danfry1/astrotime/releases) attached to every release |
+| Leap-second data stays current | A monthly job compares the bundled table with IANA and fails on drift; `#h` integrity records are verified when parsing |
+
+The library is scoped for **ground tooling** — displays, planning, analysis.
+It is not certified for flight, navigation or command paths; see
+[`ASSURANCE-ROADMAP.md`](ASSURANCE-ROADMAP.md) for exactly what that means.
+
+## Choosing a time library
+
+Most projects should **not** use astrotime. Use it when leap seconds or
+non-UTC time scales actually matter to you:
+
+| | astrotime | Temporal | Luxon / date-fns | Moment |
+|---|---|---|---|---|
+| Sub-millisecond precision | ✅ nanosecond | ✅ nanosecond | ❌ millisecond | ❌ millisecond |
+| Leap seconds (`23:59:60`) | ✅ validated | ❌ ignored by design | ❌ | ❌ |
+| TAI / TT / GPS / TDB scales | ✅ | ❌ | ❌ | ❌ |
+| Julian dates, day-of-year, SPICE ET | ✅ | ❌ | partial (ordinal only) | partial |
+| Time zones & locale formatting | ❌ use `Intl` | ✅ | ✅ | ✅ |
+| Calendar arithmetic (add a month) | ❌ out of scope | ✅ | ✅ | ✅ |
+| Available today without a polyfill | ✅ | partial | ✅ | ✅ (maintenance mode) |
+
+**Use Temporal or Luxon** if you want zones, locales and calendar maths and
+your timestamps are wall-clock civil time. **Use astrotime** — possibly
+alongside them — if a second matters across a leap boundary, if you need
+TAI/TT/GPS/TDB, or if your telemetry is finer than a millisecond. They
+compose: `Temporal.Instant.fromEpochNanoseconds(instantToUnixNanos(i))`.
 
 ## Which scale do I want?
 
@@ -313,7 +356,10 @@ CI on Node and Bun.
 bun install
 bun run test            # vitest: astropy golden + drift vectors, fast-check properties
 bun run bench           # vitest benchmarks
-bun run check:release   # format, lint, knip, typecheck, coverage, packed-package smoke test
+bun run check:release   # format, lint, knip, typecheck, coverage, dist suite, traceability, conformance
+bun run evidence        # regenerate the release evidence bundle
+bun run test:mutation   # Stryker mutation testing
+./scripts/conformance-hermes.sh   # digest under the React Native engine
 pip install astropy==6.0.1 spiceypy==6.0.0   # regenerate reference fixtures (see CONTRIBUTING.md)
 ```
 

@@ -58,6 +58,15 @@ jobs:
           npm pack --ignore-scripts --pack-destination /tmp
           bun run attw /tmp/astrotime-*.tgz --ignore-rules no-resolution cjs-resolves-to-esm
 
+      - name: Generate evidence bundle
+        run: bun run evidence
+
+      - name: Upload evidence bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: evidence
+          path: evidence/
+
       - name: Generate SBOM (CycloneDX)
         run: npm sbom --sbom-format cyclonedx > astrotime-sbom.cdx.json
 
@@ -95,8 +104,13 @@ jobs:
         with:
           name: sbom
 
+      - name: Download evidence bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: evidence
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$TAG_NAME" --generate-notes astrotime-sbom.cdx.json
+        run: gh release create "$TAG_NAME" --generate-notes astrotime-sbom.cdx.json evidence.json EVIDENCE.md
