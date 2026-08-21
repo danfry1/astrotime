@@ -15,6 +15,7 @@ import {
   instantFromTaiNanos,
   instantFromOffsetMillis,
   instantFromOffsetSeconds,
+  instantFromJulianDateParts,
   instantFromUnixMillis,
   instantFromUnixNanos,
   instantFromUtc,
@@ -25,6 +26,7 @@ import {
   instantToModifiedJulianDate,
   instantToOffsetMillis,
   instantToOffsetSeconds,
+  instantToScaleSeconds,
   instantToUnixMillis,
   instantToTaiNanos,
   instantToUnixNanos,
@@ -156,6 +158,26 @@ describe('leap-table integrity', () => {
     const bomb = '2272060800 10\n'.repeat(10_001)
     expect(expectErr(parseLeapSecondsList(bomb)).reason).toBe('list exceeds 10000 lines')
   })
+
+  it('rejects contradictory leap-table metadata', () => {
+    expect(
+      expectErr(
+        validateLeapSecondTable({
+          entries: IERS_LEAP_SECONDS.entries,
+          expires: IERS_LEAP_SECONDS.entries.at(-1)?.unixSeconds ?? 0,
+        }),
+      ).reason,
+    ).toBe('expires must be later than the final leap-second entry')
+    expect(
+      expectErr(
+        validateLeapSecondTable({
+          entries: IERS_LEAP_SECONDS.entries,
+          expires: 1_800_000_000,
+          updated: 1_800_000_001,
+        }),
+      ).reason,
+    ).toBe('updated must not be later than expires')
+  })
 })
 
 describe('stale-table policy', () => {
@@ -228,6 +250,12 @@ describe('negative leap second across every API', () => {
     expect(mjdMidnight).toBe(62_502)
     const parts = instantToJulianDateParts(lastSecond, 'utc', opts)
     expect(parts.jd2 * 86_399).toBeCloseTo(86_398, 6)
+
+    const finalNanosecond = instantFromTaiNanos(instantToTaiNanos(midnight) - 1n)
+    const finalParts = instantToJulianDateParts(finalNanosecond, 'utc', opts)
+    expect(
+      instantToTaiNanos(instantFromJulianDateParts(finalParts.jd1, finalParts.jd2, 'utc', opts)),
+    ).toBe(instantToTaiNanos(finalNanosecond))
   })
 
   it('truncation lands on real boundaries around the deleted second', () => {
@@ -306,6 +334,25 @@ describe('review round 4 regressions', () => {
     )
     const malformed = good.replace('a9bad145', 'zzzz')
     expect(expectErr(parseLeapSecondsList(malformed)).reason).toBe('malformed #h integrity record')
+  })
+
+  it('rejects ambiguous duplicate metadata and trailing row garbage', () => {
+    const body = IERS_LEAP_SECONDS.entries
+      .map((entry) => `${entry.unixSeconds + 2_208_988_800} ${entry.deltaAt}`)
+      .join('\n')
+    expect(expectErr(parseLeapSecondsList(`#@ 4023129600\n#@ 4023129600\n${body}`)).reason).toBe(
+      'duplicate #@ expiry',
+    )
+    expect(expectErr(parseLeapSecondsList(`${body}\n#h 1 2 3 4 5\n#h 1 2 3 4 5`)).reason).toBe(
+      'duplicate #h integrity record',
+    )
+    expect(
+      expectErr(parseLeapSecondsList(body.replace('2272060800 10', '2272060800 10 garbage')))
+        .reason,
+    ).toContain('unrecognised line')
+    expect(parseLeapSecondsList(body.replace('2272060800 10', '2272060800 10 # comment')).ok).toBe(
+      true,
+    )
   })
 })
 
@@ -393,8 +440,29 @@ describe('input hardening', () => {
 
   it('rejects values outside representable ranges instead of corrupting them', () => {
     expect(() => instantToDate(instantFromTaiNanos(10n ** 22n))).toThrow(RangeError)
+    expect(() => instantToUtc(instantFromTaiNanos(10n ** 40n))).toThrow(RangeError)
+    expect(() => instantToJulianDateParts(instantFromTaiNanos(10n ** 40n), 'tai')).toThrow(
+      RangeError,
+    )
+    expect(() => instantToScaleSeconds(instantFromTaiNanos(10n ** 1000n), 'tai')).toThrow(
+      RangeError,
+    )
     const bad = instantFromUtc({ year: Number.NaN, month: 1, day: 1 })
     expect(expectErr(bad).reason).toBe('must be an integer')
+    expect(JSON.stringify(expectErr(bad))).toContain('"value":"NaN"')
+    expect(() => deltaAtUnixSeconds(Number.NaN)).toThrow(RangeError)
+    expect(() => deltaAtUnixSeconds(Number.POSITIVE_INFINITY)).toThrow(RangeError)
+  })
+
+  it('rejects misspelled UTC safety policies instead of silently failing open', () => {
+    const invalid = {
+      before1972: 'rejects',
+      tableValidity: 'allow',
+      leapGap: 'forward',
+    } as never
+    expect(() => instantToUtc(parseInstantOrThrow('2026-01-01T00:00:00Z'), invalid)).toThrow(
+      RangeError,
+    )
   })
 
   it('survives pathological parser input without throwing', () => {

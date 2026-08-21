@@ -21,28 +21,43 @@ export function daysInMonth(year: number, month: number): number {
 
 export const daysInYear = (year: number): 365 | 366 => (isLeapYear(year) ? 366 : 365)
 
-/** Days since 1970-01-01 for a civil date. Valid for all integer years. */
-const assertIntegers = (values: readonly number[], what: string): void => {
+const assertSafeIntegers = (values: readonly number[], what: string): void => {
   for (const value of values) {
-    if (!Number.isInteger(value))
-      throw new RangeError(`${what} arguments must be integers, got ${String(value)}`)
+    if (!Number.isSafeInteger(value))
+      throw new RangeError(`${what} arguments must be safe integers, got ${String(value)}`)
   }
 }
 
+/** Days since 1970-01-01 for a real civil date, while the result fits a safe integer. */
 export function daysFromCivil(year: number, month: number, day: number): number {
-  assertIntegers([year, month, day], 'daysFromCivil')
+  assertSafeIntegers([year, month, day], 'daysFromCivil')
+  if (month < 1 || month > 12)
+    throw new RangeError(`daysFromCivil month must be between 1 and 12, got ${String(month)}`)
+  const lastDay = daysInMonth(year, month)
+  if (day < 1 || day > lastDay) {
+    throw new RangeError(
+      `daysFromCivil day must be between 1 and ${String(lastDay)}, got ${String(day)}`,
+    )
+  }
   const y = month <= 2 ? year - 1 : year
   const era = Math.floor(y / YEARS_PER_ERA)
   const yoe = y - era * YEARS_PER_ERA
   const mp = (month + 9) % 12
   const doy = Math.floor((153 * mp + 2) / 5) + day - 1
   const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy
-  return era * DAYS_PER_ERA + doe - DAYS_TO_UNIX_EPOCH
+  const days = era * DAYS_PER_ERA + doe - DAYS_TO_UNIX_EPOCH
+  if (!Number.isSafeInteger(days)) {
+    throw new RangeError(`daysFromCivil result is outside the safe-integer range: ${String(days)}`)
+  }
+  return days
 }
 
 /** Civil date for a count of days since 1970-01-01. */
 export function civilFromDays(days: number): CivilDate {
-  assertIntegers([days], 'civilFromDays')
+  assertSafeIntegers([days], 'civilFromDays')
+  if (days > Number.MAX_SAFE_INTEGER - DAYS_TO_UNIX_EPOCH) {
+    throw new RangeError(`civilFromDays input is outside the supported range: ${String(days)}`)
+  }
   const z = days + DAYS_TO_UNIX_EPOCH
   const era = Math.floor(z / DAYS_PER_ERA)
   const doe = z - era * DAYS_PER_ERA
@@ -62,5 +77,13 @@ export const dayOfYear = (year: number, month: number, day: number): number =>
   daysFromCivil(year, month, day) - daysFromCivil(year, 1, 1) + 1
 
 /** Civil date for a 1-based ordinal day of the given year. */
-export const civilFromOrdinal = (year: number, ordinal: number): CivilDate =>
-  civilFromDays(daysFromCivil(year, 1, 1) + ordinal - 1)
+export function civilFromOrdinal(year: number, ordinal: number): CivilDate {
+  assertSafeIntegers([year, ordinal], 'civilFromOrdinal')
+  const lastOrdinal = daysInYear(year)
+  if (ordinal < 1 || ordinal > lastOrdinal) {
+    throw new RangeError(
+      `civilFromOrdinal ordinal must be between 1 and ${String(lastOrdinal)}, got ${String(ordinal)}`,
+    )
+  }
+  return civilFromDays(daysFromCivil(year, 1, 1) + ordinal - 1)
+}

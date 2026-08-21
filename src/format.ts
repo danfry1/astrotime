@@ -153,17 +153,26 @@ function fractionPattern(nanosecond: number, precision: FractionPrecision): stri
   }
 }
 
-const designatorPattern = (scale: TimeScale, designator: 'auto' | 'none'): string =>
-  designator === 'none' ? '' : scale === 'utc' ? 'Z' : ' Z'
+const designatorPattern = (scale: TimeScale, designator: 'auto' | 'none'): string => {
+  switch (designator) {
+    case 'none':
+      return ''
+    case 'auto':
+      return scale === 'utc' ? 'Z' : ' Z'
+    default:
+      return assertNever(designator)
+  }
+}
 
 /** ISO 8601 calendar form, `YYYY-MM-DDTHH:mm:ss[.fff]Z` (`… TAI` etc. for other scales). */
 export function formatIso(instant: Instant, options: IsoFormatOptions = {}): string {
   const scale = options.scale ?? 'utc'
   const civil = instantToCivil(instant, scale, options)
   const fraction = fractionPattern(civil.nanosecond, options.precision ?? 'millis')
+  const designator = options.designator ?? 'auto'
   return formatCivil(
     civil,
-    `YYYY-MM-DD[T]HH:mm:ss${fraction}${designatorPattern(scale, options.designator ?? 'auto')}`,
+    `YYYY-MM-DD[T]HH:mm:ss${fraction}${designatorPattern(scale, designator)}`,
     scale,
   )
 }
@@ -174,6 +183,7 @@ export function formatOrdinal(instant: Instant, options: IsoFormatOptions = {}):
   const civil = instantToCivil(instant, scale, options)
   const fraction = fractionPattern(civil.nanosecond, options.precision ?? 'millis')
   const designator = options.designator ?? 'auto'
-  const suffix = designator === 'none' || scale === 'utc' ? '' : ' Z'
+  const resolvedDesignator = designatorPattern(scale, designator)
+  const suffix = designator === 'auto' && scale === 'utc' ? '' : resolvedDesignator
   return formatCivil(civil, `YYYY-DDD[T]HH:mm:ss${fraction}${suffix}`, scale)
 }

@@ -35,6 +35,8 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   the leap second repeats the following second's Unix value. Pre-1972 UTC is
   approximated with ΔAT = 10 and documented as such.
 - Calendar math is proleptic Gregorian, integer-only (Hinnant's algorithms).
+  Public calendar helpers reject impossible dates, invalid ordinals and
+  unsafe-integer domains rather than normalizing them.
 - Julian dates are offered both as a single `number` (≈50 µs precision near
   the present, documented) and as two-part `{ jd1, jd2 }` for full precision.
   UTC Julian dates use the SOFA quasi-JD convention (86 401-second leap days),

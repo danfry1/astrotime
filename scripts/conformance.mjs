@@ -12,10 +12,12 @@ import {
   formatDuration,
   formatIso,
   formatOrdinal,
+  instantFromJulianDateParts,
   instantFromTaiNanos,
   instantToGpsWeek,
   instantToJ2000Nanos,
   instantToJulianDateParts,
+  instantToTaiNanos,
   instantToUnixNanos,
   instantToUtc,
   TIME_SCALES,
@@ -48,8 +50,9 @@ for (let i = 0; i < 5000; i += 1) {
     absorb(formatIso(instant, { scale, precision: 'nanos' }))
     const { jd1, jd2 } = instantToJulianDateParts(instant, scale)
     absorb(`${jd1}|${jd2}`)
+    absorb(String(instantToTaiNanos(instantFromJulianDateParts(jd1, jd2, scale))))
     absorb(String(instantToJ2000Nanos(instant, scale)))
-    count += 3
+    count += 4
   }
   absorb(formatOrdinal(instant, { precision: 'nanos' }))
   const civil = instantToUtc(instant)
@@ -65,4 +68,4 @@ for (let i = 0; i < 5000; i += 1) {
   count += 7
 }
 
-console.log(`astrotime-conformance-v1 ${count} ${hash.toString(16).padStart(16, '0')}`)
+console.log(`astrotime-conformance-v2 ${count} ${hash.toString(16).padStart(16, '0')}`)

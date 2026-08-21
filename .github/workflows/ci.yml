@@ -63,6 +63,8 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Suite against the built artifact
+        run: bun run test:dist
 
       - name: Check package exports
         run: |

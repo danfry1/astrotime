@@ -66,13 +66,15 @@ Object.freeze(IERS_LEAP_SECONDS)
 export const PRE_1972_DELTA_AT = 10
 
 /**
- * TAI − UTC in effect at the given Unix time (seconds, ignoring leap seconds).
+ * TAI − UTC in effect at the given finite Unix time (seconds, ignoring leap seconds).
  * At a leap-second boundary the new offset applies from the midnight itself.
  */
 export function deltaAtUnixSeconds(
   unixSeconds: number,
   options: { readonly leapSeconds?: LeapSecondTable | undefined } = {},
 ): number {
+  if (!Number.isFinite(unixSeconds))
+    throw new RangeError(`Unix seconds must be finite, got ${String(unixSeconds)}`)
   const table = options.leapSeconds ?? IERS_LEAP_SECONDS
   assertValidLeapSecondTable(table)
   const idx = leapEntryIndexForUnix(unixSeconds, table)
@@ -152,7 +154,21 @@ function metadataProblem(table: LeapSecondTable): string | null {
   ) {
     return 'updated must be a safe integer, null, or absent'
   }
-  return tableProblem(table.entries)
+  const problem = tableProblem(table.entries)
+  if (problem !== null) return problem
+  const last = table.entries.at(-1)
+  if (table.expires !== null && last !== undefined && table.expires <= last.unixSeconds) {
+    return 'expires must be later than the final leap-second entry'
+  }
+  if (
+    table.updated !== undefined &&
+    table.updated !== null &&
+    table.expires !== null &&
+    table.updated > table.expires
+  ) {
+    return 'updated must not be later than expires'
+  }
+  return null
 }
 
 const isDeeplyFrozen = (table: LeapSecondTable): boolean =>
@@ -218,6 +234,9 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
   let iersExpires: number | null = null
   let updated: number | null = null
   let integrityHash: { readonly value: string; readonly line: number } | null = null
+  let hasIanaExpiry = false
+  let hasIersExpiry = false
+  let hasUpdated = false
   let updatedDigits = ''
   let expiresDigits = ''
   let pairDigits = ''
@@ -238,9 +257,13 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       if (!Number.isSafeInteger(ntp))
         return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
       if (line.startsWith('#@')) {
+        if (hasIanaExpiry) return err(new LeapSecondTableError(lineNo, 'duplicate #@ expiry'))
+        hasIanaExpiry = true
         expires = ntp - NTP_TO_UNIX
         expiresDigits = line.slice(2).trim()
       } else {
+        if (hasUpdated) return err(new LeapSecondTableError(lineNo, 'duplicate #$ update stamp'))
+        hasUpdated = true
         updated = ntp - NTP_TO_UNIX
         updatedDigits = line.slice(2).trim()
       }
@@ -248,6 +271,8 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     }
     const iersExpiry = /^#\s*File expires on\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i.exec(line)
     if (iersExpiry !== null) {
+      if (hasIersExpiry) return err(new LeapSecondTableError(lineNo, 'duplicate IERS expiry'))
+      hasIersExpiry = true
       const [, day, monthName, year] = iersExpiry
       const month = MONTHS.indexOf((monthName ?? '').slice(0, 3).toLowerCase())
       if (month === -1) return err(new LeapSecondTableError(lineNo, 'unknown month in expiry'))
@@ -258,6 +283,8 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       continue
     }
     if (line.startsWith('#h')) {
+      if (integrityHash !== null)
+        return err(new LeapSecondTableError(lineNo, 'duplicate #h integrity record'))
       const words = line.slice(2).trim().split(/\s+/)
       if (words.length !== 5 || words.some((w) => !/^[0-9a-fA-F]{1,8}$/.test(w))) {
         return err(new LeapSecondTableError(lineNo, 'malformed #h integrity record'))
@@ -269,14 +296,18 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       continue
     }
     if (line.startsWith('#')) continue
-    const fields = line.split(/\s+/)
-    if (fields.length >= 5 && fields.every((f, idx) => idx > 4 || /^\d+(?:\.\d+)?$/.test(f))) {
+    const iersRow = /^(\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
+    if (iersRow !== null) {
       // IERS: MJD DAY MONTH YEAR TAI-UTC — the calendar columns are
       // redundant with the MJD; cross-check them to catch corrupted rows.
-      const mjd = Number(fields[0])
-      const delta = Number(fields[4])
+      const mjd = Number(iersRow[1])
+      const delta = Number(iersRow[5])
       const unixSeconds = (mjd - MJD_TO_UNIX_DAYS) * SECONDS_PER_DAY
-      const calendar = strictUtcDateSeconds(Number(fields[3]), Number(fields[2]), Number(fields[1]))
+      const calendar = strictUtcDateSeconds(
+        Number(iersRow[4]),
+        Number(iersRow[3]),
+        Number(iersRow[2]),
+      )
       if (calendar === null) {
         return err(new LeapSecondTableError(lineNo, 'day/month/year columns are not a real date'))
       }
@@ -288,9 +319,10 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
       entries.push({ unixSeconds, deltaAt: delta })
       continue
     }
-    if (fields.length >= 2 && /^\d+$/.test(fields[0] ?? '') && /^\d+$/.test(fields[1] ?? '')) {
-      entries.push({ unixSeconds: Number(fields[0]) - NTP_TO_UNIX, deltaAt: Number(fields[1]) })
-      pairDigits += `${fields[0] ?? ''}${fields[1] ?? ''}`
+    const ianaRow = /^(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
+    if (ianaRow !== null) {
+      entries.push({ unixSeconds: Number(ianaRow[1]) - NTP_TO_UNIX, deltaAt: Number(ianaRow[2]) })
+      pairDigits += `${ianaRow[1]}${ianaRow[2]}`
       continue
     }
     return err(new LeapSecondTableError(lineNo, `unrecognised line ${JSON.stringify(raw)}`))

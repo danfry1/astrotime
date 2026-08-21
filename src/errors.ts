@@ -55,7 +55,12 @@ export class InvalidTimeError extends AstrotimeBaseError {
   }
 
   toJSON(): Record<string, unknown> {
-    return { ...this.baseJson(), field: this.field, value: this.value, reason: this.reason }
+    return {
+      ...this.baseJson(),
+      field: this.field,
+      value: Number.isFinite(this.value) ? this.value : String(this.value),
+      reason: this.reason,
+    }
   }
 }
 

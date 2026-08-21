@@ -22,10 +22,14 @@ export function toNanos(value: number, unitNanos: bigint, what: string): bigint 
   return BigInt(whole) * unitNanos + BigInt(roundHalfAway(fraction * Number(unitNanos)))
 }
 
-/** bigint nanoseconds → float `unit`s without cancellation error (whole and fraction share a sign). */
+/** bigint nanoseconds → finite float `unit`s without cancellation error; throws on numeric overflow. */
 export function fromNanos(nanos: bigint, unitNanos: bigint): number {
   const whole = nanos / unitNanos
-  return Number(whole) + Number(nanos - whole * unitNanos) / Number(unitNanos)
+  const value = Number(whole) + Number(nanos - whole * unitNanos) / Number(unitNanos)
+  if (!Number.isFinite(value)) {
+    throw new RangeError('Nanosecond value is outside the finite Number range')
+  }
+  return value
 }
 
 /**
@@ -52,9 +56,11 @@ export function scaleNanosExact(nanos: bigint, factor: number, what: string): bi
   return product < 0n ? q - 1n : q + 1n
 }
 
-export const assertInteger = (value: number, what: string): void => {
+export const assertSafeInteger = (value: number, what: string): void => {
   if (!Number.isInteger(value))
     throw new RangeError(`${what} must be an integer, got ${String(value)}`)
+  if (!Number.isSafeInteger(value))
+    throw new RangeError(`${what} must be a safe integer, got ${String(value)}`)
 }
 
 // ---------------------------------------------------------------------------

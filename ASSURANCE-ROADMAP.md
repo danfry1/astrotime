@@ -17,7 +17,7 @@ qualified implementations.
 | Reference-implementation golden vectors (astropy/ERFA, NAIF CSPICE) | `tests/golden.test.ts`, `tests/drift.test.ts`, `tests/spice.test.ts` |
 | Property-based round-trip invariants over the documented range | `tests/properties.test.ts` |
 | Adversarial suite (mutable/partial/fabricated tables, negative leaps, pathological input) | `tests/adversarial.test.ts` |
-| Cross-engine bit-identity over 110k outputs: V8, JSC and Hermes (the React Native engine, via the Metro-style Babel transform) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, CI `conformance` job + scheduled workflow |
+| Cross-engine bit-identity over 135k outputs: V8, JSC and Hermes (the React Native engine, via the Metro-style Babel transform) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, CI `conformance` job + scheduled workflow |
 | Requirements-to-tests traceability, enforced in CI | `REQUIREMENTS.md`, `scripts/check-traceability.mjs` |
 | Mutation testing, with survivor analysis | `stryker.config.json`, scores below |
 | Large-scale differential sweep vs astropy (100 000 random instants, monthly + on demand) | `scripts/differential.py`, `.github/workflows/differential.yml` |
@@ -25,14 +25,14 @@ qualified implementations.
 | Suite runs under five exotic time zones (no local-time dependency) | CI `Suite under exotic time zones` |
 | Supply chain: zero deps, SLSA provenance, SBOM, signed tags, staged 2FA publish | `SECURITY.md`, release workflow |
 | Leap-data freshness monitor (monthly vs IANA) + `#h` integrity verification | `.github/workflows/leap-seconds.yml`, parser |
-| Five external adversarial review rounds, all findings closed | CHANGELOG 0.2.0–0.6.0 |
+| Per-release evidence manifest (artifact hash, test/requirement counts, reference provenance, engine digests) | `scripts/evidence.mjs`, release workflow |
+| Four external adversarial review rounds, all findings closed | CHANGELOG 0.2.0–0.5.0 |
 
 ## Planned (in order)
 
-1. **Per-release evidence bundle** — signed archive per release: test and
-   coverage reports, mutation score, conformance digest, vector provenance
-   (astropy/CSPICE/kernel versions), reproducible-build hash versus the npm
-   tarball.
+1. **Signed raw evidence archive** — extend the existing per-release manifest
+   with signed test/coverage reports, the mutation report, differential-sweep
+   output, and an independently reproduced npm-tarball hash.
 2. **SpiderMonkey in conformance CI** — Hermes is done (see above); adding
    SpiderMonkey would extend the bit-identity claim to the last major engine
    family.
@@ -48,12 +48,14 @@ qualified implementations.
 
 Measured with Stryker (`bun run test:mutation`), mutating `src/**` except
 `index.ts`/`types.ts` (re-export only) and `assert.ts` (`assertNever` is an
-unreachable-by-design exhaustiveness guard; code that cannot execute cannot
-be covered by a test).
+exhaustiveness helper; the public runtime-invalid-option behavior that reaches
+it is covered directly, while mutating the helper's error wording would not
+exercise time behavior).
 
 | Release | Overall | Weakest module | Strongest |
 |---|---|---|---|
 | 0.7.0 | 86.60% (2148 mutants, Stryker 9.6.1) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
+| Unreleased audit | 84.07% (3045 mutants, Stryker 10.0.0) | `calendar.ts` 71.52%, `leap-seconds.ts` 76.07% | `sha1.ts` 95.95%, `duration.ts` 93.00%, `parse.ts` 92.69% |
 
 **Why not higher, honestly.** The surviving mutants were categorized rather
 than chased. Three classes dominate and are not worth killing:
@@ -72,6 +74,15 @@ Spot-checks confirmed the suite does kill semantically meaningful mutants:
 injecting an off-by-one into the Gregorian era arithmetic in `calendar.ts`
 (`36_524` → `36_525`) fails the suite immediately.
 
-**Tracked work:** `leap-seconds.ts` at 75.11% is the lowest-scoring module
-and also the highest-consequence one. Raising it — with tests that assert
-behavior, not message text — is the next assurance task before 1.0.
+**Static-runner limitation.** Stryker 10's Vitest runner reports some
+top-level/static mutants as survivors even when the ordinary suite kills the
+same edit. In this audit it reported `GPS_MINUS_TAI_NANOS = +19s` as survived;
+applying that edit directly makes two GPS tests fail. Those static mutants are
+kept in the denominator rather than hidden with `ignoreStatic`, so 84.07% is a
+conservative aggregate, but a static survivor must be reproduced directly
+before it is treated as a real test gap. The provenance-stamped JSON report is
+the authoritative per-mutant record.
+
+**Tracked work:** `leap-seconds.ts` at 76.07% remains the highest-consequence
+low-scoring module. Raising it — with tests that assert behavior, not message
+text — is the next assurance task before 1.0.

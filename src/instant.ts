@@ -96,7 +96,7 @@ function civilFromTaiNanos(taiNanos: bigint): CivilDateTime {
   const rem = taiNanos - seconds * NANOS_PER_SECOND
   const floor = rem < 0n ? seconds - 1n : seconds
   const nanos = rem < 0n ? rem + NANOS_PER_SECOND : rem
-  return civilFromUnixSeconds(Number(floor), Number(nanos))
+  return assertSupportedCivilRange(civilFromUnixSeconds(Number(floor), Number(nanos)))
 }
 
 /** Instant from exact TAI nanoseconds since 1970-01-01T00:00:00 TAI. */
@@ -114,6 +114,29 @@ export const UTC_START_INSTANT: Instant = makeInstant(
 )
 
 const resolveTable = (options: UtcOptions): LeapSecondTable => {
+  if (
+    options.before1972 !== undefined &&
+    options.before1972 !== 'approximate' &&
+    options.before1972 !== 'reject'
+  ) {
+    throw new RangeError(
+      `before1972 must be "approximate" or "reject", got ${JSON.stringify(options.before1972)}`,
+    )
+  }
+  if (
+    options.tableValidity !== undefined &&
+    options.tableValidity !== 'allow-stale' &&
+    options.tableValidity !== 'reject'
+  ) {
+    throw new RangeError(
+      `tableValidity must be "allow-stale" or "reject", got ${JSON.stringify(options.tableValidity)}`,
+    )
+  }
+  if (options.leapGap !== undefined && options.leapGap !== 'fold' && options.leapGap !== 'reject') {
+    throw new RangeError(
+      `leapGap must be "fold" or "reject", got ${JSON.stringify(options.leapGap)}`,
+    )
+  }
   const table = options.leapSeconds ?? IERS_LEAP_SECONDS
   assertValidLeapSecondTable(table)
   return table
@@ -232,7 +255,7 @@ export function instantToUnixNanos(instant: Instant, options: UtcOptions = {}): 
   rejectBefore1972(instant, options)
   const table = resolveTable(options)
   const unixNanos = instant.taiNanos - BigInt(deltaAt(instant, options)) * NANOS_PER_SECOND
-  rejectStaleUnix(Number(unixNanos / NANOS_PER_SECOND), table, options)
+  rejectStaleUnix(Number(splitSeconds(unixNanos).seconds), table, options)
   return unixNanos
 }
 
@@ -286,7 +309,7 @@ export const instantFromDate = (date: Date, options?: UtcOptions): Instant => {
 }
 
 /**
- * Nearest `Date` (millisecond precision, truncated toward −∞). A leap second
+ * `Date` at millisecond precision, truncated toward −∞. A leap second
  * renders as the following second. Throws `RangeError` outside the ECMAScript
  * `Date` range (±8.64e15 ms) instead of returning an Invalid Date.
  */
@@ -542,7 +565,17 @@ export function instantToUtc(instant: Instant, options: UtcOptions = {}): CivilD
     second60 = true
     unixSeconds = next.unixSeconds - 1
   }
-  return civilFromUnixSeconds(unixSeconds, nanosecond, second60)
+  return assertSupportedCivilRange(civilFromUnixSeconds(unixSeconds, nanosecond, second60))
+}
+
+/** Internal: rejects civil output that cannot be represented by the public parse/format grammar. */
+export function assertSupportedCivilRange(civil: CivilDateTime): CivilDateTime {
+  if (civil.year < -999_999 || civil.year > 999_999) {
+    throw new RangeError(
+      `Year ${String(civil.year)} is outside the supported civil range (±999999)`,
+    )
+  }
+  return civil
 }
 
 /** Internal: seconds on a uniform calendar (no leap seconds) → civil fields. */
@@ -551,6 +584,14 @@ export function civilFromUnixSeconds(
   nanosecond: number,
   second60 = false,
 ): CivilDateTime {
+  if (!Number.isSafeInteger(unixSeconds)) {
+    throw new RangeError(
+      `Civil conversion requires safe-integer seconds, got ${String(unixSeconds)}`,
+    )
+  }
+  if (!Number.isInteger(nanosecond) || nanosecond < 0 || nanosecond > MAX_NANOS) {
+    throw new RangeError(`Civil conversion received an invalid nanosecond: ${String(nanosecond)}`)
+  }
   const days = Math.floor(unixSeconds / SECONDS_PER_DAY)
   const secondOfDay = unixSeconds - days * SECONDS_PER_DAY
   const { year, month, day } = civilFromDays(days)
@@ -591,9 +632,12 @@ export const isAfter = (a: Instant, b: Instant): boolean => a.taiNanos > b.taiNa
 export const minInstant = (a: Instant, b: Instant): Instant => (a.taiNanos <= b.taiNanos ? a : b)
 /** The later of two instants. */
 export const maxInstant = (a: Instant, b: Instant): Instant => (a.taiNanos >= b.taiNanos ? a : b)
-/** `instant` limited to the inclusive range [`lo`, `hi`]. */
-export const clampInstant = (instant: Instant, lo: Instant, hi: Instant): Instant =>
-  instant.taiNanos < lo.taiNanos ? lo : instant.taiNanos > hi.taiNanos ? hi : instant
+/** `instant` limited to the inclusive range [`lo`, `hi`]. Throws when `lo > hi`. */
+export function clampInstant(instant: Instant, lo: Instant, hi: Instant): Instant {
+  if (lo.taiNanos > hi.taiNanos)
+    throw new RangeError('clampInstant lower bound exceeds upper bound')
+  return instant.taiNanos < lo.taiNanos ? lo : instant.taiNanos > hi.taiNanos ? hi : instant
+}
 
 /**
  * Instants from `start` stepping by `step` (non-zero; negative steps count
@@ -616,8 +660,12 @@ export function* instantRange(
   }
 }
 
-/** Whether the table's declared expiry has passed at `at` (an instant or Unix seconds). */
+/** Whether the validated table's declared expiry has passed at `at` (an instant or finite Unix seconds). */
 export function isLeapSecondTableExpired(table: LeapSecondTable, at: Instant | number): boolean {
+  assertValidLeapSecondTable(table)
+  if (typeof at === 'number' && !Number.isFinite(at)) {
+    throw new RangeError(`Expiry epoch must be finite, got ${String(at)}`)
+  }
   if (table.expires === null) return false
   const unixSeconds =
     typeof at === 'number'

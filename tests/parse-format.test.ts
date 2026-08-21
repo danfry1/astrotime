@@ -75,7 +75,9 @@ describe('parseInstant iso', () => {
       'iso',
       'expected YYYY-MM-DD or YYYY-DDD with optional THH:mm[:ss[.fff]][Z|±HH:mm| TAI]',
     ],
-    ['-0000-01-01', 'iso', 'year -0000 is not allowed'],
+    ['-0000-01-01', 'iso', 'negative-zero years are not allowed'],
+    ['-00000-01-01', 'iso', 'negative-zero years are not allowed'],
+    ['-000000-01-01', 'iso', 'negative-zero years are not allowed'],
     ['2026-08-19T12:00:00+24:00', 'iso', 'invalid UTC offset +24:00'],
     ['2026-08-19T12:00:00+00:60', 'iso', 'invalid UTC offset +00:60'],
     ['2026-08-19T12:00:00+99:99', 'iso', 'invalid UTC offset +99:99'],
@@ -91,6 +93,14 @@ describe('parseInstant iso', () => {
       reason,
       format,
     })
+  })
+
+  it('rejects negative-zero years in token-pattern parsing', () => {
+    for (const text of ['-0000-01-01', '-000000-01-01']) {
+      const parsed = parseInstant(text, { format: 'YYYY-MM-DD' })
+      expect(parsed.ok).toBe(false)
+      if (!parsed.ok) expect(parsed.error.reason).toBe('negative-zero years are not allowed')
+    }
   })
 
   it('reports invalid field values', () => {
@@ -111,8 +121,13 @@ describe('parseInstant iso', () => {
   })
 
   it('applies leap-second rules to the UTC reading after an offset shift', () => {
-    expect(expectErr(parseInstant('2017-01-01T00:59:60+01:00')).message).toBe(
-      'Invalid second 60: a leap second with a non-zero UTC offset is not supported',
+    const leap = parseInstantOrThrow('2017-01-01T00:59:60.123456789+01:00')
+    expect(formatIso(leap, { precision: 'nanos' })).toBe('2016-12-31T23:59:60.123456789Z')
+    expect(instantsEqual(leap, parseInstantOrThrow('2017-01-01T05:44:60.123456789+05:45'))).toBe(
+      true,
+    )
+    expect(expectErr(parseInstant('2017-01-01T00:58:60+01:00')).reason).toBe(
+      'a leap second can only occur at 23:59:60',
     )
     const table: LeapSecondTable = {
       entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1_893_456_000, deltaAt: 36 }],
@@ -124,6 +139,14 @@ describe('parseInstant iso', () => {
     expect(
       formatIso(iso('2030-01-01T00:59:58+01:00', { leapSeconds: table }), { leapSeconds: table }),
     ).toBe('2029-12-31T23:59:58.000Z')
+  })
+
+  it('returns a Result when an offset shifts an extreme year outside the civil range', () => {
+    for (const text of ['-999999-01-01T00:00:00+23:00', '+999999-12-31T23:59:59-23:00']) {
+      const parsed = parseInstant(text)
+      expect(parsed.ok).toBe(false)
+      if (!parsed.ok) expect(parsed.error).toBeInstanceOf(InvalidTimeError)
+    }
   })
 
   it('resolves scales from designators and the scale option', () => {
@@ -278,6 +301,13 @@ describe('formatIso / formatOrdinal', () => {
       '2026-231T12:36:05.973012',
     )
     expect(instantsEqual(iso(formatIso(i, { scale: 'tdb', precision: 'nanos' })), i)).toBe(true)
+  })
+
+  it('rejects invalid runtime formatting and parsing options with RangeError', () => {
+    const instant = parseInstantOrThrow('2026-08-19T00:00:00Z')
+    expect(() => formatIso(instant, { precision: 'bad' as never })).toThrow(RangeError)
+    expect(() => formatIso(instant, { designator: 'bad' as never })).toThrow(RangeError)
+    expect(() => parseInstant('2026-08-19', { scale: 'bad' as never })).toThrow(RangeError)
   })
 
   it('formats instants before 1970 and before 1972', () => {

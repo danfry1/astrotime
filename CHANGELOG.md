@@ -1,5 +1,46 @@
 # Changelog
 
+## 0.12.0 - 2026-08-21
+
+- **Fix**: reject every expanded spelling of ISO negative-zero years
+  (`-0000`, `-00000`, `-000000`) in both ISO and token-pattern parsing.
+  The longer spellings previously normalized silently to year `0000`.
+- **Fix**: ISO leap seconds with non-zero UTC offsets are resolved at their
+  shifted UTC boundary rather than being rejected wholesale. Offset shifts at
+  the extreme supported years now return an `InvalidTimeError` result instead
+  of allowing an internal civil-range exception to escape.
+- **Fix**: UTC two-part Julian-date inversion no longer rounds a fraction at
+  the final nanosecond of a leap day across midnight before normalization.
+  On a positive leap day that lost the identity of `23:59:60.999999999` and
+  returned `23:59:59.999999999`, exactly one second early; the corresponding
+  negative-leap edge could fold forward incorrectly. Integer and fractional
+  JD parts are now normalized separately.
+- **Breaking hardening**: public calendar helpers now reject impossible dates,
+  invalid ordinals and unsafe-integer domains instead of normalizing them;
+  `clampInstant` rejects inverted bounds; GPS week inputs enforce a safe week
+  number and seconds-of-week in `[0, 604800)`.
+- Runtime safety: misspelled UTC policies, time scales, format options and
+  truncation units now throw `RangeError`; extreme instants throw outside the
+  supported civil/GPS-number domains instead of returning corrupt numeric
+  fields; exported time-scale metadata is frozen.
+- Leap-table validation rejects update/expiry metadata that contradicts the
+  table interval; its text parser rejects duplicate metadata and trailing row
+  garbage; numeric leap-table APIs reject non-finite epochs. Non-finite values
+  in structured validation errors serialize as strings instead of JSON `null`.
+- Assurance tooling now uses stable TypeScript 5.9.3 (the experimental
+  TypeScript 7 package removed the compiler API required by Stryker), and
+  current Stryker 10.0.0. Mutation reports carry a digest of all verification
+  inputs so stale results cannot be included in release evidence.
+- Verification: two-part Julian-date round trips are asserted exactly at
+  nanosecond precision on every scale and every known leap boundary; calendar
+  conversion is exhaustively checked across three 400-year Gregorian eras;
+  the 100,000-case astropy differential sweep now also covers TDB and UTC/TT
+  two-part Julian dates. The fresh Stryker 10 run covers 3,045 mutants at an
+  84.07% score, with its static-runner limitation reproduced and documented.
+- Documentation: correct the serialized `Instant` scale (TAI, not UTC), current
+  bundle/benchmark figures, supported security version, and the evidence
+  roadmap's implemented/planned split.
+
 ## 0.11.2 - 2026-08-21
 
 - Docs: corrects a claim about NASA Open MCT. Earlier text said its

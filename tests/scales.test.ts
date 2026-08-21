@@ -4,6 +4,7 @@ import {
   duration,
   formatIso,
   GPS_EPOCH_INSTANT,
+  IERS_LEAP_SECONDS,
   instantFromCivil,
   instantFromGpsSeconds,
   instantFromGpsWeek,
@@ -14,6 +15,7 @@ import {
   instantFromModifiedJulianDate,
   instantFromScaleNanos,
   instantFromScaleSeconds,
+  instantFromTaiNanos,
   instantsEqual,
   instantToTaiNanos,
   instantToCivil,
@@ -29,6 +31,7 @@ import {
   instantToUnixSeconds,
   J2000_INSTANT,
   parseInstantOrThrow,
+  TIME_SCALE_LABELS,
   TIME_SCALES,
   type TimeScale,
   truncateInstant,
@@ -115,6 +118,16 @@ describe('Julian dates', () => {
     expect(() => instantFromJulianDate(Number.NaN, 'tt')).toThrow(
       new RangeError('Julian date parts must be finite numbers'),
     )
+    expect(() => instantFromJulianDateParts(200_000_000_000, 0, 'utc')).toThrow(RangeError)
+  })
+
+  it('normalizes non-canonical two-part Julian date inputs', () => {
+    expect(formatIso(instantFromJulianDateParts(2_440_587.5, -0.25, 'utc'))).toBe(
+      '1969-12-31T18:00:00.000Z',
+    )
+    expect(formatIso(instantFromJulianDateParts(2_440_587.5, 1, 'utc'))).toBe(
+      '1970-01-02T00:00:00.000Z',
+    )
   })
 
   it('UTC uses the SOFA quasi-JD convention on leap-second days (monotonic)', () => {
@@ -137,6 +150,19 @@ describe('Julian dates', () => {
     expect(formatIso(instantFromModifiedJulianDate(57_754, 'utc'))).toBe('2017-01-01T00:00:00.000Z')
     // Unix seconds remain POSIX (repeating) — documented, different from JD.
     expect(instantToUnixSeconds(leap)).toBe(1_483_228_800.5)
+  })
+
+  it('two-part UTC Julian dates round-trip exactly at every leap boundary', () => {
+    for (const entry of IERS_LEAP_SECONDS.entries.slice(1)) {
+      const boundary = BigInt(entry.unixSeconds + entry.deltaAt) * 1_000_000_000n
+      for (const offset of [-1_000_000_001n, -1_000_000_000n, -999_999_999n, -1n, 0n, 1n]) {
+        const instant = instantFromTaiNanos(boundary + offset)
+        const parts = instantToJulianDateParts(instant, 'utc')
+        expect(instantToTaiNanos(instantFromJulianDateParts(parts.jd1, parts.jd2, 'utc'))).toBe(
+          boundary + offset,
+        )
+      }
+    }
   })
 })
 
@@ -167,6 +193,30 @@ describe('GPS', () => {
       new RangeError('GPS seconds of week must be a finite number, got NaN'),
     )
     expect(() => instantFromGpsSeconds(Number.POSITIVE_INFINITY)).toThrow(RangeError)
+    expect(() => instantFromGpsWeek(Number.MAX_SAFE_INTEGER + 1, 0)).toThrow(RangeError)
+    expect(() => instantFromGpsWeek(1, -1)).toThrow(RangeError)
+    expect(() => instantFromGpsWeek(1, 604_800)).toThrow(RangeError)
+    expect(() => instantToGpsWeek(instantFromTaiNanos(10n ** 100n))).toThrow(RangeError)
+  })
+})
+
+describe('public scale metadata and runtime guards', () => {
+  it('keeps exported scale metadata deeply immutable', () => {
+    expect(Object.isFrozen(TIME_SCALES)).toBe(true)
+    expect(Object.isFrozen(TIME_SCALE_LABELS)).toBe(true)
+    expect(() => (TIME_SCALES as unknown as string[]).push('bad')).toThrow(TypeError)
+    expect(() => {
+      ;(TIME_SCALE_LABELS as unknown as { tai: string }).tai = 'BAD'
+    }).toThrow(TypeError)
+  })
+
+  it('rejects invalid runtime scale and truncation-unit values with RangeError', () => {
+    const instant = iso('2026-08-19T00:00:00Z')
+    expect(() => instantToScaleNanos(instant, 'bad' as TimeScale)).toThrow(RangeError)
+    expect(() => instantFromCivil({ year: 2026, month: 1, day: 1 }, 'bad' as TimeScale)).toThrow(
+      RangeError,
+    )
+    expect(() => truncateInstant(instant, 'bad' as never, 'utc')).toThrow(RangeError)
   })
 })
 
@@ -229,6 +279,11 @@ describe('TDB', () => {
       'tdb',
     )
     expect(formatIso(tricky, { precision: 'nanos' })).toBe('1966-11-05T19:19:54.794626658Z')
+  })
+
+  it('rejects instants beyond the deterministic TDB argument range', () => {
+    expect(() => instantToScaleNanos(instantFromTaiNanos(10n ** 30n), 'tdb')).toThrow(RangeError)
+    expect(() => instantFromScaleNanos(10n ** 30n, 'tdb')).toThrow(RangeError)
   })
 })
 

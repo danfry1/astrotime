@@ -60,9 +60,9 @@ describe('astropy golden vectors', () => {
     const tdbErrorNanos = tdbOurs > tdbRef ? tdbOurs - tdbRef : tdbRef - tdbOurs
     expect(tdbErrorNanos <= 30_000n).toBe(true)
 
-    expect(jdDiffSeconds(instantToJulianDateParts(instant, 'tt'), row.jdTt)).toBeLessThan(1e-6)
+    expect(jdDiffSeconds(instantToJulianDateParts(instant, 'tt'), row.jdTt)).toBeLessThan(1e-9)
     // UTC JD follows the SOFA quasi-JD convention, which astropy implements too — valid on leap days as well.
-    expect(jdDiffSeconds(instantToJulianDateParts(instant, 'utc'), row.jdUtc)).toBeLessThan(1e-6)
+    expect(jdDiffSeconds(instantToJulianDateParts(instant, 'utc'), row.jdUtc)).toBeLessThan(1e-9)
     expect(instantToModifiedJulianDate(instant, 'utc')).toBeCloseTo(row.mjdUtc, 8)
     expect(instantToGpsSeconds(instant)).toBeCloseTo(row.gps, 6)
   })

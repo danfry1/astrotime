@@ -13,10 +13,11 @@ Deliberately open questions, to be settled at 1.0 with real-usage evidence:
    documented in the README; a zod-style rename (`parse`/`safeParse`) would
    only happen at 1.0 if adopters demonstrably stumble.
 2. **A bound-context constructor.** `UtcOptions` carries four orthogonal
-   policies (`leapSeconds`, `before1972`, `tableValidity`, `leapGap`), all
-   with safe defaults. If a fifth policy ever appears, an additive
-   `createTimeContext(options)` returning pre-bound functions will be added
-   rather than growing per-call option plumbing further.
+   policies (`leapSeconds`, `before1972`, `tableValidity`, `leapGap`), with
+   documented display-oriented defaults and fail-closed opt-ins. If a fifth
+   policy ever appears, an additive `createTimeContext(options)` returning
+   pre-bound functions will be added rather than growing per-call option
+   plumbing further.
 3. **Sub-path exports** (`astrotime/instant`, `astrotime/leap-data`).
    Additive if a consumer (e.g. a leap-table-only user) asks.
 

@@ -5,6 +5,7 @@ import { InvalidTimeError } from './errors.js'
 import {
   type CivilDateTime,
   type CivilFields,
+  assertSupportedCivilRange,
   civilFromUnixSeconds,
   type Instant,
   instantFromResolvedUtc,
@@ -18,7 +19,7 @@ import {
   type UtcOptions,
 } from './instant.js'
 import { IERS_LEAP_SECONDS, leapEntryIndexForUnix, PRE_1972_DELTA_AT } from './leap-seconds.js'
-import { assertInteger, deterministicSin, floorDiv, fromNanos, toNanos } from './numeric.js'
+import { assertSafeInteger, deterministicSin, floorDiv, fromNanos, toNanos } from './numeric.js'
 import { err, ok, type Result } from './result.js'
 
 /**
@@ -32,22 +33,29 @@ import { err, ok, type Result } from './result.js'
  */
 export type TimeScale = 'utc' | 'tai' | 'tt' | 'gps' | 'tdb'
 
-export const TIME_SCALES = [
+export const TIME_SCALES = Object.freeze([
   'utc',
   'tai',
   'tt',
   'gps',
   'tdb',
-] as const satisfies readonly TimeScale[]
+] as const satisfies readonly TimeScale[])
 
 /** Upper-case designators used when formatting/parsing non-UTC readings (`… TAI`). */
-export const TIME_SCALE_LABELS = {
+export const TIME_SCALE_LABELS = Object.freeze({
   utc: 'UTC',
   tai: 'TAI',
   tt: 'TT',
   gps: 'GPS',
   tdb: 'TDB',
-} as const satisfies Record<TimeScale, string>
+} as const satisfies Record<TimeScale, string>)
+
+/** Internal runtime guard for JavaScript callers (TypeScript checks this statically). */
+export function assertTimeScale(scale: unknown): asserts scale is TimeScale {
+  if (scale !== 'utc' && scale !== 'tai' && scale !== 'tt' && scale !== 'gps' && scale !== 'tdb') {
+    throw new RangeError(`Unsupported time scale: ${String(scale)}`)
+  }
+}
 
 /** TT − TAI: exactly 32.184 s, as nanoseconds. */
 export const TT_MINUS_TAI_NANOS = 32_184_000_000n
@@ -85,6 +93,14 @@ function tdbMinusTt(daysSinceJ2000Tt: number): number {
   const centuries = daysSinceJ2000Tt / 36_525
   const g = 6.2401 + 628.3076 * centuries
   const jupiter = 4.297 + 575.3385 * centuries
+  if (
+    !Number.isFinite(g) ||
+    !Number.isFinite(jupiter) ||
+    Math.abs(g) > 5e8 ||
+    Math.abs(jupiter) > 1e9
+  ) {
+    throw new RangeError('TDB approximation is outside its numerically supported argument range')
+  }
   // deterministicSin keeps TDB bit-identical across JS engines (Math.sin is not specified exactly).
   return (
     0.001_657 * deterministicSin(g) +
@@ -269,7 +285,12 @@ export function instantToJulianDateParts(
   }
   const nanos = instantToScaleNanos(instant, scale, options)
   const days = floorDiv(nanos, NANOS_PER_DAY)
-  return { jd1: JD_UNIX_EPOCH + Number(days), jd2: Number(nanos - days * NANOS_PER_DAY) / 86_400e9 }
+  const numericDays = Number(days)
+  const jd1 = JD_UNIX_EPOCH + numericDays
+  if (!Number.isSafeInteger(numericDays) || Math.abs(jd1 % 1) !== 0.5) {
+    throw new RangeError('Instant is outside the exact two-part Julian-date day range')
+  }
+  return { jd1, jd2: Number(nanos - days * NANOS_PER_DAY) / 86_400e9 }
 }
 
 /** Julian date on `scale` as a single float (≈50 µs resolution near the present). */
@@ -307,10 +328,31 @@ export function instantFromJulianDateParts(
       toNanos(jd2 * SECONDS_PER_DAY, NANOS_PER_SECOND, 'Julian date')
     return instantFromScaleNanos(nanos, scale, options)
   }
-  // Quasi-JD: split into whole days and a fraction of that UTC day's true length.
-  const dayIndex = Math.floor(jd1 - JD_UNIX_EPOCH + jd2)
-  const fraction = jd1 - JD_UNIX_EPOCH - dayIndex + jd2
+  // Quasi-JD: split each part before combining it. Adding a fraction within
+  // ~1e-14 of 1 directly to a day count around 10^3 can round across midnight;
+  // on a leap day that loses the identity of 23:59:60.999999999. Keeping both
+  // remainders near [0, 1) preserves the information carried by a two-part JD.
+  const fromEpoch = jd1 - JD_UNIX_EPOCH
+  const whole1 = Math.floor(fromEpoch)
+  const whole2 = Math.floor(jd2)
+  let dayIndex = whole1 + whole2
+  if (!Number.isSafeInteger(dayIndex)) {
+    throw new RangeError(
+      `Julian date is outside the safe-integer civil day range: ${String(dayIndex)}`,
+    )
+  }
+  let fraction = fromEpoch - whole1 + (jd2 - whole2)
+  if (fraction < 0) {
+    dayIndex -= 1
+    fraction += 1
+  } else if (fraction >= 1) {
+    dayIndex += 1
+    fraction -= 1
+  }
   const dayStart = dayIndex * SECONDS_PER_DAY
+  if (!Number.isSafeInteger(dayStart)) {
+    throw new RangeError(`Julian date is outside the exact UTC-second range: ${String(dayIndex)}`)
+  }
   const seconds = fraction * utcDayLength(dayStart, options)
   const whole = Math.min(Math.floor(seconds), SECONDS_PER_DAY)
   const nanosecond = Number(toNanos(seconds - whole, NANOS_PER_SECOND, 'Julian date'))
@@ -350,20 +392,27 @@ export type GpsWeek = { readonly week: number; readonly secondsOfWeek: number }
 export function instantToGpsWeek(instant: Instant): GpsWeek {
   const gps = instant.taiNanos + GPS_MINUS_TAI_NANOS - GPS_EPOCH_NANOS
   const week = floorDiv(gps, NANOS_PER_WEEK)
+  const numericWeek = Number(week)
+  if (!Number.isSafeInteger(numericWeek)) {
+    throw new RangeError('Instant is outside the safe-integer GPS week range')
+  }
   return {
-    week: Number(week),
+    week: numericWeek,
     secondsOfWeek: fromNanos(gps - week * NANOS_PER_WEEK, NANOS_PER_SECOND),
   }
 }
 
-/** Instant from a GPS week number and (possibly fractional) seconds of week. */
+/** Instant from a safe-integer GPS week and fractional seconds of week in `[0, 604800)`. */
 export function instantFromGpsWeek(week: number, secondsOfWeek: number): Instant {
-  assertInteger(week, 'GPS week')
+  assertSafeInteger(week, 'GPS week')
+  const secondsNanos = toNanos(secondsOfWeek, NANOS_PER_SECOND, 'GPS seconds of week')
+  if (secondsNanos < 0n || secondsNanos >= NANOS_PER_WEEK) {
+    throw new RangeError(
+      `GPS seconds of week must be between 0 (inclusive) and 604800 (exclusive), got ${String(secondsOfWeek)}`,
+    )
+  }
   return instantFromTaiNanos(
-    GPS_EPOCH_NANOS +
-      BigInt(week) * NANOS_PER_WEEK +
-      toNanos(secondsOfWeek, NANOS_PER_SECOND, 'GPS seconds of week') -
-      GPS_MINUS_TAI_NANOS,
+    GPS_EPOCH_NANOS + BigInt(week) * NANOS_PER_WEEK + secondsNanos - GPS_MINUS_TAI_NANOS,
   )
 }
 
@@ -389,7 +438,9 @@ export function instantToCivil(
   if (scale === 'utc') return instantToUtc(instant, options)
   const nanos = instantToScaleNanos(instant, scale, options)
   const seconds = floorDiv(nanos, NANOS_PER_SECOND)
-  return civilFromUnixSeconds(Number(seconds), Number(nanos - seconds * NANOS_PER_SECOND))
+  return assertSupportedCivilRange(
+    civilFromUnixSeconds(Number(seconds), Number(nanos - seconds * NANOS_PER_SECOND)),
+  )
 }
 
 /** Civil fields read on `scale` → instant. */
@@ -398,6 +449,7 @@ export function instantFromCivil(
   scale: TimeScale,
   options?: UtcOptions,
 ): Result<Instant, InvalidTimeError> {
+  assertTimeScale(scale)
   if (scale === 'utc') return instantFromUtc(fields, options)
   const resolved = resolveCivilFields(fields)
   if (!resolved.ok) return resolved
@@ -436,6 +488,7 @@ export function truncateInstant(
   options: UtcOptions = {},
 ): Instant {
   const unitNanos = UNIT_NANOS[unit]
+  if (unitNanos === undefined) throw new RangeError(`Unsupported truncation unit: ${unit}`)
   if (scale === 'utc' && isLeapSecond(instant, options)) {
     if (unitNanos <= NANOS_PER_SECOND)
       return instantFromTaiNanos(floorDiv(instant.taiNanos, unitNanos) * unitNanos)

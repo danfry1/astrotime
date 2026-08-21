@@ -15,7 +15,7 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
 - **Deterministic** — bit-identical output on V8, JavaScriptCore *and* Hermes (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
-- **Small and fast** — ~20 KB gzipped, tree-shakeable, no runtime dependencies; ~3M pattern formats/s and ~3.5M ISO parses/s on a laptop — on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. CI-verified on Node ≥ 22, Bun, and Hermes (React Native ≥ 0.70, where BigInt became available) — the Hermes check runs the real engine after the same Babel transform Metro applies. Plain ES2022 with zero dependencies, so browsers and Deno are supported targets too.
+- **Small and fast** — ~27 KB gzipped, tree-shakeable, no runtime dependencies; ~2.6M pattern formats/s and ~2.5M ISO parses/s on a laptop — format throughput is on par with native `Date#toISOString`, and well ahead of moment/luxon/date-fns for pattern work. CI-verified on Node ≥ 22, Bun, and Hermes (React Native ≥ 0.70, where BigInt became available) — the Hermes check runs the real engine after the same Babel transform Metro applies. Plain ES2022 with zero dependencies, so browsers and Deno are supported targets too.
 
 ```ts
 import { parseInstantOrThrow, formatIso, formatOrdinal, durationBetween, durationToSeconds } from 'astrotime'
@@ -63,9 +63,9 @@ is backed by something you can re-run:
 |---|---|
 | Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
 | Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
-| Output is identical everywhere | A 110 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
-| The documentation is true | 34 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
-| The tests would notice a bug | Mutation testing (86.6%) with a published [survivor analysis](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
+| Output is identical everywhere | A 135 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
+| The documentation is true | 43 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
+| The tests would notice a bug | Mutation testing (84.1% across 3 045 mutants) with a published [survivor analysis and runner limitation](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
 | The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an [evidence bundle](https://github.com/danfry1/astrotime/releases) attached to every release |
 | Leap-second data stays current | A monthly job compares the bundled table with IANA and fails on drift; `#h` integrity records are verified when parsing |
 
@@ -108,7 +108,7 @@ compose: `Temporal.Instant.fromEpochNanoseconds(instantToUnixNanos(i))`.
 
 | Type | What it is |
 |---|---|
-| `Instant` | A point in time: nanoseconds since `1970-01-01T00:00:00 TAI`. Immutable, frozen; `JSON.stringify`/`String()` give the canonical ns-precision UTC ISO string. |
+| `Instant` | A point in time: nanoseconds since `1970-01-01T00:00:00 TAI`. Immutable, frozen; `JSON.stringify`/`String()` give the canonical ns-precision **TAI** string, independent of leap-table updates. |
 | `Duration` | Signed nanoseconds of elapsed SI time. Days are exactly 86 400 s. No months/years. Serializes as ISO 8601 (`PT1H30M`). |
 | `CivilDateTime` | Broken-down time (`year, month, day, dayOfYear, hour, minute, second (0–60), nanosecond`). |
 | `CivilFields` | Input fields: `{ year, month, day }` or `{ year, dayOfYear }` plus optional time. |
@@ -148,6 +148,7 @@ import { parseInstant, parseInstantOrThrow, formatInstant, formatIso, formatOrdi
 parseInstant('2026-08-19T12:34:56.789012345Z')
 parseInstant('2026-231T12:34:56.789')        // day-of-year ("SCET"-style)
 parseInstant('2026-08-19T13:34:56+01:00')
+parseInstant('2017-01-01T00:59:60+01:00')    // the 2016 UTC leap second, shifted
 parseInstant('2017-01-01T00:00:37 TAI')      // scale designators parse back
 parseInstant('2026-08-19')                   // midnight UTC
 
@@ -281,6 +282,12 @@ snapshot is rejected everywhere, because it would silently misapply old
 Unix labels inside the deleted second fold forward by default; pass
 `{ leapGap: 'reject' }` to error on them instead.
 
+For authoritative UTC, use both `{ before1972: 'reject', tableValidity: 'reject' }`
+and require a table with a non-null expiry. A null expiry provides no boundary
+for the latter policy; it is useful for synthetic tables and deliberately does
+not mean that future UTC is knowable. Runtime misspellings of any safety policy
+throw `RangeError` instead of silently selecting a permissive default.
+
 ### Time scales, J2000, Julian dates, GPS
 
 ```ts
@@ -315,6 +322,10 @@ and match astropy on leap days.
 Definitions: TT = TAI + 32.184 s; GPS = TAI − 19 s; TDB = TT + the three leading
 periodic terms of the Fairhead & Bretagnon series (USNO Circular 179 eq. 2.6,
 < 30 µs vs ERFA's full series, 1972–2100).
+
+GPS seconds-of-week inputs must be in `[0, 604800)` and GPS week numbers must
+be safe integers; out-of-range values throw rather than silently normalizing
+into an adjacent week.
 
 ### Durations
 
@@ -417,11 +428,13 @@ binary protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigin
 ## Precision & limits
 
 - `Instant` and `Duration` arithmetic is exact to 1 ns at any magnitude (`bigint`). Civil/ISO conversions cover years −999 999 … +999 999 and **throw `RangeError`** beyond, rather than emitting strings that cannot round-trip; `instantToDate` throws outside the ECMAScript `Date` range; decomposing/formatting a duration throws past 2^53 days.
-- Functions returning a float `number` carry double resolution (~0.1 µs for J2000 seconds today; ~50 µs for a single-float Julian date — use the two-part form).
+- Functions returning a float `number` carry double resolution (~0.1 µs for J2000 seconds today; ~50 µs for a single-float Julian date — use the two-part form) and throw rather than return infinity when the value exceeds the finite `number` range.
 - `instantNow()` has millisecond precision (it reads `Date.now()`); nanosecond precision applies to stored and parsed timestamps.
 - UTC before 1972 is approximated with TAI − UTC = 10 s (the real pre-1972 "rubber second" UTC is out of scope); opt into rejection with `before1972: 'reject'`.
 - ISO duration parsing deviates from ISO 8601 deliberately: comma or dot fractions and a leading sign are accepted; weeks are exclusive (`P1W2D` rejected); only the last component may carry a fraction; components are capped at 16 digits.
 - UT1 / ΔT, SCLK and SPICE kernels are out of scope.
+- Public calendar conversion helpers reject impossible dates/ordinals and
+  unsafe-integer inputs; they never normalize an invalid date into a different one.
 
 ## Intended use
 

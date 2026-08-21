@@ -330,6 +330,16 @@ describe('arithmetic and ordering', () => {
     expect(isLeapSecondTableExpired(IERS_LEAP_SECONDS, iso('2027-06-27T23:59:59Z'))).toBe(false)
     expect(isLeapSecondTableExpired(IERS_LEAP_SECONDS, iso('2027-06-28T00:00:00Z'))).toBe(true)
     expect(isLeapSecondTableExpired(IERS_LEAP_SECONDS, 1_814_140_799)).toBe(false)
-    expect(isLeapSecondTableExpired({ entries: [], expires: null }, 1e12)).toBe(false)
+    expect(
+      isLeapSecondTableExpired({ entries: IERS_LEAP_SECONDS.entries, expires: null }, 1e12),
+    ).toBe(false)
+    expect(() => isLeapSecondTableExpired({ entries: [], expires: null }, 1e12)).toThrow(RangeError)
+    expect(() => isLeapSecondTableExpired(IERS_LEAP_SECONDS, Number.NaN)).toThrow(RangeError)
+  })
+
+  it('rejects inverted clamp bounds instead of returning an out-of-range instant', () => {
+    const lo = instantFromTaiNanos(2n)
+    const hi = instantFromTaiNanos(1n)
+    expect(() => clampInstant(instantFromTaiNanos(0n), lo, hi)).toThrow(RangeError)
   })
 })

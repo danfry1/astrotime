@@ -43,4 +43,25 @@ describe('calendar', () => {
     expect(dayOfYear(2026, 8, 19)).toBe(231)
     expect(civilFromOrdinal(2026, 231)).toStrictEqual({ year: 2026, month: 8, day: 19 })
   })
+
+  it('rejects impossible dates, ordinals and unsafe numeric inputs', () => {
+    expect(() => daysFromCivil(2023, 2, 29)).toThrow(RangeError)
+    expect(() => daysFromCivil(2024, 13, 1)).toThrow(RangeError)
+    expect(() => daysFromCivil(Number.MAX_SAFE_INTEGER, 1, 1)).toThrow(RangeError)
+    expect(() => civilFromOrdinal(2023, 366)).toThrow(RangeError)
+    expect(() => civilFromOrdinal(2024, 0)).toThrow(RangeError)
+    expect(() => civilFromDays(Number.MAX_VALUE)).toThrow(RangeError)
+  })
+
+  it('round-trips every day in positive and negative Gregorian 400-year eras', () => {
+    for (const eraStart of [-800, 0, 1600]) {
+      const first = daysFromCivil(eraStart, 1, 1)
+      const end = daysFromCivil(eraStart + 400, 1, 1)
+      expect(end - first).toBe(146_097)
+      for (let days = first; days < end; days += 1) {
+        const civil = civilFromDays(days)
+        expect(daysFromCivil(civil.year, civil.month, civil.day)).toBe(days)
+      }
+    }
+  })
 })

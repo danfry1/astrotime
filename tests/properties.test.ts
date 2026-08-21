@@ -37,7 +37,7 @@ const fullRangeTaiNanos = fc.bigInt({
 })
 // 1972–2200, where leap seconds exist and are dense enough to be hit.
 const modernTaiNanos = fc.bigInt({ min: 63_072_010_000_000_000n, max: 7_258_118_400_000_000_000n })
-const RUNS = { numRuns: 2_000 }
+const RUNS = { numRuns: 10_000 }
 
 describe('round-trip properties', () => {
   it('instant → UTC fields → instant is the identity', () => {
@@ -107,15 +107,14 @@ describe('round-trip properties', () => {
     )
   })
 
-  it('two-part Julian dates round-trip to within 1 µs on every scale', () => {
+  it('two-part Julian dates round-trip exactly on every scale', () => {
     fc.assert(
       fc.property(modernTaiNanos, fc.constantFrom(...TIME_SCALES), (n, scale) => {
         const i = instantFromTaiNanos(n)
         const { jd1, jd2 } = instantToJulianDateParts(i, scale)
         expect(jd2 >= 0 && jd2 < 1).toBe(true)
         const back = instantToTaiNanos(instantFromJulianDateParts(jd1, jd2, scale))
-        const error = back > n ? back - n : n - back
-        expect(error <= 1_000n).toBe(true)
+        expect(back).toBe(n)
       }),
       RUNS,
     )
@@ -161,7 +160,7 @@ describe('parsers never throw', () => {
           expect(table.ok || isAstrotimeError(table.error)).toBe(true)
         },
       ),
-      { numRuns: 3_000 },
+      { numRuns: 10_000 },
     )
   })
 })

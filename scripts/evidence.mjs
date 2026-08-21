@@ -8,6 +8,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { verificationInputHash } from './verification-inputs.mjs'
 
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' }).trim()
 const attempt = (fn, fallback = null) => {
@@ -19,6 +20,9 @@ const attempt = (fn, fallback = null) => {
 }
 
 const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+const commit = run('git', ['rev-parse', 'HEAD'])
+const trackedChanges = run('git', ['status', '--porcelain=v1', '--untracked-files=all'])
+const worktreeClean = trackedChanges.length === 0
 
 // Reproducible build: the packed tarball's integrity hash. npm <= 11 emits
 // an array of packed entries; npm >= 12 emits an object keyed by package
@@ -42,6 +46,13 @@ conformance.identical = conformance.v8 !== null && conformance.v8 === conformanc
 // Mutation score, if a report is present.
 const mutation = attempt(() => {
   const report = JSON.parse(readFileSync('reports/mutation/mutation.json', 'utf8'))
+  const provenance = JSON.parse(readFileSync('reports/mutation/provenance.json', 'utf8'))
+  if (provenance.inputSha256 !== verificationInputHash()) {
+    return {
+      current: false,
+      note: 'A mutation report exists, but its verification-input digest is stale.',
+    }
+  }
   let killed = 0
   let total = 0
   for (const file of Object.values(report.files)) {
@@ -51,7 +62,15 @@ const mutation = attempt(() => {
       if (mutant.status === 'Killed' || mutant.status === 'Timeout') killed += 1
     }
   }
-  return { score: Number(((killed / total) * 100).toFixed(2)), killed, total }
+  return {
+    current: true,
+    score: Number(((killed / total) * 100).toFixed(2)),
+    killed,
+    total,
+    inputSha256: provenance.inputSha256,
+    generatedAt: provenance.generatedAt,
+    runtime: provenance.runtime,
+  }
 })
 
 // Test and requirement counts.
@@ -66,15 +85,18 @@ const requirements = readFileSync('REQUIREMENTS.md', 'utf8')
 const evidence = {
   package: pkg.name,
   version: pkg.version,
-  commit: run('git', ['rev-parse', 'HEAD']),
+  commit,
   commitSigned: attempt(() => run('git', ['log', '-1', '--format=%G?']) === 'G'),
+  worktreeClean,
   artifact: {
     filename: tarball.filename,
     shasum: tarball.shasum,
     integrity: tarball.integrity,
     unpackedSize: tarball.unpackedSize,
     fileCount: tarball.entryCount,
-    note: 'Rebuild from this commit and `npm pack` to reproduce this shasum.',
+    note: worktreeClean
+      ? 'Rebuild from this commit and run `npm pack` to reproduce this shasum.'
+      : 'Generated from a dirty worktree; this artifact cannot be attributed to or reproduced from the commit alone.',
   },
   dependencies: {
     runtime: Object.keys(pkg.dependencies ?? {}).length,
@@ -86,7 +108,7 @@ const evidence = {
     referenceImplementations: [
       'astropy 6.0.1 (ERFA/SOFA) golden + drift vectors',
       'NAIF CSPICE naif0012.tls ET and elapsed-TAI vectors',
-      'astropy differential sweep, 100000 random instants, 0 mismatches',
+      'astropy differential sweep workflow: UTC/TT/TDB/GPS/ordinal/JD, 100000 random instants',
     ],
     engines: conformance,
     mutation,
@@ -99,7 +121,7 @@ writeFileSync('evidence/evidence.json', `${JSON.stringify(evidence, null, 2)}\n`
 
 const summary = `# Evidence bundle — ${evidence.package} ${evidence.version}
 
-Commit \`${evidence.commit}\`${evidence.commitSigned === true ? ' (signed)' : ''}
+Commit \`${evidence.commit}\`${evidence.commitSigned === true ? ' (signed)' : ''}; worktree **${evidence.worktreeClean ? 'clean' : 'DIRTY'}**
 
 ## Artifact
 
@@ -111,9 +133,8 @@ Commit \`${evidence.commit}\`${evidence.commitSigned === true ? ' (signed)' : ''
 | Unpacked | ${evidence.artifact.unpackedSize} bytes in ${evidence.artifact.fileCount} files |
 | Runtime dependencies | ${evidence.dependencies.runtime} |
 
-Rebuild this commit and run \`npm pack\` to reproduce the shasum. The npm
-release additionally carries a SLSA provenance attestation
-(\`npm audit signatures\`).
+${evidence.artifact.note} A package published by the release workflow additionally
+carries an npm provenance attestation (verifiable with \`npm audit signatures\`).
 
 ## Verification
 
@@ -123,8 +144,8 @@ ${evidence.verification.referenceImplementations.map((r) => `  - ${r}`).join('\n
 - Cross-engine determinism: ${conformance.identical === true ? 'identical digests' : 'DIVERGENT — investigate'}
   - V8: \`${conformance.v8 ?? 'n/a'}\`
   - JSC: \`${conformance.jsc ?? 'n/a'}\`
-  - Hermes (React Native): verified by \`scripts/conformance-hermes.sh\` in the scheduled workflow
-${mutation !== null ? `- Mutation score: **${mutation.score}%** (${mutation.killed}/${mutation.total} mutants killed)` : ''}
+  - Hermes (React Native): checked separately by \`scripts/conformance-hermes.sh\` in the scheduled workflow; not executed by this generator
+${mutation?.current === true ? `- Mutation score: **${mutation.score}%** (${mutation.killed}/${mutation.total} mutants killed; input \`${mutation.inputSha256}\`)` : mutation === null ? '- Mutation score: not included (no provenance-stamped report)' : `- Mutation score: **NOT INCLUDED** — ${mutation.note}`}
 
 Generated by \`scripts/evidence.mjs\`.
 `

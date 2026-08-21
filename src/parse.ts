@@ -1,4 +1,4 @@
-import { InvalidTimeError, TimeParseError } from './errors.js'
+import { TimeParseError, type InvalidTimeError } from './errors.js'
 import { formatPatternError, INSTANT_TOKEN } from './format.js'
 import {
   type CivilFields,
@@ -9,7 +9,7 @@ import {
   type UtcOptions,
 } from './instant.js'
 import { tokenize } from './pattern.js'
-import { instantFromCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
+import { assertTimeScale, instantFromCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
 import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
 
@@ -47,7 +47,7 @@ const parseFraction = (digits: string | undefined): number =>
   digits === undefined ? 0 : Number(digits.padEnd(9, '0'))
 
 function parseYear(text: string): number | null {
-  if (text === '-0000') return null
+  if (/^-0+$/.test(text)) return null
   return Number(text)
 }
 
@@ -118,17 +118,28 @@ function resolveFields(
   if (!scale.ok) return scale
   if (designator.kind !== 'offset' || designator.seconds === 0)
     return instantFromCivil(fields, scale.value, options)
-  if (fields.second === 60) {
-    return err(
-      new InvalidTimeError(
-        'second',
-        60,
-        'a leap second with a non-zero UTC offset is not supported',
-      ),
-    )
-  }
   const resolved = resolveCivilFields(fields)
   if (!resolved.ok) return resolved
+  if (resolved.value.second === 60) {
+    // secondOfDay includes the `:60`, so it denotes the following local
+    // clock boundary. Shift that boundary to UTC, step back to its preceding
+    // civil minute, and let the ordinary UTC constructor verify that this is
+    // an actual positive leap boundary.
+    const utcBoundary =
+      resolved.value.days * SECONDS_PER_DAY + resolved.value.secondOfDay - designator.seconds
+    const beforeBoundary = civilFromUnixSeconds(utcBoundary - 1, resolved.value.nanosecond)
+    const shiftedLeap = resolveCivilFields({
+      year: beforeBoundary.year,
+      month: beforeBoundary.month,
+      day: beforeBoundary.day,
+      hour: beforeBoundary.hour,
+      minute: beforeBoundary.minute,
+      second: 60,
+      nanosecond: beforeBoundary.nanosecond,
+    })
+    if (!shiftedLeap.ok) return shiftedLeap
+    return instantFromResolvedUtc(shiftedLeap.value, options)
+  }
   // Shift to UTC, then re-derive civil fields so leap-second validation applies to the UTC reading.
   const unixSeconds =
     resolved.value.days * SECONDS_PER_DAY + resolved.value.secondOfDay - designator.seconds
@@ -163,7 +174,8 @@ function parseIsoText(
     return err(new TimeParseError(text, `expected ${expected}`, formatName))
   }
   const year = parseYear(match[1] ?? '')
-  if (year === null) return err(new TimeParseError(text, 'year -0000 is not allowed', formatName))
+  if (year === null)
+    return err(new TimeParseError(text, 'negative-zero years are not allowed', formatName))
   const designator = parseDesignator(match.at(-1), text, formatName)
   if (!designator.ok) return designator
   const timeOffset = ordinal !== null ? 3 : 4
@@ -293,7 +305,10 @@ function parseWithPattern(
     values[name] = match[i + 1]
   })
   // compilePattern guarantees a year field, so the capture is always present.
-  const year = values['Y'] ?? ''
+  const rawYear = values['Y'] ?? ''
+  const year = parseYear(rawYear)
+  if (year === null)
+    return err(new TimeParseError(text, 'negative-zero years are not allowed', pattern))
   const designator = parseDesignator(values['Z'], text, pattern)
   if (!designator.ok) return designator
   const time = {
@@ -309,9 +324,9 @@ function parseWithPattern(
   const day = values['D']
   const civil: CivilFields =
     doy !== undefined && month === undefined && day === undefined
-      ? { year: Number(year), dayOfYear: Number(doy), ...time }
+      ? { year, dayOfYear: Number(doy), ...time }
       : {
-          year: Number(year),
+          year,
           month: Number(month ?? 1),
           day: Number(day ?? 1),
           // A pattern carrying DD and DDD must agree on the date it names.
@@ -326,6 +341,7 @@ export function parseInstant(
   text: string,
   options: ParseOptions = {},
 ): Result<Instant, ParseError> {
+  if (options.scale !== undefined) assertTimeScale(options.scale)
   const format = options.format ?? 'iso'
   if (format === 'iso') return parseIsoText(text, false, options.scale, options)
   if (format === 'ordinal') return parseIsoText(text, true, options.scale, options)

@@ -82,6 +82,10 @@ describe('duration construction', () => {
     expect(() => formatDuration(huge)).toThrow(RangeError)
   })
 
+  it('throws instead of returning Infinity from float conversions', () => {
+    expect(() => durationToSeconds(durationFromNanos(10n ** 1000n))).toThrow(RangeError)
+  })
+
   it('decomposes into components with sign', () => {
     expect(durationToComponents(durationFromNanos(-93_784_005_006_007n))).toStrictEqual({
       sign: -1,

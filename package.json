@@ -1,6 +1,6 @@
 {
   "name": "astrotime",
-  "version": "0.11.2",
+  "version": "0.12.0",
   "description": "Zero-dependency spacecraft & astronomy time for TypeScript: nanosecond instants, leap-second-aware UTC, TAI/TT/GPS/TDB, Julian dates, strict ISO-8601 / day-of-year / duration parse & format",
   "type": "module",
   "sideEffects": false,
@@ -47,7 +47,7 @@
     "bench": "vitest bench --run",
     "conformance": "node scripts/conformance.mjs",
     "check:traceability": "node scripts/check-traceability.mjs",
-    "test:mutation": "stryker run",
+    "test:mutation": "stryker run && node scripts/stamp-mutation.mjs",
     "test:dist": "vitest run --config vitest.dist.config.ts",
     "evidence": "node scripts/evidence.mjs",
     "check:deps": "syncpack lint"
@@ -79,8 +79,8 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
-    "@stryker-mutator/core": "9.6.1",
-    "@stryker-mutator/vitest-runner": "9.6.1",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "22.20.1",
     "@vitest/coverage-v8": "4.1.10",
     "fast-check": "4.9.0",
@@ -92,7 +92,7 @@
     "oxlint-tsgolint": "7.0.2001",
     "syncpack": "15.3.3",
     "tsdown": "0.22.14",
-    "typescript": "7.0.2",
+    "typescript": "5.9.3",
     "vitest": "4.1.10"
   }
 }
