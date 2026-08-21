@@ -4,7 +4,7 @@
  * current vitest test list. Fails CI when traceability rots.
  */
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 
 const matrix = readFileSync('REQUIREMENTS.md', 'utf8')
 const rows = matrix
@@ -22,7 +22,10 @@ if (rows.length === 0) {
 }
 
 const testList = execFileSync('npx', ['vitest', 'list'], { encoding: 'utf8' })
-const ciConfig = readFileSync('.github/workflows/ci.yml', 'utf8')
+// Requirements may cite a job or step in any workflow, not just CI.
+const workflows = readdirSync('.github/workflows')
+  .map((file) => readFileSync(`.github/workflows/${file}`, 'utf8'))
+  .join('\n')
 
 let failures = 0
 for (const { id, fragments } of rows) {
@@ -32,8 +35,8 @@ for (const { id, fragments } of rows) {
     continue
   }
   for (const fragment of fragments) {
-    // A fragment may be a test title (vitest list) or a CI job name.
-    const found = testList.includes(fragment) === true || ciConfig.includes(fragment) === true
+    // A fragment may be a test title (vitest list) or a workflow job/step name.
+    const found = testList.includes(fragment) === true || workflows.includes(fragment) === true
     if (!found) {
       console.error(`${id}: referenced test/job not found: "${fragment}"`)
       failures += 1

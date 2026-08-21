@@ -1,4 +1,4 @@
-name: Differential test vs astropy
+name: Extended verification (astropy differential, Hermes conformance)
 
 on:
   schedule:
@@ -36,3 +36,6 @@ jobs:
 
       - name: Compare against astropy (ERFA/SOFA)
         run: python3 scripts/differential.py "${{ inputs.cases || '100000' }}"
+
+      - name: Conformance under Hermes (React Native engine)
+        run: ./scripts/conformance-hermes.sh

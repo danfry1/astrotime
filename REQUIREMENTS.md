@@ -35,7 +35,7 @@ reference. Backticked fragments must appear verbatim in `vitest list` output.
 | REQ-PARSE-002 | Parsers return Results and never throw on arbitrary text. | `parseInstant / parseDuration / parseLeapSecondsList return Results for arbitrary text`, `survives pathological parser input without throwing` |
 | REQ-FMT-001 | Formatting throws RangeError outside the supported civil range rather than emitting non-round-trippable strings. | `toJSON throws rather than emitting a year that cannot round-trip` |
 | REQ-FMT-002 | ISO output at nanosecond precision parses back to the same instant on every scale, across the full civil range. | `ISO format at nanosecond precision parses back to the same instant (all scales)` |
-| REQ-DET-001 | Outputs are bit-identical across JavaScript engines (deterministic sine; no engine-dependent math). | CI job `Cross-engine conformance (V8 vs JSC)`; `sha1 (FIPS 180 vectors)` |
+| REQ-DET-001 | Outputs are bit-identical across JavaScript engines (deterministic sine; no engine-dependent math), including Hermes for React Native. | CI job `Cross-engine conformance (V8 vs JSC)`; `Conformance under Hermes (React Native engine)`; `sha1 (FIPS 180 vectors)` |
 
 The final row's cross-engine digest is enforced by the `conformance` job in
 `.github/workflows/ci.yml`, which fails unless V8 and JSC produce identical

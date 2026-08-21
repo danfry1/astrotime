@@ -17,7 +17,7 @@ qualified implementations.
 | Reference-implementation golden vectors (astropy/ERFA, NAIF CSPICE) | `tests/golden.test.ts`, `tests/drift.test.ts`, `tests/spice.test.ts` |
 | Property-based round-trip invariants over the documented range | `tests/properties.test.ts` |
 | Adversarial suite (mutable/partial/fabricated tables, negative leaps, pathological input) | `tests/adversarial.test.ts` |
-| Cross-engine bit-identity (deterministic sine; V8 vs JSC digest over 110k outputs) | `scripts/conformance.mjs`, CI `conformance` job |
+| Cross-engine bit-identity over 110k outputs: V8, JSC and Hermes (the React Native engine, via the Metro-style Babel transform) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, CI `conformance` job + scheduled workflow |
 | Requirements-to-tests traceability, enforced in CI | `REQUIREMENTS.md`, `scripts/check-traceability.mjs` |
 | Mutation testing, with survivor analysis | `stryker.config.json`, scores below |
 | Large-scale differential sweep vs astropy (100 000 random instants, monthly + on demand) | `scripts/differential.py`, `.github/workflows/differential.yml` |
@@ -33,8 +33,9 @@ qualified implementations.
    coverage reports, mutation score, conformance digest, vector provenance
    (astropy/CSPICE/kernel versions), reproducible-build hash versus the npm
    tarball.
-2. **Additional engines in conformance CI** — SpiderMonkey and Hermes via
-   engine-version-manager, extending the bit-identity claim beyond V8/JSC.
+2. **SpiderMonkey in conformance CI** — Hermes is done (see above); adding
+   SpiderMonkey would extend the bit-identity claim to the last major engine
+   family.
 3. **Assurance case document** — structured scope/hazard/mitigation/evidence
    argument for the time-display context (e.g. "operator acts on a timestamp
    wrong by one second across a leap boundary").
