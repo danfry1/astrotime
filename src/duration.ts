@@ -72,6 +72,9 @@ const part = (value: number | undefined, unitNanos: bigint, name: string): bigin
 
 /** Builds a duration from components; fractional components are rounded to the nearest nanosecond. Throws `RangeError` on non-finite input. */
 export function duration(parts: DurationParts): Duration {
+  if (parts === null || typeof parts !== 'object' || Array.isArray(parts)) {
+    throw new RangeError('Duration parts must be an object')
+  }
   const nanos = typeof parts.nanos === 'bigint' ? parts.nanos : part(parts.nanos, 1n, 'nanos')
   return makeDuration(
     part(parts.days, NANOS_PER_DAY, 'days') +
@@ -290,9 +293,11 @@ const durationTokens = validatedTokenCache(
  * durationPatternError('HH:mm:ss.ms')  // 'fields "mm" and "m" are the same field, used twice'
  */
 export const durationPatternError = (pattern: string): string | null =>
-  pattern === 'iso' || pattern === 'clock'
-    ? null
-    : patternProblem(pattern, DURATION_TOKEN, durationFieldKey)
+  typeof pattern !== 'string'
+    ? `pattern must be a string, got ${String(pattern)}`
+    : pattern === 'iso' || pattern === 'clock'
+      ? null
+      : patternProblem(pattern, DURATION_TOKEN, durationFieldKey)
 
 /** Canonical ISO 8601 form, e.g. `P1DT2H3M4.5S`; zero is `PT0S`. */
 function formatIsoDuration(d: Duration): string {
@@ -325,6 +330,9 @@ export type DurationFormat = StringWithHints<'iso' | 'clock'>
  *   `36:00:00`. Negative durations get a leading `-`.
  */
 export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): string {
+  if (typeof pattern !== 'string') {
+    throw new RangeError(`Duration format must be a string, got ${String(pattern)}`)
+  }
   if (pattern === 'iso') return formatIsoDuration(d)
   const resolved = pattern === 'clock' ? 'HH:mm:ss' : pattern
   const tokens = durationTokens(resolved)

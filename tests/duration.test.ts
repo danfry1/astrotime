@@ -62,6 +62,8 @@ describe('duration construction', () => {
       new RangeError('Duration seconds must be a finite number, got NaN'),
     )
     expect(() => durationFromDays(Number.POSITIVE_INFINITY)).toThrow(RangeError)
+    expect(() => duration('seconds' as never)).toThrow(RangeError)
+    expect(() => duration([] as never)).toThrow(RangeError)
   })
 
   it('converts to and from units', () => {
@@ -228,6 +230,7 @@ describe('formatDuration', () => {
     expect(formatDuration(duration({ seconds: 5 }), 'ss [seconds]')).toBe('05 seconds')
     expect(() => formatDuration(duration({ seconds: 5 }), 'ss [seconds] x')).toThrow(RangeError)
     expect(() => formatDuration(duration({ seconds: 5 }), 'ss [open')).toThrow(RangeError)
+    expect(() => formatDuration(duration({ seconds: 5 }), null as never)).toThrow(RangeError)
   })
 })
 

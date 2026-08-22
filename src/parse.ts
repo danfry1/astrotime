@@ -8,6 +8,7 @@ import {
   resolveCivilFields,
   type UtcOptions,
 } from './instant.js'
+import { assertOptionsObject } from './options.js'
 import { tokenize } from './pattern.js'
 import { assertTimeScale, instantFromCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
 import { err, ok, type Result, unwrap } from './result.js'
@@ -341,8 +342,13 @@ export function parseInstant(
   text: string,
   options: ParseOptions = {},
 ): Result<Instant, ParseError> {
+  assertOptionsObject(options, 'parseInstant', true)
   if (options.scale !== undefined) assertTimeScale(options.scale)
-  const format = options.format ?? 'iso'
+  let format: unknown = 'iso'
+  if (options.format !== undefined) format = options.format
+  if (typeof format !== 'string') {
+    throw new RangeError(`parseInstant format must be a string, got ${String(format)}`)
+  }
   if (format === 'iso') return parseIsoText(text, false, options.scale, options)
   if (format === 'ordinal') return parseIsoText(text, true, options.scale, options)
   return parseWithPattern(text, format, options.scale, options)

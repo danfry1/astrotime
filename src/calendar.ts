@@ -9,23 +9,31 @@ const DAYS_TO_UNIX_EPOCH = 719_468 // days from 0000-03-01 to 1970-01-01
 
 export type CivilDate = { readonly year: number; readonly month: number; readonly day: number }
 
-export const isLeapYear = (year: number): boolean =>
-  year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
-
-const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const
-
-export function daysInMonth(year: number, month: number): number {
-  if (month === 2 && isLeapYear(year)) return 29
-  return DAYS_IN_MONTH[month - 1] ?? 0
-}
-
-export const daysInYear = (year: number): 365 | 366 => (isLeapYear(year) ? 366 : 365)
-
 const assertSafeIntegers = (values: readonly number[], what: string): void => {
   for (const value of values) {
     if (!Number.isSafeInteger(value))
       throw new RangeError(`${what} arguments must be safe integers, got ${String(value)}`)
   }
+}
+
+export function isLeapYear(year: number): boolean {
+  assertSafeIntegers([year], 'isLeapYear')
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+}
+
+const DAYS_IN_MONTH = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31] as const
+
+export function daysInMonth(year: number, month: number): number {
+  assertSafeIntegers([year, month], 'daysInMonth')
+  if (month < 1 || month > 12)
+    throw new RangeError(`daysInMonth month must be between 1 and 12, got ${String(month)}`)
+  if (month === 2 && isLeapYear(year)) return 29
+  return DAYS_IN_MONTH[month - 1] ?? 0
+}
+
+export function daysInYear(year: number): 365 | 366 {
+  assertSafeIntegers([year], 'daysInYear')
+  return isLeapYear(year) ? 366 : 365
 }
 
 /** Days since 1970-01-01 for a real civil date, while the result fits a safe integer. */

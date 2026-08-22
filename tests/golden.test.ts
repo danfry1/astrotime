@@ -40,6 +40,15 @@ function isoToEpochNanos(text: string): bigint {
 const jdDiffSeconds = (ours: { jd1: number; jd2: number }, ref: [number, number]): number =>
   Math.abs((ours.jd1 - ref[0] + (ours.jd2 - ref[1])) * 86_400)
 
+function tdbErrorNanos(row: Row): bigint {
+  const instant = parseInstantOrThrow(`${row.utc}Z`)
+  const ours = isoToEpochNanos(
+    formatIso(instant, { scale: 'tdb', precision: 'nanos', designator: 'none' }),
+  )
+  const reference = isoToEpochNanos(row.tdb)
+  return ours > reference ? ours - reference : reference - ours
+}
+
 describe('astropy golden vectors', () => {
   it.each(rows)('$utc → TAI/TT/TDB/JD/GPS', (row) => {
     const instant = parseInstantOrThrow(`${row.utc}Z`)
@@ -51,14 +60,9 @@ describe('astropy golden vectors', () => {
     expect(formatIso(instant, { precision: 'nanos' })).toBe(`${row.utc}Z`)
     expect(formatInstant(instant, 'YYYY:DDD:HH:mm:ss.SSSSSSSSS')).toBe(row.yday)
 
-    // TDB: our three-term series vs ERFA's full dtdb — agree within 30 µs,
+    // TDB: our seven-term series vs ERFA's full dtdb — agree within 10 µs,
     // compared at full nanosecond precision (no millisecond truncation).
-    const tdbOurs = isoToEpochNanos(
-      formatIso(instant, { scale: 'tdb', precision: 'nanos', designator: 'none' }),
-    )
-    const tdbRef = isoToEpochNanos(row.tdb)
-    const tdbErrorNanos = tdbOurs > tdbRef ? tdbOurs - tdbRef : tdbRef - tdbOurs
-    expect(tdbErrorNanos <= 30_000n).toBe(true)
+    expect(tdbErrorNanos(row) <= 10_000n).toBe(true)
 
     expect(jdDiffSeconds(instantToJulianDateParts(instant, 'tt'), row.jdTt)).toBeLessThan(1e-9)
     // UTC JD follows the SOFA quasi-JD convention, which astropy implements too — valid on leap days as well.
@@ -76,5 +80,14 @@ describe('astropy golden vectors', () => {
 
   it.each(rows.filter((r) => r.utc.includes('T23:59:60')))('$utc reports second 60', (row) => {
     expect(instantToUtc(parseInstantOrThrow(`${row.utc}Z`)).second).toBe(60)
+  })
+
+  it('TDB agrees with ERFA within 10 µs across all golden epochs', () => {
+    expect(
+      rows.reduce((maximum, row) => {
+        const error = tdbErrorNanos(row)
+        return error > maximum ? error : maximum
+      }, 0n),
+    ).toBeLessThanOrEqual(10_000n)
   })
 })

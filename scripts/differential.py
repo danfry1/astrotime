@@ -116,7 +116,7 @@ for idx in range(N):
         or tt != ref_tt[idx]
         or yday != ref_yday[idx]
         or abs(gps - float(ref_gps[idx])) > 1e-6
-        or tdb_error_ns > 30_000
+        or tdb_error_ns > 10_000
         or jd_error > 1e-9
     ):
         mismatches.append(
@@ -136,7 +136,7 @@ for idx in range(N):
         )
 
 print(f"\ncompared {N} instants across UTC, TT, TDB, GPS, day-of-year and UTC/TT JD")
-print(f"maximum TDB error: {max_tdb_error_ns} ns (limit 30000 ns)")
+print(f"maximum TDB error: {max_tdb_error_ns} ns (limit 10000 ns)")
 print(f"maximum two-part JD error: {max_jd_error_seconds:.3e} s (limit 1e-9 s)")
 print(f"mismatches: {len(mismatches)}")
 for m in mismatches[:10]:

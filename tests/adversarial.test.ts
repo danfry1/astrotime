@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  addDuration,
+  addToInstant,
   deltaAtUnixSeconds,
   duration,
   durationToNanos,
   formatDuration,
+  formatPatternError,
   parseDurationOrThrow,
   durationBetween,
   durationToSeconds,
   formatIso,
+  parseInstant,
+  parsePatternError,
+  formatInstant,
   IERS_LEAP_SECONDS,
   InvalidTimeError,
   instantFromTaiNanos,
@@ -27,6 +31,7 @@ import {
   instantToOffsetMillis,
   instantToOffsetSeconds,
   instantToScaleSeconds,
+  instantToScaleNanos,
   instantToUnixMillis,
   instantToTaiNanos,
   instantToUnixNanos,
@@ -34,7 +39,6 @@ import {
   instantToUtc,
   isLeapSecondTableExpired,
   type LeapSecondTable,
-  parseInstant,
   parseInstantOrThrow,
   parseLeapSecondsList,
   truncateInstant,
@@ -154,6 +158,19 @@ describe('leap-table integrity', () => {
     expect(() => instantToUtc(instantFromTaiNanos(0n), { leapSeconds: table })).toThrow(RangeError)
   })
 
+  it('returns or throws deliberate table errors for malformed runtime shapes', () => {
+    for (const [table, reason] of [
+      [null, 'table must be an object'],
+      [{}, 'entries must be an array'],
+      [{ entries: [null], expires: null }, 'entries must be objects'],
+    ] as const) {
+      expect(expectErr(validateLeapSecondTable(table as never)).reason).toContain(reason)
+      expect(() => instantToUtc(instantFromTaiNanos(0n), { leapSeconds: table as never })).toThrow(
+        RangeError,
+      )
+    }
+  })
+
   it('rejects oversized leap-second lists', () => {
     const bomb = '2272060800 10\n'.repeat(10_001)
     expect(expectErr(parseLeapSecondsList(bomb)).reason).toBe('list exceeds 10000 lines')
@@ -226,7 +243,7 @@ describe('negative leap second across every API', () => {
   it('elapsed time across the boundary is one second (58 to 00)', () => {
     expect(durationToSeconds(durationBetween(lastSecond, midnight))).toBe(1)
     expect(
-      formatIso(addDuration(lastSecond, duration({ seconds: 1 })), { leapSeconds: NEGATIVE_2030 }),
+      formatIso(addToInstant(lastSecond, duration({ seconds: 1 })), { leapSeconds: NEGATIVE_2030 }),
     ).toBe('2030-01-01T00:00:00.000Z')
   })
 
@@ -334,6 +351,37 @@ describe('review round 4 regressions', () => {
     )
     const malformed = good.replace('a9bad145', 'zzzz')
     expect(expectErr(parseLeapSecondsList(malformed)).reason).toBe('malformed #h integrity record')
+  })
+
+  it('never treats an IANA hash as verification of IERS rows it does not cover', () => {
+    const iersRows = IERS_LEAP_SECONDS.entries
+      .map((entry) => {
+        const date = new Date(entry.unixSeconds * 1000)
+        const mjd = entry.unixSeconds / 86_400 + 40_587
+        return `${String(mjd)}.0 ${String(date.getUTCDate())} ${String(date.getUTCMonth() + 1)} ${String(date.getUTCFullYear())} ${String(entry.deltaAt)}`
+      })
+      .join('\n')
+    // SHA-1 of the empty string: this used to pass because IERS rows were
+    // omitted from the IANA hash input, making "verified" mean nothing.
+    const emptyHash = '#h da39a3ee 5e6b4b0d 3255bfef 95601890 afd80709'
+    expect(expectErr(parseLeapSecondsList(`${emptyHash}\n${iersRows}`)).reason).toBe(
+      'an IANA #h integrity record requires #$, #@ and IANA data rows',
+    )
+  })
+
+  it('rejects non-decimal metadata stamps and mixed row formats', () => {
+    const ianaRows = IERS_LEAP_SECONDS.entries
+      .map((entry) => `${String(entry.unixSeconds + 2_208_988_800)} ${String(entry.deltaAt)}`)
+      .join('\n')
+    for (const stamp of ['#$', '#$ 3.992312697e9', '#$ 0xee05f279']) {
+      expect(expectErr(parseLeapSecondsList(`${stamp}\n${ianaRows}`)).reason).toBe(
+        'malformed #$ update stamp',
+      )
+    }
+    const first = IERS_LEAP_SECONDS.entries[0]
+    expect(first).toBeDefined()
+    const mixed = `41317.0 1 1 1972 10\n${ianaRows.split('\n').slice(1).join('\n')}`
+    expect(expectErr(parseLeapSecondsList(mixed)).reason).toBe('cannot mix IANA and IERS data rows')
   })
 
   it('rejects ambiguous duplicate metadata and trailing row garbage', () => {
@@ -546,5 +594,63 @@ describe('numeric interop (offsets vs absolute epoch milliseconds)', () => {
     expect(unixMillisResolutionNanos(parseInstantOrThrow('1970-01-02T00:00:00Z'))).toBeLessThan(
       resolution,
     )
+    // Immediately below an exact power of two, doubles are twice as dense
+    // as immediately above it. "Finest" means the smaller spacing.
+    expect(unixMillisResolutionNanos(instantFromUnixMillis(2 ** 40))).toBe(122.0703125)
+  })
+})
+
+describe('options passed where they do not belong', () => {
+  const i = instantFromUnixMillis(1_787_142_896_789)
+
+  // `scale` lives in the options bag for format/parse but is positional for
+  // the scale converters. Passing it positionally here used to be accepted
+  // in silence and the default scale used, so formatInstant(i, p, 'tai')
+  // rendered a UTC reading 37 seconds away from the one asked for.
+  it('rejects a bare scale where an options object belongs', () => {
+    expect(() => formatInstant(i, 'HH:mm:ss', 'tai' as never)).toThrow(RangeError)
+    expect(() => formatIso(i, 'tai' as never)).toThrow(/must be an object/)
+    expect(() => parseInstant('2026-08-19T12:34:56', 'tai' as never)).toThrow(/must be an object/)
+  })
+
+  it('names the fix in the message, since the mistake is a near miss', () => {
+    expect(() => formatInstant(i, 'HH:mm:ss', 'tai' as never)).toThrow(
+      /Did you mean \{ scale: "tai" \}/,
+    )
+  })
+
+  it('still accepts a real options object and an omitted one', () => {
+    expect(formatInstant(i, 'HH:mm:ss', { scale: 'tai' })).toBe('12:35:33')
+    expect(formatInstant(i, 'HH:mm:ss')).toBe('12:34:56')
+    expect(formatInstant(i, 'HH:mm:ss', undefined)).toBe('12:34:56')
+  })
+
+  it('rejects null, which typeof reports as an object', () => {
+    expect(() => formatInstant(i, 'HH:mm:ss', null as never)).toThrow(RangeError)
+  })
+
+  it('rejects every non-object shape without leaking a native TypeError', () => {
+    for (const options of [1n, Symbol('options'), [], () => 0]) {
+      expect(() => formatIso(i, options as never)).toThrow(RangeError)
+    }
+    expect(() => instantToScaleNanos(i, 'tai', 'ignored before this fix' as never)).toThrow(
+      RangeError,
+    )
+    expect(() => deltaAtUnixSeconds(0, 'ignored before this fix' as never)).toThrow(RangeError)
+  })
+
+  it('rejects null option members instead of silently selecting defaults', () => {
+    expect(() => formatIso(i, { scale: null } as never)).toThrow(RangeError)
+    expect(() => formatIso(i, { precision: null } as never)).toThrow(RangeError)
+    expect(() => formatIso(i, { designator: null } as never)).toThrow(RangeError)
+    expect(() => parseInstant('2026-08-19', { format: null } as never)).toThrow(RangeError)
+    expect(() => instantToUtc(i, { leapSeconds: null } as never)).toThrow(RangeError)
+    expect(() => deltaAtUnixSeconds(0, { leapSeconds: null } as never)).toThrow(RangeError)
+  })
+
+  it('reports non-string pattern configuration without leaking a native TypeError', () => {
+    expect(formatPatternError(null as never)).toContain('must be a string')
+    expect(parsePatternError(null as never)).toContain('must be a string')
+    expect(() => formatInstant(i, null as never)).toThrow(RangeError)
   })
 })

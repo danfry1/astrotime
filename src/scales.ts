@@ -20,6 +20,7 @@ import {
 } from './instant.js'
 import { IERS_LEAP_SECONDS, leapEntryIndexForUnix, PRE_1972_DELTA_AT } from './leap-seconds.js'
 import { assertSafeInteger, deterministicSin, floorDiv, fromNanos, toNanos } from './numeric.js'
+import { assertOptionsObject } from './options.js'
 import { err, ok, type Result } from './result.js'
 
 /**
@@ -29,7 +30,7 @@ import { err, ok, type Result } from './result.js'
  * - `tt`  — Terrestrial Time = TAI + 32.184 s.
  * - `gps` — GPS time = TAI − 19 s.
  * - `tdb` — Barycentric Dynamical Time ≈ TT + periodic terms (≤ 1.7 ms;
- *           this implementation agrees with ERFA's full series to < 30 µs).
+ *           this implementation agrees with ERFA's full series to < 10 µs).
  */
 export type TimeScale = 'utc' | 'tai' | 'tt' | 'gps' | 'tdb'
 
@@ -75,6 +76,8 @@ const J2000_NANOS_FROM_1970 = BigInt(J2000_SECONDS_FROM_1970) * NANOS_PER_SECOND
 /** GPS epoch 1980-01-06T00:00:00 (GPS = UTC at that instant). */
 const GPS_EPOCH_NANOS = BigInt(daysFromCivil(1980, 1, 6) * SECONDS_PER_DAY) * NANOS_PER_SECOND
 const NANOS_PER_WEEK = 7n * NANOS_PER_DAY
+/** Covers the documented civil range, years −999 999 through +999 999. */
+const TDB_MAX_ABS_CENTURIES = 10_020
 
 /** The J2000 epoch, 2000-01-01T12:00:00 TT (= 11:58:55.816 UTC). */
 export const J2000_INSTANT: Instant = instantFromTaiNanos(
@@ -85,27 +88,32 @@ export const GPS_EPOCH_INSTANT: Instant = instantFromTaiNanos(GPS_EPOCH_NANOS - 
 
 /**
  * TDB − TT in seconds for a TT time expressed as days since J2000.
- * Leading terms of the Fairhead & Bretagnon series as given in USNO Circular
- * 179 (eq. 2.6): mean anomaly of Earth, Sun−Jupiter longitude difference and
- * twice the mean anomaly. Agrees with ERFA `dtdb` to < 30 µs (1972–2100).
+ * The seven-term truncation of the Fairhead & Bretagnon series given in USNO
+ * Circular 179 (eq. 2.6). Agrees with ERFA `dtdb` to < 10 µs (1972–2100).
  */
 function tdbMinusTt(daysSinceJ2000Tt: number): number {
   const centuries = daysSinceJ2000Tt / 36_525
-  const g = 6.2401 + 628.3076 * centuries
-  const jupiter = 4.297 + 575.3385 * centuries
-  if (
-    !Number.isFinite(g) ||
-    !Number.isFinite(jupiter) ||
-    Math.abs(g) > 5e8 ||
-    Math.abs(jupiter) > 1e9
-  ) {
-    throw new RangeError('TDB approximation is outside its numerically supported argument range')
+  const phases = [
+    628.3076 * centuries + 6.2401,
+    575.3385 * centuries + 4.297,
+    1256.6152 * centuries + 6.1969,
+    606.9777 * centuries + 4.0212,
+    52.9691 * centuries + 0.4444,
+    21.3299 * centuries + 5.5431,
+    628.3076 * centuries + 4.249,
+  ] as const
+  if (!Number.isFinite(centuries) || Math.abs(centuries) > TDB_MAX_ABS_CENTURIES) {
+    throw new RangeError('TDB approximation is outside the supported ±999999-year civil range')
   }
   // deterministicSin keeps TDB bit-identical across JS engines (Math.sin is not specified exactly).
   return (
-    0.001_657 * deterministicSin(g) +
-    0.000_022 * deterministicSin(jupiter) +
-    0.000_014 * deterministicSin(2 * g)
+    0.001_657 * deterministicSin(phases[0]) +
+    0.000_022 * deterministicSin(phases[1]) +
+    0.000_014 * deterministicSin(phases[2]) +
+    0.000_005 * deterministicSin(phases[3]) +
+    0.000_005 * deterministicSin(phases[4]) +
+    0.000_002 * deterministicSin(phases[5]) +
+    0.000_01 * centuries * deterministicSin(phases[6])
   )
 }
 
@@ -115,10 +123,26 @@ const tdbOffsetNanos = (ttNanos: bigint): bigint =>
 const tdbNanosFromTt = (ttNanos: bigint): bigint => ttNanos + tdbOffsetNanos(ttNanos)
 
 function ttNanosFromTdb(tdbNanos: bigint): bigint {
-  // Fixed-point iteration: evaluate the offset at the candidate TT so both
-  // directions round the same value and the round trip is exact.
-  const candidate = tdbNanos - tdbOffsetNanos(tdbNanos)
-  return tdbNanos - tdbOffsetNanos(candidate)
+  // Correct the inverse against the actual integer-nanosecond forward map.
+  // One substitution is enough near the modern era, but at expanded years
+  // Number's coarser argument lattice can leave a one-nanosecond residual.
+  // Keep the closest candidate when rounding makes a TDB nanosecond fall in
+  // a gap between two representable TT readings.
+  let candidate = tdbNanos - tdbOffsetNanos(tdbNanos)
+  let best = candidate
+  let error = tdbNanos - tdbNanosFromTt(candidate)
+  let bestError = error
+  for (let iteration = 0; iteration < 8 && error !== 0n; iteration += 1) {
+    candidate += error
+    error = tdbNanos - tdbNanosFromTt(candidate)
+    const absoluteError = error < 0n ? -error : error
+    const absoluteBestError = bestError < 0n ? -bestError : bestError
+    if (absoluteError < absoluteBestError) {
+      best = candidate
+      bestError = error
+    }
+  }
+  return best
 }
 
 /**
@@ -130,6 +154,7 @@ export function instantToScaleNanos(
   scale: TimeScale,
   options: UtcOptions = {},
 ): bigint {
+  assertOptionsObject(options, 'instantToScaleNanos')
   switch (scale) {
     case 'tai':
       return instant.taiNanos
@@ -148,7 +173,10 @@ export function instantToScaleNanos(
 
 /**
  * Converts a scale reading back to an instant. Exact inverse of
- * `instantToScaleNanos` for the uniform scales (`tai`, `tt`, `gps`, `tdb`).
+ * `instantToScaleNanos` for `tai`, `tt` and `gps`. TDB is inverted to the
+ * closest integer-nanosecond TT reading (within 1 ns over the supported civil
+ * range); a varying continuous offset cannot be bijective on both integer
+ * nanosecond lattices.
  * For `'utc'` the reading is POSIX time, which is **not injective**: an
  * inserted leap second shares its Unix value with the following second (this
  * conversion picks the post-leap instant), and a deleted second's value never
@@ -160,6 +188,7 @@ export function instantFromScaleNanos(
   scale: TimeScale,
   options: UtcOptions = {},
 ): Instant {
+  assertOptionsObject(options, 'instantFromScaleNanos')
   switch (scale) {
     case 'tai':
       return instantFromTaiNanos(nanos)
@@ -186,8 +215,9 @@ export const instantToScaleSeconds = (
 /**
  * Converts float scale seconds back to an instant. Float seconds near the
  * present carry ~240 ns double resolution (ULP at ~1.8e9 s), so the round
- * trip with `instantToScaleSeconds` is exact only to that resolution — use
- * the `*ScaleNanos` pair for exactness. UTC input follows POSIX semantics.
+ * trip with `instantToScaleSeconds` is exact only to that resolution. Use the
+ * integer `*ScaleNanos` pair for nanosecond resolution (exact for TAI/TT/GPS;
+ * TDB within 1 ns). UTC input follows POSIX semantics.
  */
 export const instantFromScaleSeconds = (
   seconds: number,
@@ -203,11 +233,12 @@ export const instantFromScaleSeconds = (
  * Seconds since 2000-01-01T12:00:00 **as read on `scale`'s own clock** — the
  * standard per-scale J2000 origin. `instantToJ2000Seconds(i, 'tdb')` follows
  * the SPICE ephemeris-time convention (ET = 0 at 2000-01-01T12:00:00 TDB) but
- * is **approximate ET**: the TDB−TT model is a three-term series that agrees
- * with CSPICE/ERFA to < 30 µs over 1972–2100 (validated in CI; error grows
- * slowly outside that interval). `'tt'` gives TT seconds past the IAU J2000.0
- * epoch, exactly. Origins of different scales differ by up to ΔAT + 32.184 s.
- * ~0.1 µs float resolution near the present; use `instantToJ2000Nanos` for exactness.
+ * is **approximate ET**: the TDB−TT model is a seven-term series that agrees
+ * with ERFA to < 10 µs and CSPICE to < 30 µs over 1972–2100 (validated in CI;
+ * accuracy is not bounded outside that interval). `'tt'` gives TT seconds
+ * past the IAU J2000.0 epoch, exactly. Origins of different scales differ by
+ * up to ΔAT + 32.184 s. Float resolution is ~0.1 µs near the present; use
+ * `instantToJ2000Nanos` for integer nanoseconds.
  */
 export const instantToJ2000Seconds = (
   instant: Instant,
@@ -303,7 +334,14 @@ export function instantToJulianDate(
   return jd1 + jd2
 }
 
-/** Modified Julian Date (JD − 2 400 000.5) on `scale` as a single float. */
+/**
+ * Modified Julian Date (JD − 2 400 000.5) on `scale` as a single float.
+ *
+ * The offset is subtracted from the high part before the low part is added,
+ * which is not the same as `instantToJulianDate(...) - MJD_OFFSET`: that
+ * collapses the two-part value first and loses roughly 3 µs at present
+ * epochs. Keep the subtraction where it is.
+ */
 export const instantToModifiedJulianDate = (
   instant: Instant,
   scale: TimeScale,

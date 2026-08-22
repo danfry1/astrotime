@@ -35,7 +35,6 @@ describe('calendar', () => {
     expect(daysInYear(2024)).toBe(366)
     expect(daysInMonth(2024, 2)).toBe(29)
     expect(daysInMonth(2023, 2)).toBe(28)
-    expect(daysInMonth(2023, 13)).toBe(0)
   })
 
   it('converts ordinal days', () => {
@@ -51,6 +50,10 @@ describe('calendar', () => {
     expect(() => civilFromOrdinal(2023, 366)).toThrow(RangeError)
     expect(() => civilFromOrdinal(2024, 0)).toThrow(RangeError)
     expect(() => civilFromDays(Number.MAX_VALUE)).toThrow(RangeError)
+    expect(() => daysInMonth(2023, 13)).toThrow(RangeError)
+    expect(() => daysInMonth(2023, 1.5)).toThrow(RangeError)
+    expect(() => daysInYear(Number.NaN)).toThrow(RangeError)
+    expect(() => isLeapYear(Number.MAX_SAFE_INTEGER + 1)).toThrow(RangeError)
   })
 
   it('round-trips every day in positive and negative Gregorian 400-year eras', () => {

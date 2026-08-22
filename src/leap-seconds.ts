@@ -1,6 +1,7 @@
 import { LeapSecondTableError } from './errors.js'
 import { err, ok, type Result } from './result.js'
 import { sha1Hex } from './sha1.js'
+import { assertOptionsObject } from './options.js'
 
 /** One row of a leap-second table: from `unixSeconds` (a UTC midnight) onward, TAI − UTC = `deltaAt`. */
 export type LeapSecondEntry = {
@@ -73,9 +74,11 @@ export function deltaAtUnixSeconds(
   unixSeconds: number,
   options: { readonly leapSeconds?: LeapSecondTable | undefined } = {},
 ): number {
+  assertOptionsObject(options, 'deltaAtUnixSeconds')
   if (!Number.isFinite(unixSeconds))
     throw new RangeError(`Unix seconds must be finite, got ${String(unixSeconds)}`)
-  const table = options.leapSeconds ?? IERS_LEAP_SECONDS
+  let table = IERS_LEAP_SECONDS
+  if (options.leapSeconds !== undefined) table = options.leapSeconds
   assertValidLeapSecondTable(table)
   const idx = leapEntryIndexForUnix(unixSeconds, table)
   return idx === -1 ? PRE_1972_DELTA_AT : (table.entries[idx]?.deltaAt ?? PRE_1972_DELTA_AT)
@@ -99,19 +102,33 @@ export function leapEntryIndexForUnix(unixSeconds: number, table: LeapSecondTabl
   return found
 }
 
-function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
+function tableProblem(entries: readonly unknown[]): string | null {
   if (entries.length === 0) return 'table has no entries'
   for (let i = 0; i < entries.length; i += 1) {
-    const cur = entries[i]
-    if (cur === undefined) continue
-    if (!Number.isSafeInteger(cur.unixSeconds) || !Number.isSafeInteger(cur.deltaAt)) {
+    const value = entries[i]
+    if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+      return 'entries must be objects with unixSeconds and deltaAt fields'
+    }
+    const cur = value as Partial<LeapSecondEntry>
+    const unixSeconds = cur.unixSeconds
+    const deltaAt = cur.deltaAt
+    if (
+      typeof unixSeconds !== 'number' ||
+      typeof deltaAt !== 'number' ||
+      !Number.isSafeInteger(unixSeconds) ||
+      !Number.isSafeInteger(deltaAt)
+    ) {
       return 'entries must be safe integers'
     }
-    if (cur.unixSeconds % SECONDS_PER_DAY !== 0) return 'entries must start at a UTC midnight'
-    const prev = entries[i - 1]
-    if (prev === undefined) continue
-    if (cur.unixSeconds <= prev.unixSeconds) return 'entries are not in ascending order'
-    if (Math.abs(cur.deltaAt - prev.deltaAt) !== 1)
+    if (!Number.isSafeInteger(unixSeconds + deltaAt)) {
+      return 'entry TAI boundaries must be safe integers'
+    }
+    if (unixSeconds % SECONDS_PER_DAY !== 0) return 'entries must start at a UTC midnight'
+    const previousValue = entries[i - 1]
+    if (previousValue === undefined) continue
+    const prev = previousValue as LeapSecondEntry
+    if (unixSeconds <= prev.unixSeconds) return 'entries are not in ascending order'
+    if (Math.abs(deltaAt - prev.deltaAt) !== 1)
       return 'TAI−UTC must change by exactly one second between entries'
   }
   // The full known history is required: every bundled entry must appear
@@ -123,7 +140,7 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
   }
   for (let i = 0; i < known.length; i += 1) {
     const expected = known[i]
-    const given = entries[i]
+    const given = entries[i] as LeapSecondEntry | undefined
     if (expected === undefined || given === undefined) continue
     if (given.unixSeconds !== expected.unixSeconds || given.deltaAt !== expected.deltaAt) {
       return `entry ${String(i)} must match the known leap-second history (expected unixSeconds ${String(expected.unixSeconds)}, deltaAt ${String(expected.deltaAt)})`
@@ -132,7 +149,7 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
   // Appended entries must lie in the genuinely unknown future: the bundled
   // data is authoritative through its expiry, so an "extra" leap second
   // dated inside that window would contradict known history.
-  const firstAppended = entries[known.length]
+  const firstAppended = entries[known.length] as LeapSecondEntry | undefined
   const coverageBoundary = IERS_LEAP_SECONDS.expires
   if (
     firstAppended !== undefined &&
@@ -144,7 +161,13 @@ function tableProblem(entries: readonly LeapSecondEntry[]): string | null {
   return null
 }
 
-function metadataProblem(table: LeapSecondTable): string | null {
+function metadataProblem(value: unknown): string | null {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return 'table must be an object'
+  }
+  const candidate = value as Partial<LeapSecondTable>
+  if (!Array.isArray(candidate.entries)) return 'entries must be an array'
+  const table = candidate as LeapSecondTable
   if (table.expires !== null && !Number.isSafeInteger(table.expires))
     return 'expires must be a safe integer or null'
   if (
@@ -240,6 +263,8 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
   let updatedDigits = ''
   let expiresDigits = ''
   let pairDigits = ''
+  let sawIanaRow = false
+  let sawIersRow = false
   const lines = text.split(/\r?\n/)
   if (lines.length > MAX_LIST_LINES) {
     return err(
@@ -252,9 +277,10 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     const line = raw.trim()
     if (line === '') continue
     if (line.startsWith('#@') || line.startsWith('#$')) {
-      const ntp = Number(line.slice(2).trim())
+      const stamp = line.slice(2).trim()
+      const ntp = Number(stamp)
       const what = line.startsWith('#@') ? '#@ expiry' : '#$ update stamp'
-      if (!Number.isSafeInteger(ntp))
+      if (!/^\d+$/.test(stamp) || !Number.isSafeInteger(ntp))
         return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
       if (line.startsWith('#@')) {
         if (hasIanaExpiry) return err(new LeapSecondTableError(lineNo, 'duplicate #@ expiry'))
@@ -316,11 +342,19 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
           new LeapSecondTableError(lineNo, 'MJD does not match the day/month/year columns'),
         )
       }
+      if (sawIanaRow) {
+        return err(new LeapSecondTableError(lineNo, 'cannot mix IANA and IERS data rows'))
+      }
+      sawIersRow = true
       entries.push({ unixSeconds, deltaAt: delta })
       continue
     }
     const ianaRow = /^(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
     if (ianaRow !== null) {
+      if (sawIersRow) {
+        return err(new LeapSecondTableError(lineNo, 'cannot mix IANA and IERS data rows'))
+      }
+      sawIanaRow = true
       entries.push({ unixSeconds: Number(ianaRow[1]) - NTP_TO_UNIX, deltaAt: Number(ianaRow[2]) })
       pairDigits += `${ianaRow[1]}${ianaRow[2]}`
       continue
@@ -329,6 +363,14 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
   }
   if (entries.length === 0) return err(new LeapSecondTableError(0, 'no leap-second entries found'))
   if (integrityHash !== null) {
+    if (!hasUpdated || !hasIanaExpiry || !sawIanaRow || sawIersRow) {
+      return err(
+        new LeapSecondTableError(
+          integrityHash.line,
+          'an IANA #h integrity record requires #$, #@ and IANA data rows',
+        ),
+      )
+    }
     // IANA/NIST '#h': SHA-1 over the ASCII digits of the '#$' stamp, the
     // '#@' stamp, then each (timestamp, ΔAT) pair, with no separators.
     const computed = sha1Hex(updatedDigits + expiresDigits + pairDigits)

@@ -1,5 +1,5 @@
 // Result & errors
-export { type Err, err, type Ok, ok, type Result, unwrap, unwrapOr } from './result.js'
+export { type Err, type Ok, type Result, unwrap, unwrapOr } from './result.js'
 export {
   type AstrotimeError,
   InvalidTimeError,
@@ -77,7 +77,7 @@ export {
 
 // Instant
 export {
-  addDuration,
+  addToInstant,
   type CalendarFields,
   type CivilDateTime,
   type CivilFields,
@@ -114,7 +114,7 @@ export {
   maxInstant,
   minInstant,
   type OrdinalFields,
-  subtractDuration,
+  subtractFromInstant,
   UNIX_EPOCH_INSTANT,
   unixMillisResolutionNanos,
   UTC_START_INSTANT,
@@ -167,7 +167,6 @@ export {
   formatOrdinal,
   type FractionPrecision,
   formatPatternError,
-  INSTANT_TOKEN,
   isValidFormatPattern,
   type IsoFormatOptions,
 } from './format.js'

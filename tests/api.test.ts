@@ -1,0 +1,40 @@
+import { describe, expect, it } from 'vitest'
+
+import * as astrotime from '../src/index.js'
+
+const EXPECTED_RUNTIME_EXPORTS = `
+GPS_EPOCH_INSTANT GPS_MINUS_TAI_NANOS IERS_LEAP_SECONDS InvalidTimeError
+J2000_INSTANT JD_J2000 JD_UNIX_EPOCH LeapSecondTableError MJD_OFFSET NANOS_PER_DAY
+NANOS_PER_HOUR NANOS_PER_MICRO NANOS_PER_MILLI NANOS_PER_MINUTE NANOS_PER_SECOND
+PRE_1972_DELTA_AT TIME_SCALES TIME_SCALE_LABELS TT_MINUS_TAI_NANOS TimeParseError
+UNIX_EPOCH_INSTANT UTC_START_INSTANT ZERO_DURATION absDuration addDurations addToInstant
+civilFromDays civilFromOrdinal clampInstant compareDurations compareInstants dayOfYear
+daysFromCivil daysInMonth daysInYear deltaAt deltaAtUnixSeconds duration durationBetween
+durationFromDays durationFromHours durationFromMillis durationFromMinutes durationFromNanos
+durationFromSeconds durationPatternError durationToComponents durationToDays durationToHours
+durationToMillis durationToMinutes durationToNanos durationToSeconds durationsEqual formatDuration
+formatInstant formatIso formatOrdinal formatPatternError freezeLeapSecondTable instantFromCivil
+instantFromDate instantFromGpsSeconds instantFromGpsWeek instantFromJ2000Nanos
+instantFromJ2000Seconds instantFromJulianDate instantFromJulianDateParts
+instantFromModifiedJulianDate instantFromOffsetMillis instantFromOffsetSeconds
+instantFromScaleNanos instantFromScaleSeconds instantFromTaiNanos instantFromUnixMillis
+instantFromUnixNanos instantFromUnixSeconds instantFromUtc instantNow instantRange instantToCivil
+instantToDate instantToGpsSeconds instantToGpsWeek instantToJ2000Nanos instantToJ2000Seconds
+instantToJulianDate instantToJulianDateParts instantToModifiedJulianDate instantToOffsetMillis
+instantToOffsetSeconds instantToScaleNanos instantToScaleSeconds instantToTaiNanos
+instantToUnixMillis instantToUnixNanos instantToUnixSeconds instantToUtc instantsEqual isAfter
+isAstrotimeError isBefore isDuration isInstant isLeapSecond isLeapSecondTableExpired isLeapYear
+isNegativeDuration isUtcDefined isValidFormatPattern isValidInstant maxInstant minInstant
+negateDuration parseDuration parseDurationOrThrow parseInstant parseInstantOrThrow
+parseLeapSecondsList parsePatternError scaleDuration subtractDurations subtractFromInstant
+truncateInstant unixMillisResolutionNanos unwrap unwrapOr validateLeapSecondTable
+`
+  .trim()
+  .split(/\s+/)
+  .sort()
+
+describe('public API surface', () => {
+  it('matches the reviewed runtime export contract exactly', () => {
+    expect(Object.keys(astrotime).sort()).toStrictEqual(EXPECTED_RUNTIME_EXPORTS)
+  })
+})

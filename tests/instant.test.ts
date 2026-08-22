@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  addDuration,
+  addToInstant,
   clampInstant,
   compareInstants,
   deltaAt,
@@ -36,7 +36,7 @@ import {
   maxInstant,
   minInstant,
   parseInstantOrThrow,
-  subtractDuration,
+  subtractFromInstant,
   UNIX_EPOCH_INSTANT,
   UTC_START_INSTANT,
 } from '../src/index.js'
@@ -286,9 +286,9 @@ describe('values', () => {
 describe('arithmetic and ordering', () => {
   it('adds and subtracts exact durations across a leap second', () => {
     const start = iso('2016-12-31T23:59:59Z')
-    const plusTwo = addDuration(start, duration({ seconds: 2 }))
+    const plusTwo = addToInstant(start, duration({ seconds: 2 }))
     expect(formatIso(plusTwo)).toBe('2017-01-01T00:00:00.000Z')
-    expect(instantsEqual(subtractDuration(plusTwo, duration({ seconds: 2 })), start)).toBe(true)
+    expect(instantsEqual(subtractFromInstant(plusTwo, duration({ seconds: 2 })), start)).toBe(true)
   })
 
   it('compares, orders and clamps', () => {
@@ -323,6 +323,10 @@ describe('arithmetic and ordering', () => {
     expect([...instantRange(end, start, step)]).toStrictEqual([])
     expect(() => [...instantRange(start, end, duration({}))]).toThrow(
       new RangeError('instantRange step must be non-zero'),
+    )
+    expect(() => [...instantRange(start, end, step, [] as never)]).toThrow(RangeError)
+    expect(() => [...instantRange(start, end, step, { inclusive: null } as never)]).toThrow(
+      RangeError,
     )
   })
 

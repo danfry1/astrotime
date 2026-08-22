@@ -1,5 +1,94 @@
 # Changelog
 
+## Unreleased
+
+An API-surface audit, done now because the library has no adopters and the
+cost of changing a public name rises to permanent the moment it has one.
+
+- **Fix**: an options argument that is not an options object is rejected.
+  `formatInstant(i, pattern, 'tai')` was accepted in silence and the default
+  scale used, so it rendered a UTC reading 37 seconds from the TAI one the
+  caller asked for. `scale` is positional on the seventeen scale converters
+  and lives in the options bag for format and parse, which makes the mistake
+  a near miss rather than an obvious one; the error names the fix.
+- **Fix**: the same guard now covers every options-bearing entry point,
+  including uniform-scale conversions that otherwise never inspect UTC
+  options. Arrays, bigint/symbol/function arguments, and `null` members for
+  `scale`, `format`, `precision`, `designator` or `leapSeconds` fail with a
+  deliberate `RangeError` rather than selecting a default or leaking a
+  native `TypeError`. Structured duration inputs and range options receive
+  the same runtime-shape checks for JavaScript callers.
+- **Fix/security**: an IANA `#h` record can no longer appear to authenticate
+  IERS rows, which are absent from the IANA digest input. Hash records now
+  require the IANA `#$`, `#@` and data-row shape; mixed IANA/IERS rows and
+  non-decimal metadata spellings are rejected.
+- Leap-table validation now handles missing arrays and non-object entries as
+  structured `LeapSecondTableError` / `RangeError` failures instead of
+  leaking property-access `TypeError`s to JavaScript callers.
+- **Fix**: `unixMillisResolutionNanos` reports the finer of the adjacent
+  double spacings. At an exact power of two the old one-sided calculation
+  returned twice the finest representable difference.
+- **Hardening**: `isLeapYear`, `daysInYear` and `daysInMonth` reject
+  non-safe-integer inputs, and `daysInMonth` rejects months outside 1–12,
+  instead of returning a plausible calendar answer for invalid input.
+- **Accuracy**: TDB now evaluates all seven terms of the Fairhead &
+  Bretagnon truncation published in USNO Circular 179 rather than only its
+  three largest terms. Independent Astropy/ERFA differential testing over
+  100,000 seeded epochs from 1972–2100 found a 9.282 µs maximum error, so
+  the ERFA acceptance limit is tightened from 30 µs to 10 µs. CSPICE uses a
+  distinct truncated periodic model; its independently tested 30 µs bound
+  remains explicit rather than being conflated with the ERFA bound.
+- **Fix/documentation**: the TDB inverse now corrects against the actual
+  integer-nanosecond forward map at expanded years and chooses the closest
+  representable TT reading. The former claim of a universally exact TDB
+  integer round-trip was mathematically impossible where the continuously
+  varying offset crosses a nanosecond rounding boundary; the executable
+  contract is now the honest ≤ 1 ns bound across years −999 999…+999 999.
+- **Breaking**: `addDuration` and `subtractDuration` are renamed to
+  `addToInstant` and `subtractFromInstant`. They differed from
+  `addDurations` and `subtractDurations` by a single letter while taking
+  different argument types and returning different types. TypeScript
+  rejects a mix-up; JavaScript callers get no warning.
+- **Breaking**: `ok` and `err` are no longer exported. They construct
+  `Result`s, which is internal; consumers read them with `.ok`, `unwrap`
+  and `unwrapOr`. Exporting the constructors made "build your own
+  astrotime-shaped Result" a compatibility obligation.
+- **Breaking**: `INSTANT_TOKEN` is no longer exported. A `RegExp` has mutable
+  internal state even when frozen (`RegExp.compile()` can change its source
+  before failing on a frozen property), so exporting the exact regex used by
+  parsing exposed a global format-semantics mutation point. The supported
+  pattern contract remains documented and is queryable through
+  `formatPatternError` / `parsePatternError`.
+
+- `Result`'s error type is now constrained to `Error`. Every `Result` the
+  library produces already carried one, and `ok`/`err` are no longer
+  exported, so `unwrap` no longer needs a branch for wrapping a non-`Error`
+  value — the branch was unreachable through the public API and is gone.
+- Tests: `unwrapOr` had no coverage at all and `unwrap` was only ever called
+  on its success path; both are now exercised on both sides, including that
+  `unwrap` rethrows the carried error by identity rather than a wrapper.
+  Error `cause` serialization is covered for the `Error` and non-`Error`
+  cases. SHA-1 gains message lengths at every padding boundary — where
+  `len % 64` reaches 56 an extra block is required, which is where a
+  hand-written implementation usually breaks — checked against digests from
+  `node:crypto`.
+- Documented: why `instantToModifiedJulianDate` subtracts the offset from the
+  high part of the two-part Julian date rather than from the collapsed value
+  (about 10x better round-trip accuracy), now enforced by a test that fails
+  if it is "simplified"; why TypeScript is pinned below the current major;
+  and which coverage ceilings are unreachable rather than unmet.
+- The complete runtime export list is now an executable contract exercised
+  against both source and the built package, so documentation and manifest
+  changes cannot silently diverge again. Corrected the README's `Date`
+  conversion wording: sub-millisecond values are truncated toward negative
+  infinity, not rounded to the nearest millisecond.
+
+Two other candidates were examined and left alone. The `instantBrand` and
+`durationBrand` symbols appear in the emitted types but are in no export
+list, so no consumer can reach them; they are required for nominal typing.
+`isLeapYear` is already exported alongside the calendar functions rather
+than the leap-second ones.
+
 ## 0.12.0 - 2026-08-21
 
 - **Fix**: reject every expanded spelling of ISO negative-zero years
@@ -32,11 +121,12 @@
   current Stryker 10.0.0. Mutation reports carry a digest of all verification
   inputs so stale results cannot be included in release evidence.
 - Verification: two-part Julian-date round trips are asserted exactly at
-  nanosecond precision on every scale and every known leap boundary; calendar
+  nanosecond precision for UTC/TAI/TT/GPS (and to TDB's unavoidable 1 ns
+  integer-lattice bound) across the civil range and every known leap boundary; calendar
   conversion is exhaustively checked across three 400-year Gregorian eras;
   the 100,000-case astropy differential sweep now also covers TDB and UTC/TT
-  two-part Julian dates. The fresh Stryker 10 run covers 3,045 mutants at an
-  84.07% score, with its static-runner limitation reproduced and documented.
+  two-part Julian dates. The final Stryker 10 run covers 3,335 mutants at an
+  82.82% score, with its static-runner limitation reproduced and documented.
 - Documentation: correct the serialized `Instant` scale (TAI, not UTC), current
   bundle/benchmark figures, supported security version, and the evidence
   roadmap's implemented/planned split.

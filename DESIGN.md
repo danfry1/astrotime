@@ -28,7 +28,7 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   table from `leap-seconds.list` (IANA/NIST) or `Leap_Second.dat` (IERS) via
   `parseLeapSecondsList`. No global mutable state.
 - Scales: `utc | tai | tt | gps | tdb`. TT = TAI + 32.184 s; GPS = TAI − 19 s;
-  TDB = TT + three leading Fairhead & Bretagnon terms (USNO Circular 179 eq. 2.6; < 30 µs vs ERFA, documented).
+  TDB = TT + the seven-term Fairhead & Bretagnon truncation (USNO Circular 179 eq. 2.6; < 10 µs vs ERFA, documented).
   UT1 is out of scope (needs IERS EOP data).
 - Leap-second semantics: UTC `23:59:60` is representable and valid only when the
   table has a positive leap at that boundary. `instantToUnixMillis` follows POSIX:
@@ -51,7 +51,7 @@ instantFromTaiNanos / instantToTaiNanos / isInstant
 instantFromUtc(fields, opts) → Result<Instant, InvalidTimeError>
 instantToUtc(i, opts) → CivilDateTime { year, month, day, dayOfYear, hour, minute, second(0–60), nanosecond }
 instantFromCivil(fields, scale) / instantToCivil(i, scale)       // any scale's own calendar
-addDuration / subtractDuration / durationBetween / compareInstants / instantsEqual / isBefore / isAfter
+addToInstant / subtractFromInstant / durationBetween / compareInstants / instantsEqual / isBefore / isAfter
 minInstant / maxInstant / clampInstant / instantRange / truncateInstant(i, unit, scale)
 duration({days,hours,minutes,seconds,millis,micros,nanos}) / durationFrom*/durationTo* / durationToComponents
 parseDuration / parseDurationOrThrow / formatDuration(d, 'iso' | 'clock' | pattern) / scaleDuration (exact)

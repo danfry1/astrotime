@@ -55,7 +55,28 @@ exercise time behavior).
 | Release | Overall | Weakest module | Strongest |
 |---|---|---|---|
 | 0.7.0 | 86.60% (2148 mutants, Stryker 9.6.1) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
-| Unreleased audit | 84.07% (3045 mutants, Stryker 10.0.0) | `calendar.ts` 71.52%, `leap-seconds.ts` 76.07% | `sha1.ts` 95.95%, `duration.ts` 93.00%, `parse.ts` 92.69% |
+| Unreleased audit | 82.82% (3335 mutants, Stryker 10.0.0) | `options.ts` 30.30%*, `calendar.ts` 70.06%, `leap-seconds.ts` 76.52% | `result.ts` 100%, `sha1.ts` 95.95%, `duration.ts` 92.70% |
+
+**Coverage ceilings, honestly.** Two modules cannot reach 100% branch
+coverage and are not defects:
+
+- `sha1.ts` sits at 68.75%. Its working array is a `Uint32Array(80)` indexed
+  0–79, so the five `?? 0` fallbacks can never fire; they exist because
+  `noUncheckedIndexedAccess` types a typed-array read as possibly undefined.
+  Five unreachable branches out of sixteen is exactly the score. The padding
+  boundaries that *can* break a hand-written SHA-1 (message lengths where
+  `len % 64` reaches 56 and forces an extra block) are covered explicitly,
+  against digests generated from `node:crypto`.
+- `assert.ts` is excluded from mutation scope for the same reason, recorded
+  below.
+
+**Why TypeScript is pinned below the current major.** Assurance tooling runs
+TypeScript 5.9.3, not 7.x, and this is deliberate. Stryker reads the project
+tsconfig through `ts.parseConfigFileTextToJson`, which TypeScript 7 removed;
+every Stryker version including 9.6.1 does this, so downgrading Stryker is
+not an escape. Under TypeScript 7 the type check and the build both pass —
+only mutation testing fails — so the trade is a version number against
+published assurance evidence. Revisit when Stryker supports TypeScript 7.
 
 **Why not higher, honestly.** The surviving mutants were categorized rather
 than chased. Three classes dominate and are not worth killing:
@@ -78,11 +99,15 @@ injecting an off-by-one into the Gregorian era arithmetic in `calendar.ts`
 top-level/static mutants as survivors even when the ordinary suite kills the
 same edit. In this audit it reported `GPS_MINUS_TAI_NANOS = +19s` as survived;
 applying that edit directly makes two GPS tests fail. Those static mutants are
-kept in the denominator rather than hidden with `ignoreStatic`, so 84.07% is a
+kept in the denominator rather than hidden with `ignoreStatic`, so 82.82% is a
 conservative aggregate, but a static survivor must be reproduced directly
 before it is treated as a real test gap. The provenance-stamped JSON report is
 the authoritative per-mutant record.
 
-**Tracked work:** `leap-seconds.ts` at 76.07% remains the highest-consequence
+`options.ts`'s 30.30% is dominated by this same limitation: its small
+top-level display helper is mutated statically, while direct API tests exercise
+every primitive/object shape and assert deliberate `RangeError` behavior.
+
+**Tracked work:** `leap-seconds.ts` at 76.52% remains the highest-consequence
 low-scoring module. Raising it — with tests that assert behavior, not message
 text — is the next assurance task before 1.0.

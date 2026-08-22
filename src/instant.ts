@@ -10,6 +10,7 @@ import {
   PRE_1972_DELTA_AT,
 } from './leap-seconds.js'
 import { fromNanos, toNanos } from './numeric.js'
+import { assertOptionsObject } from './options.js'
 import { fractionDigits, pad } from './pattern.js'
 import { err, ok, type Result } from './result.js'
 
@@ -114,6 +115,7 @@ export const UTC_START_INSTANT: Instant = makeInstant(
 )
 
 const resolveTable = (options: UtcOptions): LeapSecondTable => {
+  assertOptionsObject(options, 'UTC')
   if (
     options.before1972 !== undefined &&
     options.before1972 !== 'approximate' &&
@@ -137,7 +139,15 @@ const resolveTable = (options: UtcOptions): LeapSecondTable => {
       `leapGap must be "fold" or "reject", got ${JSON.stringify(options.leapGap)}`,
     )
   }
-  const table = options.leapSeconds ?? IERS_LEAP_SECONDS
+  const suppliedTable: unknown = options.leapSeconds
+  if (
+    suppliedTable !== undefined &&
+    (suppliedTable === null || typeof suppliedTable !== 'object' || Array.isArray(suppliedTable))
+  ) {
+    throw new RangeError('leapSeconds must be a LeapSecondTable object')
+  }
+  let table = IERS_LEAP_SECONDS
+  if (options.leapSeconds !== undefined) table = options.leapSeconds
   assertValidLeapSecondTable(table)
   return table
 }
@@ -329,7 +339,13 @@ const splitNanos = (nanos: bigint, unit: bigint): bigint => {
 /** Current instant from the system clock (millisecond precision). Inject `now` for tests. */
 export const instantNow = (
   options: UtcOptions & { readonly now?: (() => number) | undefined } = {},
-): Instant => instantFromUnixMillis((options.now ?? Date.now)(), options)
+): Instant => {
+  assertOptionsObject(options, 'instantNow')
+  let now = Date.now
+  if (options.now !== undefined) now = options.now
+  if (typeof now !== 'function') throw new RangeError('instantNow now must be a function')
+  return instantFromUnixMillis(now(), options)
+}
 
 // ---------------------------------------------------------------------------
 // Numeric interop (plots, charts, and APIs that require a `number`)
@@ -367,11 +383,16 @@ export const instantFromOffsetSeconds = (seconds: number, origin: Instant): Inst
  * and nanoseconds impossible in that representation; use an offset instead.
  */
 export function unixMillisResolutionNanos(instant: Instant, options?: UtcOptions): number {
-  const millis = instantToUnixMillis(instant, options)
+  const millis = Math.abs(instantToUnixMillis(instant, options))
   const view = new DataView(new ArrayBuffer(8))
-  view.setFloat64(0, Math.abs(millis))
-  view.setBigUint64(0, view.getBigUint64(0) + 1n)
-  return (view.getFloat64(0) - Math.abs(millis)) * 1e6
+  view.setFloat64(0, millis)
+  const bits = view.getBigUint64(0)
+  view.setBigUint64(0, bits + 1n)
+  const above = view.getFloat64(0) - millis
+  if (millis === 0) return above * 1e6
+  view.setBigUint64(0, bits - 1n)
+  const below = millis - view.getFloat64(0)
+  return Math.min(above, below) * 1e6
 }
 
 // ---------------------------------------------------------------------------
@@ -611,10 +632,10 @@ export function civilFromUnixSeconds(
 // Arithmetic and ordering
 
 /** `instant + d`, exact on the TAI timeline (leap-second safe). */
-export const addDuration = (instant: Instant, d: Duration): Instant =>
+export const addToInstant = (instant: Instant, d: Duration): Instant =>
   makeInstant(instant.taiNanos + d.nanos)
 /** `instant − d`, exact on the TAI timeline (leap-second safe). */
-export const subtractDuration = (instant: Instant, d: Duration): Instant =>
+export const subtractFromInstant = (instant: Instant, d: Duration): Instant =>
   makeInstant(instant.taiNanos - d.nanos)
 /** `end − start` as an exact elapsed duration (leap seconds included). */
 export const durationBetween = (start: Instant, end: Instant): Duration =>
@@ -649,6 +670,10 @@ export function* instantRange(
   step: Duration,
   options: { readonly inclusive?: boolean | undefined } = {},
 ): Generator<Instant, void, undefined> {
+  assertOptionsObject(options, 'instantRange')
+  if (options.inclusive !== undefined && typeof options.inclusive !== 'boolean') {
+    throw new RangeError('instantRange inclusive must be a boolean')
+  }
   if (step.nanos === 0n) throw new RangeError('instantRange step must be non-zero')
   const inclusive = options.inclusive ?? false
   const ascending = step.nanos > 0n

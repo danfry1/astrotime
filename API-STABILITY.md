@@ -6,6 +6,19 @@ minor releases, but no export will be renamed, removed, or change behavior
 before 1.0 except to fix a demonstrated correctness defect (which will be a
 breaking minor with a changelog entry, as in 0.2–0.5).
 
+One deliberate exception has been taken, recorded here rather than left to
+be discovered: a single API-surface audit renamed `addDuration` and
+`subtractDuration`, and withdrew `ok`, `err` and `INSTANT_TOKEN`. The first
+two values construct internal `Result` shapes; the regex is mutable metadata
+whose `RegExp.compile()` method can change token semantics at runtime. None
+was a correctness defect in the conversion algorithms, so none is covered by
+the sentence above. The reasoning is that this library has no adopters, so
+the cost of the change is currently zero and becomes permanent the moment it
+has one — and a naming or mutable-state hazard shipped into 1.0 is worse than
+a promise bent before anyone relied on it. This is not a licence to keep
+reshaping the surface; further changes of this kind need the same
+justification and the same note.
+
 Deliberately open questions, to be settled at 1.0 with real-usage evidence:
 
 1. **Result-by-default vs throw-by-default naming** (`parseInstant` returns

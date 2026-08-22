@@ -1,5 +1,6 @@
 import { assertNever } from './assert.js'
-import type { CivilDateTime, Instant, UtcOptions } from './instant.js'
+import { type CivilDateTime, type Instant, type UtcOptions } from './instant.js'
+import { assertOptionsObject } from './options.js'
 import {
   fractionDigits,
   type FieldKey,
@@ -7,7 +8,7 @@ import {
   patternProblem,
   validatedTokenCache,
 } from './pattern.js'
-import { instantToCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
+import { assertTimeScale, instantToCivil, TIME_SCALE_LABELS, type TimeScale } from './scales.js'
 
 export type FormatOptions = UtcOptions & {
   /** Scale whose clock reading is formatted. Default `utc`. */
@@ -32,7 +33,9 @@ export type IsoFormatOptions = FormatOptions & {
  * digits, truncated) and `Z` (scale designator: `Z` for UTC, otherwise `TAI`,
  * `TT`, `GPS` or `TDB`). `[text]` is a literal; other characters pass through.
  */
-export const INSTANT_TOKEN = /^(?:YYYY|MM|DDD|DD|HH|mm|ss|S{1,9}|Z)/
+const INSTANT_TOKEN_REGEX = /^(?:YYYY|MM|DDD|DD|HH|mm|ss|S{1,9}|Z)/
+Object.freeze(INSTANT_TOKEN_REGEX)
+export const INSTANT_TOKEN = INSTANT_TOKEN_REGEX
 
 /**
  * `DD` (day of the month) and `DDD` (day of the year) are different fields
@@ -117,7 +120,9 @@ function formatCivil(civil: CivilDateTime, pattern: string, scale: TimeScale): s
  * formatPatternError('YYYY [')                  // 'unterminated "[" at position 5 …'
  */
 export const formatPatternError = (pattern: string): string | null =>
-  patternProblem(pattern, INSTANT_TOKEN, instantFieldKey)
+  typeof pattern === 'string'
+    ? patternProblem(pattern, INSTANT_TOKEN, instantFieldKey)
+    : `pattern must be a string, got ${String(pattern)}`
 
 /** `true` when `formatInstant` accepts `pattern`. */
 export const isValidFormatPattern = (pattern: string): boolean =>
@@ -129,7 +134,13 @@ export function formatInstant(
   pattern: string,
   options: FormatOptions = {},
 ): string {
-  const scale = options.scale ?? 'utc'
+  assertOptionsObject(options, 'formatInstant', true)
+  if (typeof pattern !== 'string') {
+    throw new RangeError(`Format pattern must be a string, got ${String(pattern)}`)
+  }
+  let scale: TimeScale = 'utc'
+  if (options.scale !== undefined) scale = options.scale
+  assertTimeScale(scale)
   return formatCivil(instantToCivil(instant, scale, options), pattern, scale)
 }
 
@@ -166,10 +177,16 @@ const designatorPattern = (scale: TimeScale, designator: 'auto' | 'none'): strin
 
 /** ISO 8601 calendar form, `YYYY-MM-DDTHH:mm:ss[.fff]Z` (`… TAI` etc. for other scales). */
 export function formatIso(instant: Instant, options: IsoFormatOptions = {}): string {
-  const scale = options.scale ?? 'utc'
+  assertOptionsObject(options, 'formatIso', true)
+  let scale: TimeScale = 'utc'
+  if (options.scale !== undefined) scale = options.scale
+  assertTimeScale(scale)
   const civil = instantToCivil(instant, scale, options)
-  const fraction = fractionPattern(civil.nanosecond, options.precision ?? 'millis')
-  const designator = options.designator ?? 'auto'
+  let precision: FractionPrecision = 'millis'
+  if (options.precision !== undefined) precision = options.precision
+  const fraction = fractionPattern(civil.nanosecond, precision)
+  let designator: 'auto' | 'none' = 'auto'
+  if (options.designator !== undefined) designator = options.designator
   return formatCivil(
     civil,
     `YYYY-MM-DD[T]HH:mm:ss${fraction}${designatorPattern(scale, designator)}`,
@@ -179,10 +196,16 @@ export function formatIso(instant: Instant, options: IsoFormatOptions = {}): str
 
 /** ISO 8601 ordinal (day-of-year, "SCET") form, `YYYY-DDDTHH:mm:ss[.fff]` (designator only for non-UTC scales by default). */
 export function formatOrdinal(instant: Instant, options: IsoFormatOptions = {}): string {
-  const scale = options.scale ?? 'utc'
+  assertOptionsObject(options, 'formatOrdinal', true)
+  let scale: TimeScale = 'utc'
+  if (options.scale !== undefined) scale = options.scale
+  assertTimeScale(scale)
   const civil = instantToCivil(instant, scale, options)
-  const fraction = fractionPattern(civil.nanosecond, options.precision ?? 'millis')
-  const designator = options.designator ?? 'auto'
+  let precision: FractionPrecision = 'millis'
+  if (options.precision !== undefined) precision = options.precision
+  const fraction = fractionPattern(civil.nanosecond, precision)
+  let designator: 'auto' | 'none' = 'auto'
+  if (options.designator !== undefined) designator = options.designator
   const resolvedDesignator = designatorPattern(scale, designator)
   const suffix = designator === 'auto' && scale === 'utc' ? '' : resolvedDesignator
   return formatCivil(civil, `YYYY-DDD[T]HH:mm:ss${fraction}${suffix}`, scale)

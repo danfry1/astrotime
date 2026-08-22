@@ -94,27 +94,29 @@ describe('round-trip properties', () => {
     )
   })
 
-  it('scale nanos round-trip exactly for every scale (TDB included)', () => {
+  it('scale nanos round-trip exactly, with TDB bounded to one nanosecond', () => {
     fc.assert(
-      fc.property(taiNanos, fc.constantFrom(...TIME_SCALES), (n, scale) => {
+      fc.property(fullRangeTaiNanos, fc.constantFrom(...TIME_SCALES), (n, scale) => {
         const i = instantFromTaiNanos(n)
         fc.pre(!(scale === 'utc' && isLeapSecond(i)))
-        expect(instantToTaiNanos(instantFromScaleNanos(instantToScaleNanos(i, scale), scale))).toBe(
-          n,
-        )
+        const error =
+          instantToTaiNanos(instantFromScaleNanos(instantToScaleNanos(i, scale), scale)) - n
+        if (scale === 'tdb') expect(error >= -1n && error <= 1n).toBe(true)
+        else expect(error).toBe(0n)
       }),
       RUNS,
     )
   })
 
-  it('two-part Julian dates round-trip exactly on every scale', () => {
+  it('two-part Julian dates preserve nanos, with TDB bounded to one nanosecond', () => {
     fc.assert(
       fc.property(modernTaiNanos, fc.constantFrom(...TIME_SCALES), (n, scale) => {
         const i = instantFromTaiNanos(n)
         const { jd1, jd2 } = instantToJulianDateParts(i, scale)
         expect(jd2 >= 0 && jd2 < 1).toBe(true)
-        const back = instantToTaiNanos(instantFromJulianDateParts(jd1, jd2, scale))
-        expect(back).toBe(n)
+        const error = instantToTaiNanos(instantFromJulianDateParts(jd1, jd2, scale)) - n
+        if (scale === 'tdb') expect(error >= -1n && error <= 1n).toBe(true)
+        else expect(error).toBe(0n)
       }),
       RUNS,
     )

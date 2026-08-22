@@ -79,8 +79,8 @@ const INV_TWO_PI = 0.15915494309189535
 /**
  * sin(x) for |x| ≤ ~1e9 rad, deterministic across JS engines, absolute error
  * < 1e-13 after reduction (argument-reduction error grows as |x|·2.4e-16 —
- * for the TDB series' |x| < 1e4 the total error stays below 1e-11, i.e.
- * < 0.02 ns of TDB offset).
+ * over the validated 1972–2100 TDB interval, where |x| < 1e4, the total error
+ * stays below 1e-11, i.e. < 0.02 ns of TDB offset).
  */
 export function deterministicSin(x: number): number {
   // Cody–Waite reduction: x − k·2π with 2π split into exact-product halves.

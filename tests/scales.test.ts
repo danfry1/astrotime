@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  MJD_OFFSET,
+  instantFromUnixMillis,
   duration,
   formatIso,
   GPS_EPOCH_INSTANT,
@@ -47,8 +49,8 @@ describe('J2000', () => {
     expect(formatIso(J2000_INSTANT)).toBe('2000-01-01T11:58:55.816Z')
     expect(instantToJ2000Seconds(J2000_INSTANT, 'tt')).toBe(0)
     // SPICE ET = 0 at 2000-01-01T12:00:00 TDB, not TT: at TT noon, ET is the
-    // (negative) TDB−TT offset, ≈ −92.7 µs from the truncated series.
-    expect(instantToJ2000Nanos(J2000_INSTANT, 'tdb')).toBe(-92_704n)
+    // (negative) TDB−TT offset, ≈ −95.8 µs from the truncated series.
+    expect(instantToJ2000Nanos(J2000_INSTANT, 'tdb')).toBe(-95_757n)
     expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 TDB'), 'tdb')).toBe(0n)
     expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00Z'), 'utc')).toBe(0n)
     expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 TAI'), 'tai')).toBe(0n)
@@ -264,7 +266,7 @@ describe('civil time in uniform scales', () => {
 })
 
 describe('TDB', () => {
-  it('differs from TT by at most 1.7 ms and round-trips exactly', () => {
+  it('stays within its amplitude bound and inverts modern sample readings', () => {
     for (const month of [1, 4, 7, 10]) {
       const i = unwrap(instantFromCivil({ year: 2026, month, day: 1 }, 'utc'))
       const diff = Number(instantToScaleNanos(i, 'tdb') - instantToScaleNanos(i, 'tt'))
@@ -281,7 +283,38 @@ describe('TDB', () => {
     expect(formatIso(tricky, { precision: 'nanos' })).toBe('1966-11-05T19:19:54.794626658Z')
   })
 
-  it('rejects instants beyond the deterministic TDB argument range', () => {
+  it('bounds an unavoidable TDB lattice collision to one nanosecond', () => {
+    // At this rounding boundary the decreasing TDB−TT offset maps adjacent
+    // TT nanoseconds to the same TDB nanosecond. No inverse can recover both.
+    const before = instantFromTaiNanos(954_817_935_924_574_570n)
+    const after = instantFromTaiNanos(954_817_935_924_574_571n)
+    const tdbNanos = instantToScaleNanos(before, 'tdb')
+    expect(instantToScaleNanos(after, 'tdb')).toBe(tdbNanos)
+
+    const canonical = instantToTaiNanos(instantFromScaleNanos(tdbNanos, 'tdb'))
+    expect(canonical - instantToTaiNanos(before)).toBe(1n)
+    expect(canonical - instantToTaiNanos(after)).toBe(0n)
+
+    const { jd1, jd2 } = instantToJulianDateParts(before, 'tdb')
+    expect(instantToTaiNanos(instantFromJulianDateParts(jd1, jd2, 'tdb')) - canonical).toBe(0n)
+  })
+
+  it('chooses a closest TT reading for an unrepresentable TDB nanosecond', () => {
+    // At an increasing-offset boundary the forward map jumps by 2 ns, so the
+    // TDB nanosecond between these values has no exact TT preimage.
+    const before = instantFromTaiNanos(970_754_996_798_492_621n)
+    const after = instantFromTaiNanos(970_754_996_798_492_622n)
+    const beforeTdb = instantToScaleNanos(before, 'tdb')
+    const afterTdb = instantToScaleNanos(after, 'tdb')
+    expect(afterTdb - beforeTdb).toBe(2n)
+
+    const gap = beforeTdb + 1n
+    const closest = instantFromScaleNanos(gap, 'tdb')
+    const residual = instantToScaleNanos(closest, 'tdb') - gap
+    expect(residual === -1n || residual === 1n).toBe(true)
+  })
+
+  it('rejects TDB readings beyond the supported civil range', () => {
     expect(() => instantToScaleNanos(instantFromTaiNanos(10n ** 30n), 'tdb')).toThrow(RangeError)
     expect(() => instantFromScaleNanos(10n ** 30n, 'tdb')).toThrow(RangeError)
   })
@@ -329,5 +362,31 @@ describe('truncateInstant', () => {
       '1969-12-31T23:59:59.000Z',
     )
     expect(duration({ seconds: 1 }).nanos).toBe(1_000_000_000n)
+  })
+})
+
+describe('modified Julian date precision', () => {
+  // instantToModifiedJulianDate subtracts the offset from the high part of
+  // the two-part JD before adding the low part. Rewriting it as
+  // instantToJulianDate(...) - MJD_OFFSET collapses the pair first and costs
+  // roughly an order of magnitude of round-trip accuracy. This test exists so
+  // that "simplification" fails rather than silently degrades the result.
+  const i = instantFromUnixMillis(1_787_142_896_789)
+
+  it.each(['utc', 'tai', 'tt'] as const)('round-trips within 1 us on %s', (scale) => {
+    const mjd = instantToModifiedJulianDate(i, scale)
+    const back = instantFromModifiedJulianDate(mjd, scale)
+    const errorNanos = Number(instantToTaiNanos(back) - instantToTaiNanos(i))
+    expect(Math.abs(errorNanos)).toBeLessThan(1_000)
+  })
+
+  it('beats collapsing the two-part value first', () => {
+    const mjd = instantToModifiedJulianDate(i, 'tai')
+    const collapsed = instantToJulianDate(i, 'tai') - MJD_OFFSET
+    const err = (m: number): number =>
+      Math.abs(
+        Number(instantToTaiNanos(instantFromModifiedJulianDate(m, 'tai')) - instantToTaiNanos(i)),
+      )
+    expect(err(mjd)).toBeLessThan(err(collapsed))
   })
 })
