@@ -61,10 +61,19 @@ describe('calendar', () => {
       const first = daysFromCivil(eraStart, 1, 1)
       const end = daysFromCivil(eraStart + 400, 1, 1)
       expect(end - first).toBe(146_097)
+      // Asserting per day would cost ~876,000 expect() calls across the three
+      // eras, which ran within a few hundred milliseconds of the default 5s
+      // timeout and tipped over on slower runners. Compare in a plain loop and
+      // report the first day that fails to round-trip.
+      let mismatch: string | null = null
       for (let days = first; days < end; days += 1) {
         const civil = civilFromDays(days)
-        expect(daysFromCivil(civil.year, civil.month, civil.day)).toBe(days)
+        if (daysFromCivil(civil.year, civil.month, civil.day) !== days) {
+          mismatch = `day ${String(days)} -> ${String(civil.year)}-${String(civil.month)}-${String(civil.day)}`
+          break
+        }
       }
+      expect(mismatch).toBeNull()
     }
   })
 })
