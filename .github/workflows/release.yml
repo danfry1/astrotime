@@ -70,7 +70,7 @@ jobs:
         run: bun run check:release
 
       - name: Install independent reference implementation
-        run: pip install astropy==6.0.1
+        run: pip install --require-hashes -r scripts/requirements-differential.txt
 
       - name: Differential verification against ERFA/SOFA (100,000 epochs)
         run: bun run test:differential

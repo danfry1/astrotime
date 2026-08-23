@@ -44,6 +44,11 @@ curl -sLO https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls
 python3 scripts/generate-spice.py naif0012.tls > tests/fixtures/cspice-golden.json
 ```
 
+CI installs astropy from `scripts/requirements-differential.txt`, a hash-pinned
+set generated with `uv pip compile --generate-hashes`, so every wheel behind the
+differential sweep is verified before it runs. Regenerate that file whenever the
+astropy pin changes; the command is in its header.
+
 If you change any conversion code, the fixtures must still pass unchanged.
 If you regenerate fixtures, say so in the PR and explain why.
 

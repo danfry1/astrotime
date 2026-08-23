@@ -35,7 +35,7 @@ jobs:
           node-version: 24
 
       - run: bun install --frozen-lockfile
-      - run: pip install astropy==6.0.1
+      - run: pip install --require-hashes -r scripts/requirements-differential.txt
 
       - name: Compare against astropy (ERFA/SOFA)
         run: bun run build && python3 scripts/differential.py "${{ inputs.cases || '100000' }}" reports/differential/report.json && node scripts/stamp-differential.mjs

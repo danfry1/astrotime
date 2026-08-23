@@ -107,6 +107,20 @@ cost of changing a public name rises to permanent the moment it has one.
   cannot publish without current 100,000-epoch differential and mutation
   results; the complete evidence archive receives a GitHub/Sigstore build
   attestation and ships beside the SBOM.
+- **Supply chain**: the verification toolchain is now fetched by content rather
+  than by name. The astropy/ERFA differential sweep installs from a hash-pinned
+  `scripts/requirements-differential.txt` under `pip install --require-hashes`,
+  which also freezes `astropy-iers-data` so a re-run cannot draw a different
+  reference leap-second table. The Hermes CLI download is checked against a
+  recorded SHA-256 before it decides anything about cross-engine conformance,
+  and the Babel class transform that conformance depends on now resolves from
+  lockfile-pinned devDependencies instead of an unpinned install at run time.
+- **Fix**: the `#h` integrity test tampered with a string absent from its own
+  fixture — the file body carries NTP seconds, not Unix seconds — so the
+  substitution was inert and only the `#$` stamp was ever proven tamper-evident.
+  Every hashed component is now covered: the `#$` stamp, the `#@` expiry and
+  each data row. A replacement that matches nothing fails the test rather than
+  passing in silence.
 
 Two other candidates were examined and left alone. The `instantBrand` and
 `durationBrand` symbols appear in the emitted types but are in no export

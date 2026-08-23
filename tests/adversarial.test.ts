@@ -355,12 +355,26 @@ describe('review round 4 regressions', () => {
       .join('\n')
     const good = `#$\t3992312697\n#@\t4023129600\n#h\ta9bad145 84c31c70 758402aa b37bfd54 5923836a\n${body}\n`
     expect(parseLeapSecondsList(good).ok).toBe(true)
-    const tampered = good
-      .replace('1483228800\t37', '1483228800\t37')
-      .replace('#$\t3992312697', '#$\t3992312698')
-    expect(expectErr(parseLeapSecondsList(tampered)).reason).toBe(
-      'integrity hash (#h) does not match the file contents',
-    )
+    // Every byte the '#h' hash covers must be tamper-evident: the '#$' stamp,
+    // the '#@' expiry, and every (NTP timestamp, ΔAT) row. A replacement that
+    // matches nothing would pass silently, so each tamper is asserted to have
+    // changed the text before it is parsed.
+    const expectTamperDetected = (from: string, to: string) => {
+      const tampered = good.replace(from, to)
+      expect(tampered).not.toBe(good)
+      expect(expectErr(parseLeapSecondsList(tampered)).reason).toBe(
+        'integrity hash (#h) does not match the file contents',
+      )
+    }
+    expectTamperDetected('#$\t3992312697', '#$\t3992312698')
+    expectTamperDetected('#@\t4023129600', '#@\t4023216000')
+    for (const entry of IERS_LEAP_SECONDS.entries) {
+      const ntp = String(entry.unixSeconds + NTP)
+      expectTamperDetected(
+        `${ntp}\t${String(entry.deltaAt)}`,
+        `${ntp}\t${String(entry.deltaAt + 1)}`,
+      )
+    }
     const malformed = good.replace('a9bad145', 'zzzz')
     expect(expectErr(parseLeapSecondsList(malformed)).reason).toBe('malformed #h integrity record')
     for (const badWord of ['za9bad145', 'a9bad145z']) {

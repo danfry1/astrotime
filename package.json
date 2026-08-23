@@ -81,6 +81,9 @@
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
+    "@babel/core": "7.26.0",
+    "@babel/plugin-transform-class-properties": "7.25.9",
+    "@babel/plugin-transform-classes": "7.25.9",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "22.20.1",
