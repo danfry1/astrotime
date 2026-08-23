@@ -195,6 +195,18 @@ describe('leap-table integrity', () => {
       ).reason,
     ).toBe('updated must not be later than expires')
   })
+
+  it('accepts every non-contradictory update/expiry metadata state', () => {
+    const entries = IERS_LEAP_SECONDS.entries
+    expect(
+      validateLeapSecondTable({ entries, expires: 1_800_000_000, updated: 1_800_000_000 }).ok,
+    ).toBe(true)
+    expect(validateLeapSecondTable({ entries, expires: null, updated: 1_800_000_000 }).ok).toBe(
+      true,
+    )
+    expect(validateLeapSecondTable({ entries, expires: null, updated: null }).ok).toBe(true)
+    expect(validateLeapSecondTable({ entries, expires: null }).ok).toBe(true)
+  })
 })
 
 describe('stale-table policy', () => {
@@ -351,6 +363,12 @@ describe('review round 4 regressions', () => {
     )
     const malformed = good.replace('a9bad145', 'zzzz')
     expect(expectErr(parseLeapSecondsList(malformed)).reason).toBe('malformed #h integrity record')
+    for (const badWord of ['za9bad145', 'a9bad145z']) {
+      expect(expectErr(parseLeapSecondsList(good.replace('a9bad145', badWord))).reason).toBe(
+        'malformed #h integrity record',
+      )
+    }
+    expect(parseLeapSecondsList(good.replace('#h\t', '#h  ')).ok).toBe(true)
   })
 
   it('never treats an IANA hash as verification of IERS rows it does not cover', () => {
@@ -365,6 +383,19 @@ describe('review round 4 regressions', () => {
     // omitted from the IANA hash input, making "verified" mean nothing.
     const emptyHash = '#h da39a3ee 5e6b4b0d 3255bfef 95601890 afd80709'
     expect(expectErr(parseLeapSecondsList(`${emptyHash}\n${iersRows}`)).reason).toBe(
+      'an IANA #h integrity record requires #$, #@ and IANA data rows',
+    )
+  })
+
+  it('requires both IANA timestamps before accepting an integrity record', () => {
+    const rows = IERS_LEAP_SECONDS.entries
+      .map((entry) => `${String(entry.unixSeconds + 2_208_988_800)} ${String(entry.deltaAt)}`)
+      .join('\n')
+    const hash = '#h 1 2 3 4 5'
+    expect(expectErr(parseLeapSecondsList(`#@ 4023129600\n${hash}\n${rows}`)).reason).toBe(
+      'an IANA #h integrity record requires #$, #@ and IANA data rows',
+    )
+    expect(expectErr(parseLeapSecondsList(`#$ 3992312697\n${hash}\n${rows}`)).reason).toBe(
       'an IANA #h integrity record requires #$, #@ and IANA data rows',
     )
   })

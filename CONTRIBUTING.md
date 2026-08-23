@@ -24,8 +24,11 @@ Requires [Bun](https://bun.sh/) and Node.js 24.15+ (the pinned npm 12 toolchain 
 | `bun run format` / `format:check` | Format with oxfmt |
 | `bun run typecheck` | Type-check with tsc |
 | `bun run knip` | Check for dead files, exports, and dependencies |
+| `bun run check:complexity` | Enforce the ≤15 normal McCabe ceiling on every production function |
 | `bun run build` | Build with tsdown |
 | `bun run check:package` | Build, pack, install the tarball in a temp dir and smoke-test it under Node |
+| `bun run test:differential` | Compare 100,000 seeded epochs against pinned Astropy/ERFA (requires `astropy==6.0.1`) |
+| `bun run test:mutation` | Run the complete Stryker campaign and provenance-stamp its report |
 | `bun run check:release` | Everything CI runs before a release |
 
 ## Correctness ground truth
@@ -55,4 +58,12 @@ files together.
 - Expected failures return `Result`; only programmer errors throw (`RangeError`).
 - Every exported function needs a JSDoc comment and tests, including edge cases
   (leap seconds, negative times, non-finite input).
+- No production function may exceed normal McCabe complexity 15. Refactor the
+  design rather than waiving the gate.
+- A behavior or accuracy change updates its `REQ-*`, affected `HAZ-*`,
+  traceability mapping and regression evidence. Findings follow
+  `NONCONFORMANCE.md`.
+- Do not describe ordinary branch coverage as MC/DC. Safety classification and
+  MC/DC acceptance belong to the adopting project's independent assurance
+  process.
 - Run `bun run check:release` before opening a PR.

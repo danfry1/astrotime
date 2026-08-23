@@ -27,22 +27,26 @@ qualified implementations.
 | Leap-data freshness monitor (monthly vs IANA) + `#h` integrity verification | `.github/workflows/leap-seconds.yml`, parser |
 | Per-release evidence manifest (artifact hash, test/requirement counts, reference provenance, engine digests) | `scripts/evidence.mjs`, release workflow |
 | Four external adversarial review rounds, all findings closed | CHANGELOG 0.2.0–0.5.0 |
+| Repository assurance case, hazard log, NASA readiness crosswalk and checked bidirectional traceability | `ASSURANCE-CASE.md`, `HAZARD-LOG.md`, `NASA-CROSSWALK.md`, `TRACEABILITY.md` |
+| Normal McCabe complexity ≤15 for every production function (CI-enforced) | `scripts/check-complexity.mjs` |
+| 100% reachable structural coverage for leap-table validation/parsing | `vitest.config.ts`, leap/adversarial suites |
+| Release-complete raw evidence archive with per-file SHA-256 hashes and GitHub/Sigstore build attestation | `scripts/evidence.mjs`, release workflow |
 
 ## Planned (in order)
 
-1. **Signed raw evidence archive** — extend the existing per-release manifest
-   with signed test/coverage reports, the mutation report, differential-sweep
-   output, and an independently reproduced npm-tarball hash.
-2. **SpiderMonkey in conformance CI** — Hermes is done (see above); adding
+1. **SpiderMonkey in conformance CI** — Hermes is done (see above); adding
    SpiderMonkey would extend the bit-identity claim to the last major engine
    family.
-3. **Assurance case document** — structured scope/hazard/mitigation/evidence
-   argument for the time-display context (e.g. "operator acts on a timestamp
-   wrong by one second across a leap boundary").
-4. **Independent V&V** — external audit against `REQUIREMENTS.md` by a party
+2. **Independent reproduction** — an assessor rebuilds the npm tarball from
+   the signed tag and records the independently reproduced artifact hash.
+3. **Independent V&V** — external audit against `REQUIREMENTS.md` by a party
    with no involvement in development. Only an adopting organization's
    software-assurance process can classify usage; this repository's job is
    minimizing the cost of that assessment.
+4. **Project-specific structural analysis** — if an adopter classifies a
+   component as safety-critical, run an MC/DC-capable tool on the exact
+   qualified implementation/runtime and obtain Technical Authority review of
+   any justified deviation. V8 branch coverage is not mislabeled as MC/DC.
 
 ## Mutation scores
 
@@ -55,7 +59,7 @@ exercise time behavior).
 | Release | Overall | Weakest module | Strongest |
 |---|---|---|---|
 | 0.7.0 | 86.60% (2148 mutants, Stryker 9.6.1) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
-| Unreleased audit | 82.82% (3335 mutants, Stryker 10.0.0) | `options.ts` 30.30%*, `calendar.ts` 70.06%, `leap-seconds.ts` 76.52% | `result.ts` 100%, `sha1.ts` 95.95%, `duration.ts` 92.70% |
+| Unreleased audit | 85.46% (3308 mutants, Stryker 10.0.0) | `options.ts` 30.30%*, `calendar.ts` 70.06% | `result.ts` 100%, `sha1.ts` 95.95%, `duration.ts` 92.86%; high-consequence `leap-seconds.ts` 91.16% |
 
 **Coverage ceilings, honestly.** Two modules cannot reach 100% branch
 coverage and are not defects:
@@ -99,7 +103,7 @@ injecting an off-by-one into the Gregorian era arithmetic in `calendar.ts`
 top-level/static mutants as survivors even when the ordinary suite kills the
 same edit. In this audit it reported `GPS_MINUS_TAI_NANOS = +19s` as survived;
 applying that edit directly makes two GPS tests fail. Those static mutants are
-kept in the denominator rather than hidden with `ignoreStatic`, so 82.82% is a
+kept in the denominator rather than hidden with `ignoreStatic`, so 85.46% is a
 conservative aggregate, but a static survivor must be reproduced directly
 before it is treated as a real test gap. The provenance-stamped JSON report is
 the authoritative per-mutant record.
@@ -108,6 +112,7 @@ the authoritative per-mutant record.
 top-level display helper is mutated statically, while direct API tests exercise
 every primitive/object shape and assert deliberate `RangeError` behavior.
 
-**Tracked work:** `leap-seconds.ts` at 76.52% remains the highest-consequence
-low-scoring module. Raising it — with tests that assert behavior, not message
-text — is the next assurance task before 1.0.
+**Tracked work:** `leap-seconds.ts` was raised from 76.52% to 91.16%, with all
+of its 588 mutants covered. The remaining path to higher assurance is now
+independent reproduction and IV&V rather than optimizing a repository score;
+real semantic survivors found during that review remain defects to close.

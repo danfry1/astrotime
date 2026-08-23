@@ -21,11 +21,11 @@ function filesBelow(path) {
   })
 }
 
-/** Stable digest of every input that can affect the mutation result. */
-export function verificationInputHash() {
-  const files = INPUTS.flatMap((path) =>
-    path === 'src' || path === 'tests' ? filesBelow(path) : [path],
-  ).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+/** Stable digest of the verification inputs plus any check-specific inputs. */
+export function verificationInputHash(additionalInputs = []) {
+  const files = [...INPUTS, ...additionalInputs]
+    .flatMap((path) => (path === 'src' || path === 'tests' ? filesBelow(path) : [path]))
+    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
   const hash = createHash('sha256')
   for (const file of files) {
     hash.update(file)

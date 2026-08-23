@@ -9,10 +9,12 @@ import { join } from 'node:path'
 
 const root = process.cwd()
 const workDir = mkdtempSync(join(tmpdir(), 'astrotime-pack-'))
+const npmEnv = { ...process.env, npm_config_cache: join(workDir, '.npm-cache') }
 try {
   const tarball = execFileSync('npm', ['pack', '--ignore-scripts', '--pack-destination', workDir], {
     cwd: root,
     encoding: 'utf8',
+    env: npmEnv,
   })
     .trim()
     .split('\n')
@@ -25,7 +27,7 @@ try {
   execFileSync(
     'npm',
     ['install', '--ignore-scripts', '--no-audit', '--no-fund', join(workDir, tarball)],
-    { cwd: workDir, stdio: 'inherit' },
+    { cwd: workDir, env: npmEnv, stdio: 'inherit' },
   )
   const script = `
     import { parseInstant, formatIso, unwrap, deltaAt } from 'astrotime'

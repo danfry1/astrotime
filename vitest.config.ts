@@ -9,8 +9,19 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.ts'],
-      reporter: ['text-summary'],
-      thresholds: { statements: 90, branches: 85, functions: 95, lines: 90 },
+      reporter: ['text-summary', 'json', 'json-summary'],
+      thresholds: {
+        statements: 98,
+        branches: 95,
+        functions: 100,
+        lines: 98.5,
+        'src/leap-seconds.ts': {
+          statements: 100,
+          branches: 100,
+          functions: 100,
+          lines: 100,
+        },
+      },
     },
   },
 })

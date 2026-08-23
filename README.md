@@ -64,14 +64,18 @@ is backed by something you can re-run:
 | Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
 | Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
 | Output is identical everywhere | A 135 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
-| The documentation is true | 47 documented requirements are mapped to the tests that verify them in [`REQUIREMENTS.md`](REQUIREMENTS.md); CI fails if a requirement loses its test |
-| The tests would notice a bug | Mutation testing (82.82% across 3 335 mutants) with a published [survivor analysis and runner limitation](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
-| The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an [evidence bundle](https://github.com/danfry1/astrotime/releases) attached to every release |
+| The documentation is true | 47 documented requirements and 10 repository hazards are mapped bidirectionally to implementation and verification evidence in [`REQUIREMENTS.md`](REQUIREMENTS.md), [`HAZARD-LOG.md`](HAZARD-LOG.md) and [`TRACEABILITY.md`](TRACEABILITY.md); CI fails if any link rots |
+| The tests would notice a bug | Mutation testing (85.46% across 3 308 mutants; 91.16% for leap-second code with no uncovered mutants) with a published [survivor analysis and runner limitation](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
+| The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an attested [raw evidence archive](https://github.com/danfry1/astrotime/releases) attached to every release |
 | Leap-second data stays current | A monthly job compares the bundled table with IANA and fails on drift; `#h` integrity records are verified when parsing |
 
 The library is scoped for **ground tooling** — displays, planning, analysis.
-It is not certified for flight, navigation or command paths; see
-[`ASSURANCE-ROADMAP.md`](ASSURANCE-ROADMAP.md) for exactly what that means.
+It is not certified for flight, navigation or command paths. The
+[`ASSURANCE-CASE.md`](ASSURANCE-CASE.md) states the exact claim boundary and
+acceptance gates; [`NASA-CROSSWALK.md`](NASA-CROSSWALK.md) distinguishes
+repository evidence from the classification, independent V&V and acceptance
+that only an adopting project can perform. See
+[`ASSURANCE-ROADMAP.md`](ASSURANCE-ROADMAP.md) for remaining work.
 
 ## Choosing a time library
 

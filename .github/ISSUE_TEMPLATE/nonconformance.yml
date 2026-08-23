@@ -1,0 +1,68 @@
+name: Non-conformance
+description: Record a requirement, implementation, verification, process or evidence mismatch.
+title: "[Non-conformance]: "
+labels: [non-conformance]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not report undisclosed security vulnerabilities here; follow
+        SECURITY.md. Complete every applicable field from NONCONFORMANCE.md.
+  - type: input
+    id: identifiers
+    attributes:
+      label: Hazard and requirement IDs
+      description: List every affected HAZ-* and REQ-* identifier.
+      placeholder: HAZ-UTC-001, REQ-UTC-001
+    validations:
+      required: true
+  - type: textarea
+    id: baseline
+    attributes:
+      label: Affected baseline
+      description: Versions, commits, artifacts, platforms, runtimes and data versions.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Expected and observed behavior
+      description: Include a minimal reproduction and exact outputs.
+    validations:
+      required: true
+  - type: dropdown
+    id: origin
+    attributes:
+      label: Detection origin
+      options:
+        - Automated test
+        - Differential/reference analysis
+        - Mutation analysis
+        - Static analysis
+        - Operator/user report
+        - Peer review or audit
+        - Dependency/security advisory
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: release
+    attributes:
+      label: Initial release decision
+      options:
+        - Release blocking
+        - Needs triage
+        - Non-blocking with rationale
+    validations:
+      required: true
+  - type: textarea
+    id: analysis
+    attributes:
+      label: Containment, root cause and proposed correction
+    validations:
+      required: true
+  - type: textarea
+    id: closure
+    attributes:
+      label: Independent verification and closure authority
+      description: Complete before closure; identify evidence, reviewer, date and any waiver/residual risk.

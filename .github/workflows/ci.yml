@@ -47,6 +47,9 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
+      - name: Cyclomatic complexity (maximum 15)
+        run: bun run check:complexity
+
       - name: Test
         run: bun run test:coverage
 

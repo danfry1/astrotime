@@ -6,3 +6,4 @@ coverage
 .stryker-tmp/
 reports/
 evidence/
+astrotime-sbom.cdx.json

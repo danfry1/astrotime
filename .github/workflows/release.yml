@@ -11,15 +11,19 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 180
     if: github.repository == 'danfry1/astrotime'
 
     permissions:
+      artifact-metadata: write
+      attestations: write
+      contents: read
       id-token: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
@@ -31,6 +35,10 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
@@ -38,6 +46,17 @@ jobs:
         env:
           TAG_NAME: ${{ github.ref_name }}
         run: test "v$(node -p 'require("./package.json").version')" = "$TAG_NAME"
+
+      - name: Verify signed commit and release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}" --jq '.commit.verification.verified')" = true
+          TAG_OBJECT=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG_NAME}" --jq '.object.sha')
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/tags/${TAG_OBJECT}" --jq '.verification.verified')" = true
+          echo "RELEASE_COMMIT_VERIFIED=1" >> "$GITHUB_ENV"
+          echo "RELEASE_TAG_VERIFIED=1" >> "$GITHUB_ENV"
 
       # Put the lockfile-pinned npm (a devDependency, integrity-checked by bun
       # install) ahead of the runner's bundled npm for the rest of the job.
@@ -50,16 +69,37 @@ jobs:
       - name: Full release gate (format, lint, knip, typecheck, coverage, packed smoke)
         run: bun run check:release
 
-      - name: Build
-        run: bun run build
+      - name: Install independent reference implementation
+        run: pip install astropy==6.0.1
+
+      - name: Differential verification against ERFA/SOFA (100,000 epochs)
+        run: bun run test:differential
+
+      - name: Mutation verification from exact release inputs
+        run: bun run test:mutation
 
       - name: Check package exports
         run: |
           npm pack --ignore-scripts --pack-destination /tmp
           bun run attw /tmp/astrotime-*.tgz --ignore-rules no-resolution cjs-resolves-to-esm
 
-      - name: Generate evidence bundle
+      - name: Generate SBOM (CycloneDX)
+        run: npm sbom --sbom-format cyclonedx > astrotime-sbom.cdx.json
+
+      - name: Generate release-complete evidence bundle
+        env:
+          RELEASE_EVIDENCE: '1'
         run: bun run evidence
+
+      - name: Archive evidence
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: tar -czf "astrotime-evidence-${TAG_NAME}.tgz" evidence
+
+      - name: Attest evidence archive
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
+        with:
+          subject-path: astrotime-evidence-${{ github.ref_name }}.tgz
 
       - name: Upload evidence bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -67,8 +107,11 @@ jobs:
           name: evidence
           path: evidence/
 
-      - name: Generate SBOM (CycloneDX)
-        run: npm sbom --sbom-format cyclonedx > astrotime-sbom.cdx.json
+      - name: Upload attested evidence archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: evidence-archive
+          path: astrotime-evidence-${{ github.ref_name }}.tgz
 
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -109,8 +152,13 @@ jobs:
         with:
           name: evidence
 
+      - name: Download evidence archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: evidence-archive
+
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }}
-        run: gh release create "$TAG_NAME" --generate-notes astrotime-sbom.cdx.json evidence.json EVIDENCE.md
+        run: gh release create "$TAG_NAME" --generate-notes astrotime-sbom.cdx.json "astrotime-evidence-${TAG_NAME}.tgz" evidence.json EVIDENCE.md SHA256SUMS

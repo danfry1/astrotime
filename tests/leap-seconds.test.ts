@@ -127,6 +127,144 @@ describe('parseLeapSecondsList', () => {
     ).toBe('entries must be safe integers')
   })
 
+  it('rejects a safe entry whose corresponding TAI boundary is not safe', () => {
+    expect(
+      expectErr(
+        validateLeapSecondTable({
+          entries: [{ unixSeconds: Number.MAX_SAFE_INTEGER, deltaAt: 1 }],
+          expires: null,
+        }),
+      ).reason,
+    ).toBe('entry TAI boundaries must be safe integers')
+  })
+
+  it('detects corruption of either field in the known history', () => {
+    const wrongUnix = IERS_LEAP_SECONDS.entries.map((entry, index) =>
+      index === 0 ? { ...entry, unixSeconds: entry.unixSeconds - 86_400 } : { ...entry },
+    )
+    expect(
+      expectErr(validateLeapSecondTable({ entries: wrongUnix, expires: null })).reason,
+    ).toContain('entry 0 must match the known leap-second history')
+
+    // Changing the final +1 leap to a -1 leap keeps the table structurally
+    // valid, isolating the known deltaAt comparison from sequence validation.
+    const wrongDelta = IERS_LEAP_SECONDS.entries.map((entry, index) =>
+      index === IERS_LEAP_SECONDS.entries.length - 1
+        ? { ...entry, deltaAt: entry.deltaAt - 2 }
+        : { ...entry },
+    )
+    expect(
+      expectErr(validateLeapSecondTable({ entries: wrongDelta, expires: null })).reason,
+    ).toContain('entry 27 must match the known leap-second history')
+  })
+
+  it('accepts exactly 10000 lines and rejects the next line', () => {
+    const rows = IANA_FULL.split('\n').filter((line) => line !== '' && !line.startsWith('#'))
+    const atLimit = [...Array<string>(10_000 - rows.length).fill('# comment'), ...rows].join('\n')
+    expect(atLimit.split('\n')).toHaveLength(10_000)
+    expect(parseLeapSecondsList(atLimit).ok).toBe(true)
+    const error = expectErr(parseLeapSecondsList(`# one too many\n${atLimit}`))
+    expect(error.reason).toBe('list exceeds 10000 lines')
+    expect(error.line).toBe(10_001)
+  })
+
+  it('rejects every duplicate metadata form', () => {
+    const rows = IANA_FULL.split('\n')
+      .filter((line) => line !== '' && !line.startsWith('#'))
+      .join('\n')
+    expect(expectErr(parseLeapSecondsList(`#$ 3992312697\n#$ 3992312697\n${rows}`)).reason).toBe(
+      'duplicate #$ update stamp',
+    )
+    expect(
+      expectErr(
+        parseLeapSecondsList(
+          `# File expires on 28 June 2027\n# File expires on 28 June 2027\n${rows}`,
+        ),
+      ).reason,
+    ).toBe('duplicate IERS expiry')
+  })
+
+  it('rejects mixed IANA and IERS rows in either order', () => {
+    expect(expectErr(parseLeapSecondsList('2272060800 10\n41499.0 1 7 1972 11')).reason).toBe(
+      'cannot mix IANA and IERS data rows',
+    )
+    expect(expectErr(parseLeapSecondsList('41317.0 1 1 1972 10\n2287785600 11')).reason).toBe(
+      'cannot mix IANA and IERS data rows',
+    )
+  })
+
+  it('validates every IERS calendar boundary explicitly', () => {
+    for (const row of [
+      '15020.0 1 1 1899 10',
+      '197687.0 1 1 2401 10',
+      '41317.0 1 0 1972 10',
+      '41317.0 1 13 1972 10',
+      '41317.0 0 1 1972 10',
+      '41317.0 32 1 1972 10',
+      '41317.0 29 2 1973 10',
+    ]) {
+      expect(expectErr(parseLeapSecondsList(row)).reason).toBe(
+        'day/month/year columns are not a real date',
+      )
+    }
+
+    const rows = IERS_FULL.split('\n')
+      .filter((line) => !line.startsWith('#'))
+      .join('\n')
+    expect(
+      unwrap(parseLeapSecondsList(`# File expires on 31 December 2400\n${rows}`)).expires,
+    ).toBe(Date.UTC(2400, 11, 31) / 1000)
+    expect(
+      expectErr(parseLeapSecondsList(`# File expires on 1 January 1900\n${rows}`)).reason,
+    ).toBe('expires must be later than the final leap-second entry')
+  })
+
+  it('accepts deliberate IERS lexical variants and rejects prefix/suffix garbage', () => {
+    const integerMjd = IERS_FULL.replace('41317.0', '41317')
+    expect(parseLeapSecondsList(integerMjd).ok).toBe(true)
+
+    const signedDeltaAndLongFraction = IERS_FULL.replace(
+      '41317.0    1  1 1972       10',
+      '41317.00    1  1 1972       +10  # explicit positive offset',
+    )
+    expect(parseLeapSecondsList(signedDeltaAndLongFraction).ok).toBe(true)
+
+    for (const text of [
+      IERS_FULL.replace('41317.0', 'x41317.0'),
+      IERS_FULL.replace('41317.0    1  1 1972       10', '41317.0 1 1 1972 10 garbage'),
+      IERS_FULL.replace(
+        '#  File expires on 28 June 2027',
+        '#  File expires on 28 June 2027 garbage',
+      ),
+    ]) {
+      expect(parseLeapSecondsList(text).ok).toBe(false)
+    }
+    expect(
+      expectErr(
+        parseLeapSecondsList(
+          IERS_FULL.replace(
+            '#  File expires on 28 June 2027',
+            '#  File expires on 28 June 2027 garbage',
+          ),
+        ),
+      ).reason,
+    ).toBe('malformed IERS expiry')
+  })
+
+  it('accepts IANA whitespace/sign/comment variants without weakening anchors', () => {
+    const body = IANA_FULL.split('\n')
+      .filter((line) => line !== '' && !line.startsWith('#'))
+      .join('\n')
+    const varied = body
+      .replace('2272060800\t10\t# entry', '2272060800   +10    #')
+      .replace('2287785600\t11\t# entry', '2287785600  11  # two spaces')
+    expect(parseLeapSecondsList(varied).ok).toBe(true)
+    expect(parseLeapSecondsList(`prefix${varied}`).ok).toBe(false)
+    expect(
+      parseLeapSecondsList(varied.replace('3692217600\t37\t# entry', '3692217600 37 suffix')).ok,
+    ).toBe(false)
+  })
+
   it('a parsed table drives UTC conversions with the real modern offset', () => {
     const leapSeconds = unwrap(parseLeapSecondsList(IANA_FULL))
     const i = parseInstantOrThrow('2026-08-19T00:00:00Z', { leapSeconds })

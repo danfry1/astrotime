@@ -2,6 +2,7 @@ import { LeapSecondTableError } from './errors.js'
 import { err, ok, type Result } from './result.js'
 import { sha1Hex } from './sha1.js'
 import { assertOptionsObject } from './options.js'
+import { daysInMonth } from './calendar.js'
 
 /** One row of a leap-second table: from `unixSeconds` (a UTC midnight) onward, TAI − UTC = `deltaAt`. */
 export type LeapSecondEntry = {
@@ -81,7 +82,7 @@ export function deltaAtUnixSeconds(
   if (options.leapSeconds !== undefined) table = options.leapSeconds
   assertValidLeapSecondTable(table)
   const idx = leapEntryIndexForUnix(unixSeconds, table)
-  return idx === -1 ? PRE_1972_DELTA_AT : (table.entries[idx]?.deltaAt ?? PRE_1972_DELTA_AT)
+  return idx === -1 ? PRE_1972_DELTA_AT : table.entries[idx]!.deltaAt
 }
 
 /** Index of the last entry in effect at `unixSeconds`, or -1 before the table starts. */
@@ -139,9 +140,9 @@ function tableProblem(entries: readonly unknown[]): string | null {
     return `table must include the complete known leap-second history (got ${String(entries.length)} of ${String(known.length)} known entries)`
   }
   for (let i = 0; i < known.length; i += 1) {
-    const expected = known[i]
-    const given = entries[i] as LeapSecondEntry | undefined
-    if (expected === undefined || given === undefined) continue
+    // Both indexes are proven by the length guard above and this loop bound.
+    const expected = known[i]!
+    const given = entries[i] as LeapSecondEntry
     if (given.unixSeconds !== expected.unixSeconds || given.deltaAt !== expected.deltaAt) {
       return `entry ${String(i)} must match the known leap-second history (expected unixSeconds ${String(expected.unixSeconds)}, deltaAt ${String(expected.deltaAt)})`
     }
@@ -179,8 +180,9 @@ function metadataProblem(value: unknown): string | null {
   }
   const problem = tableProblem(table.entries)
   if (problem !== null) return problem
-  const last = table.entries.at(-1)
-  if (table.expires !== null && last !== undefined && table.expires <= last.unixSeconds) {
+  // tableProblem rejected an empty table, so the final entry is proven.
+  const last = table.entries.at(-1)!
+  if (table.expires !== null && table.expires <= last.unixSeconds) {
     return 'expires must be later than the final leap-second entry'
   }
   if (
@@ -251,20 +253,191 @@ export const isCacheableTable = (table: LeapSecondTable): boolean =>
  */
 const MAX_LIST_LINES = 10_000
 
+type LeapListState = {
+  readonly entries: LeapSecondEntry[]
+  expires: number | null
+  iersExpires: number | null
+  updated: number | null
+  integrityHash: { readonly value: string; readonly line: number } | null
+  hasIanaExpiry: boolean
+  hasIersExpiry: boolean
+  hasUpdated: boolean
+  updatedDigits: string
+  expiresDigits: string
+  pairDigits: string
+  sawIanaRow: boolean
+  sawIersRow: boolean
+}
+
+/** `undefined` means this handler did not recognise the line; `null` means success. */
+type LineOutcome = LeapSecondTableError | null | undefined
+
+function parseIanaStamp(state: LeapListState, line: string, lineNo: number): LineOutcome {
+  if (!line.startsWith('#@') && !line.startsWith('#$')) return undefined
+  const stamp = line.slice(2).trim()
+  const ntp = Number(stamp)
+  const isExpiry = line.startsWith('#@')
+  const what = isExpiry ? '#@ expiry' : '#$ update stamp'
+  if (!/^\d+$/.test(stamp) || !Number.isSafeInteger(ntp)) {
+    return new LeapSecondTableError(lineNo, `malformed ${what}`)
+  }
+  if (isExpiry) {
+    if (state.hasIanaExpiry) return new LeapSecondTableError(lineNo, 'duplicate #@ expiry')
+    state.hasIanaExpiry = true
+    state.expires = ntp - NTP_TO_UNIX
+    state.expiresDigits = stamp
+  } else {
+    if (state.hasUpdated) return new LeapSecondTableError(lineNo, 'duplicate #$ update stamp')
+    state.hasUpdated = true
+    state.updated = ntp - NTP_TO_UNIX
+    state.updatedDigits = stamp
+  }
+  return null
+}
+
+function parseIersExpiry(state: LeapListState, line: string, lineNo: number): LineOutcome {
+  if (!/^#\s*File expires on\b/i.test(line)) return undefined
+  const match = /^#\s*File expires on\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/i.exec(line)
+  if (match === null) return new LeapSecondTableError(lineNo, 'malformed IERS expiry')
+  if (state.hasIersExpiry) return new LeapSecondTableError(lineNo, 'duplicate IERS expiry')
+  state.hasIersExpiry = true
+  const [, day, monthName, year] = match
+  const month = MONTHS.indexOf(monthName!.slice(0, 3).toLowerCase())
+  if (month === -1) return new LeapSecondTableError(lineNo, 'unknown month in expiry')
+  const expirySeconds = strictUtcDateSeconds(Number(year), month + 1, Number(day))
+  if (expirySeconds === null) return new LeapSecondTableError(lineNo, 'expiry date does not exist')
+  state.iersExpires = expirySeconds
+  return null
+}
+
+function parseIntegrityHash(state: LeapListState, line: string, lineNo: number): LineOutcome {
+  if (!line.startsWith('#h')) return undefined
+  if (state.integrityHash !== null) {
+    return new LeapSecondTableError(lineNo, 'duplicate #h integrity record')
+  }
+  const words = line.slice(2).trim().split(/\s+/)
+  if (words.length !== 5 || words.some((word) => !/^[0-9a-fA-F]{1,8}$/.test(word))) {
+    return new LeapSecondTableError(lineNo, 'malformed #h integrity record')
+  }
+  state.integrityHash = {
+    value: words.map((word) => word.toLowerCase().padStart(8, '0')).join(''),
+    line: lineNo,
+  }
+  return null
+}
+
+function parseLeapDataRow(state: LeapListState, line: string, lineNo: number): LineOutcome {
+  const iersRow = /^(\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
+  if (iersRow !== null) {
+    const mjd = Number(iersRow[1])
+    const delta = Number(iersRow[5])
+    const unixSeconds = (mjd - MJD_TO_UNIX_DAYS) * SECONDS_PER_DAY
+    const calendar = strictUtcDateSeconds(
+      Number(iersRow[4]),
+      Number(iersRow[3]),
+      Number(iersRow[2]),
+    )
+    if (calendar === null) {
+      return new LeapSecondTableError(lineNo, 'day/month/year columns are not a real date')
+    }
+    if (calendar !== unixSeconds) {
+      return new LeapSecondTableError(lineNo, 'MJD does not match the day/month/year columns')
+    }
+    if (state.sawIanaRow) {
+      return new LeapSecondTableError(lineNo, 'cannot mix IANA and IERS data rows')
+    }
+    state.sawIersRow = true
+    state.entries.push({ unixSeconds, deltaAt: delta })
+    return null
+  }
+
+  const ianaRow = /^(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
+  if (ianaRow === null) return undefined
+  if (state.sawIersRow) {
+    return new LeapSecondTableError(lineNo, 'cannot mix IANA and IERS data rows')
+  }
+  state.sawIanaRow = true
+  state.entries.push({
+    unixSeconds: Number(ianaRow[1]) - NTP_TO_UNIX,
+    deltaAt: Number(ianaRow[2]),
+  })
+  state.pairDigits += `${ianaRow[1]}${ianaRow[2]}`
+  return null
+}
+
+function parseLeapListLine(
+  state: LeapListState,
+  raw: string,
+  lineNo: number,
+): LeapSecondTableError | null {
+  const line = raw.trim()
+  if (line === '') return null
+  for (const handler of [parseIanaStamp, parseIersExpiry, parseIntegrityHash]) {
+    const outcome = handler(state, line, lineNo)
+    if (outcome !== undefined) return outcome
+  }
+  if (line.startsWith('#')) return null
+  const data = parseLeapDataRow(state, line, lineNo)
+  return data === undefined
+    ? new LeapSecondTableError(lineNo, `unrecognised line ${JSON.stringify(raw)}`)
+    : data
+}
+
+function finishLeapList(
+  state: LeapListState,
+  lineCount: number,
+): Result<LeapSecondTable, LeapSecondTableError> {
+  if (state.entries.length === 0) {
+    return err(new LeapSecondTableError(0, 'no leap-second entries found'))
+  }
+  if (state.integrityHash !== null) {
+    if (!state.hasUpdated || !state.hasIanaExpiry || !state.sawIanaRow || state.sawIersRow) {
+      return err(
+        new LeapSecondTableError(
+          state.integrityHash.line,
+          'an IANA #h integrity record requires #$, #@ and IANA data rows',
+        ),
+      )
+    }
+    // IANA/NIST '#h': SHA-1 over the ASCII digits of the '#$' stamp, the
+    // '#@' stamp, then each (timestamp, ΔAT) pair, with no separators.
+    const computed = sha1Hex(state.updatedDigits + state.expiresDigits + state.pairDigits)
+    if (computed !== state.integrityHash.value) {
+      return err(
+        new LeapSecondTableError(
+          state.integrityHash.line,
+          'integrity hash (#h) does not match the file contents',
+        ),
+      )
+    }
+  }
+  const table = {
+    entries: state.entries,
+    expires: state.expires ?? state.iersExpires,
+    updated: state.updated,
+  }
+  const problem = metadataProblem(table)
+  return problem === null
+    ? ok(freezeLeapSecondTable(table))
+    : err(new LeapSecondTableError(lineCount, problem))
+}
+
 export function parseLeapSecondsList(text: string): Result<LeapSecondTable, LeapSecondTableError> {
-  const entries: LeapSecondEntry[] = []
-  let expires: number | null = null
-  let iersExpires: number | null = null
-  let updated: number | null = null
-  let integrityHash: { readonly value: string; readonly line: number } | null = null
-  let hasIanaExpiry = false
-  let hasIersExpiry = false
-  let hasUpdated = false
-  let updatedDigits = ''
-  let expiresDigits = ''
-  let pairDigits = ''
-  let sawIanaRow = false
-  let sawIersRow = false
+  const state: LeapListState = {
+    entries: [],
+    expires: null,
+    iersExpires: null,
+    updated: null,
+    integrityHash: null,
+    hasIanaExpiry: false,
+    hasIersExpiry: false,
+    hasUpdated: false,
+    updatedDigits: '',
+    expiresDigits: '',
+    pairDigits: '',
+    sawIanaRow: false,
+    sawIersRow: false,
+  }
   const lines = text.split(/\r?\n/)
   if (lines.length > MAX_LIST_LINES) {
     return err(
@@ -272,137 +445,24 @@ export function parseLeapSecondsList(text: string): Result<LeapSecondTable, Leap
     )
   }
   for (let i = 0; i < lines.length; i += 1) {
-    const raw = lines[i] ?? ''
-    const lineNo = i + 1
-    const line = raw.trim()
-    if (line === '') continue
-    if (line.startsWith('#@') || line.startsWith('#$')) {
-      const stamp = line.slice(2).trim()
-      const ntp = Number(stamp)
-      const what = line.startsWith('#@') ? '#@ expiry' : '#$ update stamp'
-      if (!/^\d+$/.test(stamp) || !Number.isSafeInteger(ntp))
-        return err(new LeapSecondTableError(lineNo, `malformed ${what}`))
-      if (line.startsWith('#@')) {
-        if (hasIanaExpiry) return err(new LeapSecondTableError(lineNo, 'duplicate #@ expiry'))
-        hasIanaExpiry = true
-        expires = ntp - NTP_TO_UNIX
-        expiresDigits = line.slice(2).trim()
-      } else {
-        if (hasUpdated) return err(new LeapSecondTableError(lineNo, 'duplicate #$ update stamp'))
-        hasUpdated = true
-        updated = ntp - NTP_TO_UNIX
-        updatedDigits = line.slice(2).trim()
-      }
-      continue
-    }
-    const iersExpiry = /^#\s*File expires on\s+(\d{1,2})\s+(\w+)\s+(\d{4})/i.exec(line)
-    if (iersExpiry !== null) {
-      if (hasIersExpiry) return err(new LeapSecondTableError(lineNo, 'duplicate IERS expiry'))
-      hasIersExpiry = true
-      const [, day, monthName, year] = iersExpiry
-      const month = MONTHS.indexOf((monthName ?? '').slice(0, 3).toLowerCase())
-      if (month === -1) return err(new LeapSecondTableError(lineNo, 'unknown month in expiry'))
-      const expirySeconds = strictUtcDateSeconds(Number(year), month + 1, Number(day))
-      if (expirySeconds === null)
-        return err(new LeapSecondTableError(lineNo, 'expiry date does not exist'))
-      iersExpires = expirySeconds
-      continue
-    }
-    if (line.startsWith('#h')) {
-      if (integrityHash !== null)
-        return err(new LeapSecondTableError(lineNo, 'duplicate #h integrity record'))
-      const words = line.slice(2).trim().split(/\s+/)
-      if (words.length !== 5 || words.some((w) => !/^[0-9a-fA-F]{1,8}$/.test(w))) {
-        return err(new LeapSecondTableError(lineNo, 'malformed #h integrity record'))
-      }
-      integrityHash = {
-        value: words.map((w) => w.toLowerCase().padStart(8, '0')).join(''),
-        line: lineNo,
-      }
-      continue
-    }
-    if (line.startsWith('#')) continue
-    const iersRow = /^(\d+(?:\.\d+)?)\s+(\d+)\s+(\d+)\s+(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
-    if (iersRow !== null) {
-      // IERS: MJD DAY MONTH YEAR TAI-UTC — the calendar columns are
-      // redundant with the MJD; cross-check them to catch corrupted rows.
-      const mjd = Number(iersRow[1])
-      const delta = Number(iersRow[5])
-      const unixSeconds = (mjd - MJD_TO_UNIX_DAYS) * SECONDS_PER_DAY
-      const calendar = strictUtcDateSeconds(
-        Number(iersRow[4]),
-        Number(iersRow[3]),
-        Number(iersRow[2]),
-      )
-      if (calendar === null) {
-        return err(new LeapSecondTableError(lineNo, 'day/month/year columns are not a real date'))
-      }
-      if (calendar !== unixSeconds) {
-        return err(
-          new LeapSecondTableError(lineNo, 'MJD does not match the day/month/year columns'),
-        )
-      }
-      if (sawIanaRow) {
-        return err(new LeapSecondTableError(lineNo, 'cannot mix IANA and IERS data rows'))
-      }
-      sawIersRow = true
-      entries.push({ unixSeconds, deltaAt: delta })
-      continue
-    }
-    const ianaRow = /^(\d+)\s+([+-]?\d+)(?:\s+#.*)?$/.exec(line)
-    if (ianaRow !== null) {
-      if (sawIersRow) {
-        return err(new LeapSecondTableError(lineNo, 'cannot mix IANA and IERS data rows'))
-      }
-      sawIanaRow = true
-      entries.push({ unixSeconds: Number(ianaRow[1]) - NTP_TO_UNIX, deltaAt: Number(ianaRow[2]) })
-      pairDigits += `${ianaRow[1]}${ianaRow[2]}`
-      continue
-    }
-    return err(new LeapSecondTableError(lineNo, `unrecognised line ${JSON.stringify(raw)}`))
+    const problem = parseLeapListLine(state, lines[i]!, i + 1)
+    if (problem !== null) return err(problem)
   }
-  if (entries.length === 0) return err(new LeapSecondTableError(0, 'no leap-second entries found'))
-  if (integrityHash !== null) {
-    if (!hasUpdated || !hasIanaExpiry || !sawIanaRow || sawIersRow) {
-      return err(
-        new LeapSecondTableError(
-          integrityHash.line,
-          'an IANA #h integrity record requires #$, #@ and IANA data rows',
-        ),
-      )
-    }
-    // IANA/NIST '#h': SHA-1 over the ASCII digits of the '#$' stamp, the
-    // '#@' stamp, then each (timestamp, ΔAT) pair, with no separators.
-    const computed = sha1Hex(updatedDigits + expiresDigits + pairDigits)
-    if (computed !== integrityHash.value) {
-      return err(
-        new LeapSecondTableError(
-          integrityHash.line,
-          'integrity hash (#h) does not match the file contents',
-        ),
-      )
-    }
-  }
-  const table = { entries, expires: expires ?? iersExpires, updated }
-  const problem = metadataProblem(table)
-  if (problem !== null) return err(new LeapSecondTableError(lines.length, problem))
-  return ok(freezeLeapSecondTable(table))
+  return finishLeapList(state, lines.length)
 }
 
-/** Date.UTC seconds for a calendar date, or null when the date does not exist (JS Date silently normalizes). */
+/** Date.UTC seconds for a calendar date, or null when the date does not exist. */
 function strictUtcDateSeconds(year: number, month: number, day: number): number | null {
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null
-  if (year < 1900 || year > 2400 || month < 1 || month > 12 || day < 1 || day > 31) return null
-  const millis = Date.UTC(year, month - 1, day)
-  const roundTrip = new Date(millis)
-  if (
-    roundTrip.getUTCFullYear() !== year ||
-    roundTrip.getUTCMonth() !== month - 1 ||
-    roundTrip.getUTCDate() !== day
-  ) {
-    return null
-  }
-  return millis / 1000
+  // Callers obtain all three values from decimal-only regular-expression
+  // captures. Keep each range decision independent so safety coverage can
+  // demonstrate every condition without relying on Date's normalization.
+  if (year < 1900) return null
+  if (year > 2400) return null
+  if (month < 1) return null
+  if (month > 12) return null
+  if (day < 1) return null
+  if (day > daysInMonth(year, month)) return null
+  return Date.UTC(year, month - 1, day) / 1000
 }
 
 const MONTHS: readonly string[] = [

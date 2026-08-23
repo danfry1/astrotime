@@ -6,6 +6,7 @@ import {
   pad,
   patternProblem,
   validatedTokenCache,
+  type PatternToken,
 } from './pattern.js'
 import { err, ok, type Result, unwrap } from './result.js'
 import type { StringWithHints } from './types.js'
@@ -320,6 +321,40 @@ function formatIsoDuration(d: Duration): string {
 
 export type DurationFormat = StringWithHints<'iso' | 'clock'>
 
+type LargestDurationUnit = 'D' | 'H' | 'm' | 's'
+
+function largestDurationUnit(tokens: readonly PatternToken[]): LargestDurationUnit {
+  let largest: LargestDurationUnit = 's'
+  for (const token of tokens) {
+    if (token.kind !== 'field') continue
+    if (token.name === 'D') largest = 'D'
+    else if (token.name === 'H' && largest !== 'D') largest = 'H'
+    else if (token.name === 'm' && largest === 's') largest = 'm'
+  }
+  return largest
+}
+
+function renderDurationField(
+  token: Extract<PatternToken, { readonly kind: 'field' }>,
+  components: DurationComponents,
+  absorbed: Readonly<{ hours: bigint; minutes: bigint; seconds: bigint }>,
+): string {
+  switch (token.name) {
+    case 'D':
+      return pad(components.days, token.width)
+    case 'H':
+      return padBig(absorbed.hours, token.width)
+    case 'm':
+      return padBig(absorbed.minutes, token.width)
+    case 's':
+      return padBig(absorbed.seconds, token.width)
+    case 'S':
+      return fractionDigits(components.nanos, token.width)
+    default:
+      return token.name.repeat(token.width)
+  }
+}
+
 /**
  * Formats a duration.
  * - `'iso'` (default) → canonical ISO 8601 (`P1DT2H3M4.5S`).
@@ -337,44 +372,18 @@ export function formatDuration(d: Duration, pattern: DurationFormat = 'iso'): st
   const resolved = pattern === 'clock' ? 'HH:mm:ss' : pattern
   const tokens = durationTokens(resolved)
   const c = durationToComponents(d)
-  let largest: 'D' | 'H' | 'm' | 's' = 's'
-  for (const t of tokens) {
-    if (t.kind !== 'field') continue
-    if (t.name === 'D') largest = 'D'
-    else if (t.name === 'H' && largest !== 'D') largest = 'H'
-    else if (t.name === 'm' && largest === 's') largest = 'm'
-  }
+  const largest = largestDurationUnit(tokens)
   // Absorbed units are computed in bigint: float multiplication of a large
   // day count would silently round (e.g. 2^53 days formatted as hours).
   const abs = d.nanos < 0n ? -d.nanos : d.nanos
-  const hours = largest === 'H' ? abs / NANOS_PER_HOUR : BigInt(c.hours)
-  const minutes = largest === 'm' ? abs / NANOS_PER_MINUTE : BigInt(c.minutes)
-  const seconds = largest === 's' ? abs / NANOS_PER_SECOND : BigInt(c.seconds)
+  const absorbed = {
+    hours: largest === 'H' ? abs / NANOS_PER_HOUR : BigInt(c.hours),
+    minutes: largest === 'm' ? abs / NANOS_PER_MINUTE : BigInt(c.minutes),
+    seconds: largest === 's' ? abs / NANOS_PER_SECOND : BigInt(c.seconds),
+  }
   let out = c.sign < 0 ? '-' : ''
   for (const token of tokens) {
-    if (token.kind === 'literal') {
-      out += token.text
-      continue
-    }
-    switch (token.name) {
-      case 'D':
-        out += pad(c.days, token.width)
-        break
-      case 'H':
-        out += padBig(hours, token.width)
-        break
-      case 'm':
-        out += padBig(minutes, token.width)
-        break
-      case 's':
-        out += padBig(seconds, token.width)
-        break
-      case 'S':
-        out += fractionDigits(c.nanos, token.width)
-        break
-      default:
-        out += token.name.repeat(token.width)
-    }
+    out += token.kind === 'literal' ? token.text : renderDurationField(token, c, absorbed)
   }
   return out
 }

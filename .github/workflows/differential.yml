@@ -30,12 +30,21 @@ jobs:
         with:
           python-version: '3.12'
 
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24
+
       - run: bun install --frozen-lockfile
-      - run: bun run build
       - run: pip install astropy==6.0.1
 
       - name: Compare against astropy (ERFA/SOFA)
-        run: python3 scripts/differential.py "${{ inputs.cases || '100000' }}"
+        run: bun run build && python3 scripts/differential.py "${{ inputs.cases || '100000' }}" reports/differential/report.json && node scripts/stamp-differential.mjs
+
+      - name: Upload differential report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: differential-report
+          path: reports/differential/
 
       - name: Conformance under Hermes (React Native engine)
         run: ./scripts/conformance-hermes.sh

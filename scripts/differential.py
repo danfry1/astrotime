@@ -19,11 +19,15 @@ import warnings
 from datetime import date
 
 warnings.simplefilter("ignore")
+import astropy  # noqa: E402
+import erfa  # noqa: E402
 from astropy.time import Time, TimeDelta  # noqa: E402
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 100_000
+REPORT_PATH = sys.argv[2] if len(sys.argv) > 2 else None
 NS = 1_000_000_000
-random.seed(20260821)
+SEED = 20260821
+random.seed(SEED)
 
 # 1972-01-01 TAI .. 2100 (leap-second UTC era, where astropy and we both claim exactness)
 LO = (63_072_000 + 10) * NS
@@ -141,4 +145,35 @@ print(f"maximum two-part JD error: {max_jd_error_seconds:.3e} s (limit 1e-9 s)")
 print(f"mismatches: {len(mismatches)}")
 for m in mismatches[:10]:
     print(" ", m)
+if REPORT_PATH is not None:
+    report_directory = os.path.dirname(REPORT_PATH)
+    if report_directory:
+        os.makedirs(report_directory, exist_ok=True)
+    with open(REPORT_PATH, "w") as report_file:
+        json.dump(
+            {
+                "schemaVersion": 1,
+                "cases": N,
+                "seed": SEED,
+                "range": {
+                    "taiNanosInclusive": str(LO),
+                    "taiNanosExclusive": str(HI),
+                    "civilApproximation": "1972-01-01 through 2100-01-01",
+                },
+                "reference": {
+                    "astropy": astropy.__version__,
+                    "erfa": erfa.__version__,
+                },
+                "limits": {"tdbErrorNanos": 10_000, "julianDateErrorSeconds": 1e-9},
+                "observed": {
+                    "maxTdbErrorNanos": max_tdb_error_ns,
+                    "maxJulianDateErrorSeconds": max_jd_error_seconds,
+                    "mismatches": len(mismatches),
+                },
+                "passed": len(mismatches) == 0,
+            },
+            report_file,
+            indent=2,
+        )
+        report_file.write("\n")
 sys.exit(1 if mismatches else 0)

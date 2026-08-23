@@ -286,8 +286,7 @@ export type JulianDateParts = {
 function utcDayLength(dayStartUnix: number, options: UtcOptions): number {
   const table = options.leapSeconds ?? IERS_LEAP_SECONDS
   const idx = leapEntryIndexForUnix(dayStartUnix, table)
-  const current =
-    idx === -1 ? PRE_1972_DELTA_AT : (table.entries[idx]?.deltaAt ?? PRE_1972_DELTA_AT)
+  const current = idx === -1 ? PRE_1972_DELTA_AT : table.entries[idx]!.deltaAt
   const next = table.entries[idx + 1]
   if (next !== undefined && next.unixSeconds === dayStartUnix + SECONDS_PER_DAY)
     return SECONDS_PER_DAY + next.deltaAt - current

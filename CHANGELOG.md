@@ -82,6 +82,31 @@ cost of changing a public name rises to permanent the moment it has one.
   changes cannot silently diverge again. Corrected the README's `Date`
   conversion wording: sub-millisecond values are truncated toward negative
   infinity, not rounded to the nearest millisecond.
+- **Assurance architecture**: adds a repository assurance case, hazard log,
+  NASA NPR 7150.2D / NASA-STD-8739.8B readiness crosswalk,
+  non-conformance policy and machine-checked bidirectional traceability from
+  all 10 hazards through all 47 requirements to implementation and
+  verification evidence. These are preparation for an adopter's independent
+  assessment, not a claim of NASA certification.
+- **Complexity gate**: every production function is now held to a normal
+  McCabe complexity ceiling of 15; the current maximum is 14 across 220
+  functions. The leap-list parser and duration formatter were decomposed to
+  meet the gate without changing their public behavior.
+- **High-consequence coverage**: leap-table parsing and validation now have
+  100% reachable structural coverage, including the exact 10,000-line limit,
+  safe-integer TAI-boundary overflow, both mixed-format directions, duplicate
+  metadata, calendar boundaries and independent corruption of both known-row
+  fields. Global coverage floors rise to 98% statements, 95% branches, 100%
+  functions and 98.5% lines.
+- **Mutation strength**: the full Stryker 10 campaign now covers 3,308 mutants
+  at 85.46% overall. Leap-second code rises from 76.52% to 91.16%, with all
+  588 mutants covered; surviving mutants and the static-runner limitation
+  remain documented rather than excluded from the score.
+- **Release evidence**: coverage, complexity, differential and exact-input
+  mutation reports are archived raw with per-file SHA-256 hashes. A release
+  cannot publish without current 100,000-epoch differential and mutation
+  results; the complete evidence archive receives a GitHub/Sigstore build
+  attestation and ships beside the SBOM.
 
 Two other candidates were examined and left alone. The `instantBrand` and
 `durationBrand` symbols appear in the emitted types but are in no export
