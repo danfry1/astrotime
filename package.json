@@ -83,7 +83,7 @@
     "@arethetypeswrong/cli": "0.18.5",
     "@babel/core": "8.0.1",
     "@babel/plugin-transform-class-properties": "7.25.9",
-    "@babel/plugin-transform-classes": "7.25.9",
+    "@babel/plugin-transform-classes": "8.0.1",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "22.20.1",
