@@ -5,6 +5,18 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **New**: topocentric TDB and TCB. `UtcOptions.observer` (WGS84 longitude
+  and latitude in radians, height in metres) adds ERFA `dtdb`'s topocentric
+  terms — the observer's diurnal motion and offset from the geocentre, up to
+  ~2.1 µs for a surface station — wherever TDB or TCB is read: `formatIso`,
+  `instantToScaleNanos`, J2000 seconds, Julian dates and parsing. Without it,
+  readings are unchanged (geocentric). Against astropy (`Time` with a
+  location) at the three Deep Space Network complexes, the equator, the South
+  Pole and Mauna Kea, 245 of 246 readings agree to the nanosecond and the last
+  within 1 ns; TCB still round-trips exactly. Heights beyond ±100 km are
+  refused, since the model is for Earth-fixed observers. The conformance
+  digest adds a Goldstone TDB reading: 200 000 outputs, `3d74a0a06dc7e6c1`,
+  identical on V8, JavaScriptCore, Hermes and SpiderMonkey.
 - **New**: apparent sidereal time and nutation (IAU 2006/2000A).
   `greenwichApparentSiderealTime` adds the equation of the equinoxes to GMST;
   `nutation` (Δψ, Δε), `meanObliquity` and `equationOfTheEquinoxes` need only

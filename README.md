@@ -342,9 +342,23 @@ Definitions: TT = TAI + 32.184 s; GPS = TAI − 19 s; TDB = TT + the full
 787-term Fairhead & Bretagnon (1990) series in ERFA's `dtdb` form, with ERFA's
 JPL-mass adjustments. It reproduces ERFA within 1e-13 s (1600–2500) and
 matches astropy to the nanosecond over a 100 000-epoch sweep; ERFA states
-±3 ns against the DE405 time ephemeris over 1950–2050. The series is
-**geocentric**: the topocentric term for an observer on the Earth's surface
-(up to ~2 µs) is not applied, as in astropy for a `Time` without a location.
+±3 ns against the DE405 time ephemeris over 1950–2050. Readings are
+**geocentric** unless you say where they are taken: pass `observer` (WGS84
+longitude and latitude in radians, height in metres) and the topocentric
+terms are added — up to ~2.1 µs for a station on the Earth's surface — exactly
+as astropy does for a `Time` with a location:
+
+```ts
+const goldstone = { longitude: -2.0401, latitude: 0.6183, height: 1002 } // DSS-14 (-116.889°, 35.426°)
+formatIso(i, { scale: 'tdb', observer: goldstone })
+instantToJ2000Seconds(i, 'tdb', { observer: goldstone })
+```
+
+Against astropy over six observers (the three Deep Space Network complexes,
+the equator, the South Pole and Mauna Kea), 245 of 246 TDB and TCB readings
+agree to the nanosecond and the last within 1 ns. The observer must be
+Earth-fixed: heights beyond ±100 km are refused rather than given a
+meaningless correction.
 Summing 787 terms makes a TDB conversion cost a few microseconds; the other
 scales are integer offsets.
 
@@ -356,8 +370,8 @@ carries the constants as integer ratios and rounds once, so a TCG reading is
 the defined value to the nanosecond; astropy's double-precision Julian dates
 misround about 0.5% of TCG readings by 1 ns, and exact rational arithmetic
 sides with astrotime on every one. TCB is computed from TT and the unrounded
-TDB offset, so it inherits TDB's model accuracy (and its geocentric caveat)
-but rounds only once. TCG runs ~2.2 s per century ahead of TT and TCB
+TDB offset, so it inherits TDB's model accuracy (and takes the same
+`observer`) but rounds only once. TCG runs ~2.2 s per century ahead of TT and TCB
 ~49 s per century ahead of TDB, so near the ±999 999-year edges their civil
 readings can leave the formattable range before TAI's do.
 

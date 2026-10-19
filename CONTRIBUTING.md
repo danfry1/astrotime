@@ -61,6 +61,7 @@ The nutation tables `src/nutation-series.ts` are generated the same way, and
 for f in nut00a eect00; do curl -sSfLO https://raw.githubusercontent.com/liberfa/erfa/v2.0.1/src/$f.c; done
 node scripts/generate-nutation-series.mjs nut00a.c eect00.c > src/nutation-series.ts
 python3 scripts/generate-nutation.py > tests/fixtures/erfa-nutation.json
+python3 scripts/generate-topocentric.py > tests/fixtures/astropy-topocentric.json
 python3 scripts/generate-earth-orientation.py tests/fixtures/finals2000A-excerpt.txt > tests/fixtures/earth-orientation.json
 ```
 

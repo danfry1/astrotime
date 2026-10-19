@@ -28,7 +28,8 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   table from `leap-seconds.list` (IANA/NIST) or `Leap_Second.dat` (IERS) via
   `parseLeapSecondsList`. No global mutable state.
 - Scales: `utc | tai | tt | gps | tdb | tcg | tcb`. TT = TAI + 32.184 s; GPS = TAI − 19 s;
-  TDB = TT + the full 787-term geocentric Fairhead & Bretagnon series (ERFA `dtdb`, reproduced to 1e-13 s;
+  TDB = TT + the full 787-term Fairhead & Bretagnon series (ERFA `dtdb`, reproduced to 1e-13 s), geocentric unless
+  `UtcOptions.observer` names an Earth-fixed WGS84 site, which adds ERFA's topocentric terms (`src/observer.ts`;
   coefficients generated from a hash-pinned ERFA source by `scripts/generate-tdb-series.mjs`).
   TCG and TCB follow their IAU definitions (2000 B1.9, 2006 B3) in exact rational bigint arithmetic, rounded once
   (`src/coordinate-time.ts`); TCB takes TT plus the unrounded TDB offset. Both inverses are exact from any instant.

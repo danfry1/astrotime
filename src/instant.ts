@@ -1,6 +1,7 @@
 import { civilFromDays, daysFromCivil, daysInMonth, daysInYear } from './calendar.js'
 import { type Duration, durationFromNanos, NANOS_PER_MILLI, NANOS_PER_SECOND } from './duration.js'
 import { InvalidTimeError } from './errors.js'
+import type { Observer } from './observer.js'
 import {
   assertValidLeapSecondTable,
   IERS_LEAP_SECONDS,
@@ -53,6 +54,14 @@ export type UtcOptions = {
    * value, and conversions from Unix pick the post-leap reading.)
    */
   readonly leapGap?: 'fold' | 'reject' | undefined
+  /**
+   * Where TDB (and TCB, which derives from it) is read. Omitted, readings are
+   * geocentric, as in ERFA `dtdb` with no observer and astropy without a
+   * location. With an Earth-fixed observer (WGS84 longitude and latitude in
+   * radians, height in metres), the topocentric terms are added — up to ~2 µs
+   * for a station on the Earth's surface. Other scales ignore it.
+   */
+  readonly observer?: Observer | undefined
 }
 
 const SECONDS_PER_DAY = 86_400

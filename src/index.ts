@@ -201,3 +201,6 @@ export {
   type Nutation,
   nutation,
 } from './nutation.js'
+
+// Observer location (topocentric TDB/TCB)
+export type { Observer } from './observer.js'

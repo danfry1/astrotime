@@ -1,0 +1,2017 @@
+{
+  "generator": "astropy 6.0.1",
+  "observers": {
+    "Goldstone DSS-14": {
+      "longitudeDeg": -116.889,
+      "latitudeDeg": 35.426,
+      "heightM": 1002.0,
+      "uKm": 5203.991088454661,
+      "vKm": 3677.0616347905648
+    },
+    "Madrid DSS-63": {
+      "longitudeDeg": -4.248,
+      "latitudeDeg": 40.431,
+      "heightM": 865.0,
+      "uKm": 4862.466081995551,
+      "vKm": 4115.091637965949
+    },
+    "Canberra DSS-43": {
+      "longitudeDeg": 148.981,
+      "latitudeDeg": -35.402,
+      "heightM": 689.0,
+      "uKm": 5205.279217832882,
+      "vKm": -3674.7098591960225
+    },
+    "Equator": {
+      "longitudeDeg": 0.0,
+      "latitudeDeg": 0.0,
+      "heightM": 0.0,
+      "uKm": 6378.137,
+      "vKm": 0.0
+    },
+    "South Pole": {
+      "longitudeDeg": 0.0,
+      "latitudeDeg": -90.0,
+      "heightM": 2835.0,
+      "uKm": 3.920356861652263e-13,
+      "vKm": -6359.587314245179
+    },
+    "Mauna Kea": {
+      "longitudeDeg": -155.4681,
+      "latitudeDeg": 19.8207,
+      "heightM": 4207.0,
+      "uKm": 6006.553743368696,
+      "vKm": 2150.460663570258
+    }
+  },
+  "rows": [
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1551428813686274239",
+      "tdb": "2019-03-01T08:27:25.871671787",
+      "tcb": "2019-03-01T08:27:46.501465353",
+      "utcDayFraction": 0.3515820170629514,
+      "topocentricSeconds": -1.6187835723746255e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3399069041038114107",
+      "tdb": "2077-09-17T01:51:13.220516296",
+      "tcb": "2077-09-17T01:52:02.498337273",
+      "utcDayFraction": 0.0764356263206829,
+      "topocentricSeconds": -1.0936891048137637e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "617803732277552197",
+      "tdb": "1989-07-30T12:09:24.460870211",
+      "tcb": "1989-07-30T12:09:30.614622107",
+      "utcDayFraction": 0.5058828420393169,
+      "topocentricSeconds": 1.8207129860334193e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2230907490291414176",
+      "tdb": "2040-09-10T16:32:02.473896858",
+      "tcb": "2040-09-10T16:32:33.639141787",
+      "utcDayFraction": 0.6881167987751851,
+      "topocentricSeconds": 1.634708797367294e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1412557539947594720",
+      "tdb": "2014-10-06T01:06:12.129959996",
+      "tcb": "2014-10-06T01:06:30.606526977",
+      "utcDayFraction": 0.045196152716666715,
+      "topocentricSeconds": -1.0908063862186818e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3367499572424184892",
+      "tdb": "2076-09-16T16:33:24.606601478",
+      "tcb": "2076-09-16T16:34:13.394931596",
+      "utcDayFraction": 0.689067409547361,
+      "topocentricSeconds": 1.6424124099358953e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1671347132858664008",
+      "tdb": "2022-12-18T07:06:05.042153134",
+      "tcb": "2022-12-18T07:06:27.531303973",
+      "utcDayFraction": 0.2950909567593519,
+      "topocentricSeconds": -2.9526617889065205e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "88621950696924659",
+      "tdb": "1972-10-22T17:13:02.879321987",
+      "tcb": "1972-10-22T17:13:00.828005624",
+      "utcDayFraction": 0.7168946403317014,
+      "topocentricSeconds": 1.469148093775994e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2577898716386069974",
+      "tdb": "2051-09-09T18:59:08.568581346",
+      "tcb": "2051-09-09T18:59:45.113993913",
+      "utcDayFraction": 0.7902706721061806,
+      "topocentricSeconds": 7.583688963550949e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2093162907299375199",
+      "tdb": "2036-04-30T10:08:59.484851405",
+      "tcb": "2036-04-30T10:09:28.514339312",
+      "utcDayFraction": 0.4221099464722107,
+      "topocentricSeconds": 4.882211200262464e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2630045793570578895",
+      "tdb": "2053-05-05T08:17:05.755993272",
+      "tcb": "2053-05-05T08:17:43.109956591",
+      "utcDayFraction": 0.344404752070544,
+      "topocentricSeconds": -2.3377277069908456e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "418906718935385202",
+      "tdb": "1983-04-11T10:59:11.121040959",
+      "tcb": "1983-04-11T10:59:14.190855297",
+      "utcDayFraction": 0.4571520299213194,
+      "topocentricSeconds": 6.76375458951925e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1838370959451470365",
+      "tdb": "2028-04-03T10:36:31.637116394",
+      "tcb": "2028-04-03T10:36:56.716004722",
+      "utcDayFraction": 0.44123207720329866,
+      "topocentricSeconds": 5.45602214217962e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1232016777629298229",
+      "tdb": "2009-01-15T10:53:29.813640164",
+      "tcb": "2009-01-15T10:53:45.490886893",
+      "utcDayFraction": 0.45305126502579857,
+      "topocentricSeconds": 1.071516269373718e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2145942080791295201",
+      "tdb": "2038-01-01T07:01:52.975229900",
+      "tcb": "2038-01-01T07:02:22.823069339",
+      "utcDayFraction": 0.29217351036112266,
+      "topocentricSeconds": -4.2013749465960517e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "924822069749839801",
+      "tdb": "1999-04-22T23:01:41.935414723",
+      "tcb": "1999-04-22T23:01:52.849546706",
+      "utcDayFraction": 0.9587702527754746,
+      "topocentricSeconds": -1.5550938399287555e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1627855842263610270",
+      "tdb": "2021-08-01T22:11:14.446855305",
+      "tcb": "2021-08-01T22:11:36.261665075",
+      "utcDayFraction": 0.9236720325262732,
+      "topocentricSeconds": -7.131488904849612e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3976393120661243601",
+      "tdb": "2096-01-03T01:39:12.845186339",
+      "tcb": "2096-01-03T01:40:11.074531435",
+      "utcDayFraction": 0.06809793106019679,
+      "topocentricSeconds": -1.8542734342985996e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "4047319551458392760",
+      "tdb": "2098-04-02T23:26:23.644027352",
+      "tcb": "2098-04-02T23:27:22.973100795",
+      "utcDayFraction": 0.9758617869532407,
+      "topocentricSeconds": -1.731875395957587e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1302628581276709935",
+      "tdb": "2011-04-12T17:16:53.462354444",
+      "tcb": "2011-04-12T17:17:10.234451164",
+      "utcDayFraction": 0.7192971841427662,
+      "topocentricSeconds": 5.911780916810321e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "915933367502685317",
+      "tdb": "1999-01-10T01:56:39.686830612",
+      "tcb": "1999-01-10T01:56:50.463141508",
+      "utcDayFraction": 0.08027202182079862,
+      "topocentricSeconds": -1.8981027099707515e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "514788076765098324",
+      "tdb": "1986-04-25T04:41:48.950661088",
+      "tcb": "1986-04-25T04:41:53.507134856",
+      "utcDayFraction": 0.19506672567504624,
+      "topocentricSeconds": -1.6367434867738378e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3606454740731052006",
+      "tdb": "2084-04-13T08:59:32.916670786",
+      "tcb": "2084-04-13T09:00:25.410048082",
+      "utcDayFraction": 0.3738857760648843,
+      "topocentricSeconds": -3.2714526641483554e-8
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2925579031878757102",
+      "tdb": "2062-09-15T20:51:04.061222142",
+      "tcb": "2062-09-15T20:51:45.997486813",
+      "utcDayFraction": 0.8679962819109027,
+      "topocentricSeconds": 1.8967230767984525e-8
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1862862986854179829",
+      "tdb": "2029-01-11T21:56:59.038432515",
+      "tcb": "2029-01-11T21:57:24.497074575",
+      "utcDayFraction": 0.9137714604146875,
+      "topocentricSeconds": -1.1434103433514736e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3597053659010178086",
+      "tdb": "2083-12-26T13:34:51.193897443",
+      "tcb": "2083-12-26T13:35:43.541509107",
+      "utcDayFraction": 0.5650695622463657,
+      "topocentricSeconds": 1.7049012845758845e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1696667801986284486",
+      "tdb": "2023-10-07T08:37:14.168632169",
+      "tcb": "2023-10-07T08:37:37.050384994",
+      "utcDayFraction": 0.3583910449593287,
+      "topocentricSeconds": 7.961150838150469e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2319195809183907022",
+      "tdb": "2043-06-29T13:04:01.368072372",
+      "tcb": "2043-06-29T13:04:33.902245160",
+      "utcDayFraction": 0.5436595359609028,
+      "topocentricSeconds": 1.7272419559451668e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3294338628398314343",
+      "tdb": "2074-05-23T22:04:20.583393651",
+      "tcb": "2074-05-23T22:05:08.237348852",
+      "utcDayFraction": 0.9188819249345255,
+      "topocentricSeconds": -1.09071658572742e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2572004000648916138",
+      "tdb": "2051-07-03T13:33:52.832966409",
+      "tcb": "2051-07-03T13:34:29.286980242",
+      "utcDayFraction": 0.5643940846775233,
+      "topocentricSeconds": 1.784938224243402e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1564114363441721990",
+      "tdb": "2019-07-26T04:13:15.625134166",
+      "tcb": "2019-07-26T04:13:36.451619691",
+      "utcDayFraction": 0.17507455696747687,
+      "topocentricSeconds": -1.031187241965284e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "2868002031244913200",
+      "tdb": "2060-11-18T11:14:23.427730803",
+      "tcb": "2060-11-18T11:15:04.471252684",
+      "utcDayFraction": 0.4675259827916667,
+      "topocentricSeconds": 1.5673498240116168e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3090509292506536799",
+      "tdb": "2067-12-07T18:48:44.689748275",
+      "tcb": "2067-12-07T18:49:29.183289280",
+      "utcDayFraction": 0.7830498441759143,
+      "topocentricSeconds": 5.880162244467418e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "690120556574027165",
+      "tdb": "1991-11-14T12:09:48.756770457",
+      "tcb": "1991-11-14T12:09:56.031809026",
+      "utcDayFraction": 0.5061409030921875,
+      "topocentricSeconds": 1.815033936380028e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "384214018182895306",
+      "tdb": "1982-03-05T22:07:30.368368581",
+      "tcb": "1982-03-05T22:07:32.900265727",
+      "utcDayFraction": 0.9212752649919677,
+      "topocentricSeconds": -1.3970550322554322e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "3496905665615697803",
+      "tdb": "2080-10-23T10:41:37.798089871",
+      "tcb": "2080-10-23T10:42:28.592887075",
+      "utcDayFraction": 0.4447756446504977,
+      "topocentricSeconds": 1.5016938083132082e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1799222105497445406",
+      "tdb": "2027-01-06T07:55:37.681516536",
+      "tcb": "2027-01-06T07:56:02.153394135",
+      "utcDayFraction": 0.32949649821071764,
+      "topocentricSeconds": -4.3965696196632763e-8
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "4045407743380150493",
+      "tdb": "2098-03-11T20:22:55.565655465",
+      "tcb": "2098-03-11T20:23:54.865085945",
+      "utcDayFraction": 0.8484534739640393,
+      "topocentricSeconds": -7.162393261454878e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1489588129770443546",
+      "tdb": "2017-03-15T14:29:21.956018781",
+      "tcb": "2017-03-15T14:29:41.626960303",
+      "utcDayFraction": 0.602925583837338,
+      "topocentricSeconds": 1.0826959425021005e-6
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "252794967216980016",
+      "tdb": "1978-01-04T20:49:59.401028192",
+      "tcb": "1978-01-04T20:49:59.895246942",
+      "utcDayFraction": 0.8674793631946297,
+      "topocentricSeconds": -6.164858792372167e-7
+    },
+    {
+      "observer": "Goldstone DSS-14",
+      "taiNanos": "1483228836500000000",
+      "tdb": "2017-01-01T00:01:08.683948838",
+      "tcb": "2017-01-01T00:01:28.256288260",
+      "utcDayFraction": 0.9999942130299417,
+      "topocentricSeconds": -1.665305183953946e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1551428813686274239",
+      "tdb": "2019-03-01T08:27:25.871672698",
+      "tcb": "2019-03-01T08:27:46.501466264",
+      "utcDayFraction": 0.3515820170629514,
+      "topocentricSeconds": 7.490950178479488e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3399069041038114107",
+      "tdb": "2077-09-17T01:51:13.220518540",
+      "tcb": "2077-09-17T01:52:02.498339516",
+      "utcDayFraction": 0.0764356263206829,
+      "topocentricSeconds": 1.1496454680054186e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "617803732277552197",
+      "tdb": "1989-07-30T12:09:24.460868700",
+      "tcb": "1989-07-30T12:09:30.614620595",
+      "utcDayFraction": 0.5058828420393169,
+      "topocentricSeconds": 3.090361273469771e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2230907490291414176",
+      "tdb": "2040-09-10T16:32:02.473894414",
+      "tcb": "2040-09-10T16:32:33.639139344",
+      "utcDayFraction": 0.6881167987751851,
+      "topocentricSeconds": -8.086117816036038e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1412557539947594720",
+      "tdb": "2014-10-06T01:06:12.129961918",
+      "tcb": "2014-10-06T01:06:30.606528900",
+      "utcDayFraction": 0.045196152716666715,
+      "topocentricSeconds": 8.315737722365026e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3367499572424184892",
+      "tdb": "2076-09-16T16:33:24.606599040",
+      "tcb": "2076-09-16T16:34:13.394929157",
+      "utcDayFraction": 0.689067409547361,
+      "topocentricSeconds": -7.964927056635512e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1671347132858664008",
+      "tdb": "2022-12-18T07:06:05.042155063",
+      "tcb": "2022-12-18T07:06:27.531305902",
+      "utcDayFraction": 0.2950909567593519,
+      "topocentricSeconds": 1.6340695602643732e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "88621950696924659",
+      "tdb": "1972-10-22T17:13:02.879319539",
+      "tcb": "1972-10-22T17:13:00.828003175",
+      "utcDayFraction": 0.7168946403317014,
+      "topocentricSeconds": -9.79599452287632e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2577898716386069974",
+      "tdb": "2051-09-09T18:59:08.568579673",
+      "tcb": "2051-09-09T18:59:45.113992240",
+      "utcDayFraction": 0.7902706721061806,
+      "topocentricSeconds": -9.147307467756698e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2093162907299375199",
+      "tdb": "2036-04-30T10:08:59.484851390",
+      "tcb": "2036-04-30T10:09:28.514339298",
+      "utcDayFraction": 0.4221099464722107,
+      "topocentricSeconds": 4.7382595026387864e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2630045793570578895",
+      "tdb": "2053-05-05T08:17:05.755994492",
+      "tcb": "2053-05-05T08:17:43.109957812",
+      "utcDayFraction": 0.344404752070544,
+      "topocentricSeconds": 9.868933118831451e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "418906718935385202",
+      "tdb": "1983-04-11T10:59:11.121040339",
+      "tcb": "1983-04-11T10:59:14.190854676",
+      "utcDayFraction": 0.4571520299213194,
+      "topocentricSeconds": 5.575346756839239e-8
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1838370959451470365",
+      "tdb": "2028-04-03T10:36:31.637116007",
+      "tcb": "2028-04-03T10:36:56.716004335",
+      "utcDayFraction": 0.44123207720329866,
+      "topocentricSeconds": 1.5838224092195978e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1232016777629298229",
+      "tdb": "2009-01-15T10:53:29.813639396",
+      "tcb": "2009-01-15T10:53:45.490886125",
+      "utcDayFraction": 0.45305126502579857,
+      "topocentricSeconds": 3.0355388548527476e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2145942080791295201",
+      "tdb": "2038-01-01T07:01:52.975231814",
+      "tcb": "2038-01-01T07:02:22.823071252",
+      "utcDayFraction": 0.29217351036112266,
+      "topocentricSeconds": 1.4931509604783648e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "924822069749839801",
+      "tdb": "1999-04-22T23:01:41.935415246",
+      "tcb": "1999-04-22T23:01:52.849547229",
+      "utcDayFraction": 0.9587702527754746,
+      "topocentricSeconds": -1.0317331121064734e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1627855842263610270",
+      "tdb": "2021-08-01T22:11:14.446855624",
+      "tcb": "2021-08-01T22:11:36.261665394",
+      "utcDayFraction": 0.9236720325262732,
+      "topocentricSeconds": -3.9419169153105324e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3976393120661243601",
+      "tdb": "2096-01-03T01:39:12.845188664",
+      "tcb": "2096-01-03T01:40:11.074533760",
+      "utcDayFraction": 0.06809793106019679,
+      "topocentricSeconds": 4.70872803059292e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "4047319551458392760",
+      "tdb": "2098-04-02T23:26:23.644028169",
+      "tcb": "2098-04-02T23:27:22.973101612",
+      "utcDayFraction": 0.9758617869532407,
+      "topocentricSeconds": -9.150759037784752e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1302628581276709935",
+      "tdb": "2011-04-12T17:16:53.462351928",
+      "tcb": "2011-04-12T17:17:10.234448648",
+      "utcDayFraction": 0.7192971841427662,
+      "topocentricSeconds": -1.924087971510221e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "915933367502685317",
+      "tdb": "1999-01-10T01:56:39.686833041",
+      "tcb": "1999-01-10T01:56:50.463143937",
+      "utcDayFraction": 0.08027202182079862,
+      "topocentricSeconds": 5.307800815528983e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "514788076765098324",
+      "tdb": "1986-04-25T04:41:48.950663621",
+      "tcb": "1986-04-25T04:41:53.507137389",
+      "utcDayFraction": 0.19506672567504624,
+      "topocentricSeconds": 8.958323357260555e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3606454740731052006",
+      "tdb": "2084-04-13T08:59:32.916671509",
+      "tcb": "2084-04-13T09:00:25.410048806",
+      "utcDayFraction": 0.3738857760648843,
+      "topocentricSeconds": 6.907684801599548e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2925579031878757102",
+      "tdb": "2062-09-15T20:51:04.061221527",
+      "tcb": "2062-09-15T20:51:45.997486198",
+      "utcDayFraction": 0.8679962819109027,
+      "topocentricSeconds": -5.959247159151044e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1862862986854179829",
+      "tdb": "2029-01-11T21:56:59.038432553",
+      "tcb": "2029-01-11T21:57:24.497074613",
+      "utcDayFraction": 0.9137714604146875,
+      "topocentricSeconds": -1.1054404496924487e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3597053659010178086",
+      "tdb": "2083-12-26T13:34:51.193895136",
+      "tcb": "2083-12-26T13:35:43.541506800",
+      "utcDayFraction": 0.5650695622463657,
+      "topocentricSeconds": -6.019676385693993e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1696667801986284486",
+      "tdb": "2023-10-07T08:37:14.168633123",
+      "tcb": "2023-10-07T08:37:37.050385949",
+      "utcDayFraction": 0.3583910449593287,
+      "topocentricSeconds": 1.7507619910802751e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2319195809183907022",
+      "tdb": "2043-06-29T13:04:01.368070386",
+      "tcb": "2043-06-29T13:04:33.902243175",
+      "utcDayFraction": 0.5436595359609028,
+      "topocentricSeconds": -2.58388308264012e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3294338628398314343",
+      "tdb": "2074-05-23T22:04:20.583393573",
+      "tcb": "2074-05-23T22:05:08.237348774",
+      "utcDayFraction": 0.9188819249345255,
+      "topocentricSeconds": -1.1683915993646564e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2572004000648916138",
+      "tdb": "2051-07-03T13:33:52.832964195",
+      "tcb": "2051-07-03T13:34:29.286978028",
+      "utcDayFraction": 0.5643940846775233,
+      "topocentricSeconds": -4.290559654619185e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1564114363441721990",
+      "tdb": "2019-07-26T04:13:15.625136847",
+      "tcb": "2019-07-26T04:13:36.451622373",
+      "utcDayFraction": 0.17507455696747687,
+      "topocentricSeconds": 1.6507957467622788e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "2868002031244913200",
+      "tdb": "2060-11-18T11:14:23.427730006",
+      "tcb": "2060-11-18T11:15:04.471251887",
+      "utcDayFraction": 0.4675259827916667,
+      "topocentricSeconds": 7.703689887245384e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3090509292506536799",
+      "tdb": "2067-12-07T18:48:44.689746201",
+      "tcb": "2067-12-07T18:49:29.183287207",
+      "utcDayFraction": 0.7830498441759143,
+      "topocentricSeconds": -1.4856735251085867e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "690120556574027165",
+      "tdb": "1991-11-14T12:09:48.756769078",
+      "tcb": "1991-11-14T12:09:56.031807647",
+      "utcDayFraction": 0.5061409030921875,
+      "topocentricSeconds": 4.3565081846055724e-7
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "384214018182895306",
+      "tdb": "1982-03-05T22:07:30.368368655",
+      "tcb": "1982-03-05T22:07:32.900265801",
+      "utcDayFraction": 0.9212752649919677,
+      "topocentricSeconds": -1.322855982888952e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "3496905665615697803",
+      "tdb": "2080-10-23T10:41:37.798089488",
+      "tcb": "2080-10-23T10:42:28.592886693",
+      "utcDayFraction": 0.4447756446504977,
+      "topocentricSeconds": 1.1195722615158984e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1799222105497445406",
+      "tdb": "2027-01-06T07:55:37.681517900",
+      "tcb": "2027-01-06T07:56:02.153395499",
+      "utcDayFraction": 0.32949649821071764,
+      "topocentricSeconds": 1.319931132178894e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "4045407743380150493",
+      "tdb": "2098-03-11T20:22:55.565654365",
+      "tcb": "2098-03-11T20:23:54.865084845",
+      "utcDayFraction": 0.8484534739640393,
+      "topocentricSeconds": -1.8164084680406117e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1489588129770443546",
+      "tdb": "2017-03-15T14:29:21.956016358",
+      "tcb": "2017-03-15T14:29:41.626957880",
+      "utcDayFraction": 0.602925583837338,
+      "topocentricSeconds": -1.3403305388593693e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "252794967216980016",
+      "tdb": "1978-01-04T20:49:59.401027409",
+      "tcb": "1978-01-04T20:49:59.895246160",
+      "utcDayFraction": 0.8674793631946297,
+      "topocentricSeconds": -1.399029670308851e-6
+    },
+    {
+      "observer": "Madrid DSS-63",
+      "taiNanos": "1483228836500000000",
+      "tdb": "2017-01-01T00:01:08.683950305",
+      "tcb": "2017-01-01T00:01:28.256289727",
+      "utcDayFraction": 0.9999942130299417,
+      "topocentricSeconds": -1.9823138391194964e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1551428813686274239",
+      "tdb": "2019-03-01T08:27:25.871670802",
+      "tcb": "2019-03-01T08:27:46.501464368",
+      "utcDayFraction": 0.3515820170629514,
+      "topocentricSeconds": -1.1470905333986568e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3399069041038114107",
+      "tdb": "2077-09-17T01:51:13.220516971",
+      "tcb": "2077-09-17T01:52:02.498337948",
+      "utcDayFraction": 0.0764356263206829,
+      "topocentricSeconds": -4.191937577433403e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "617803732277552197",
+      "tdb": "1989-07-30T12:09:24.460867373",
+      "tcb": "1989-07-30T12:09:30.614619268",
+      "utcDayFraction": 0.5058828420393169,
+      "topocentricSeconds": -1.0175477339584163e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2230907490291414176",
+      "tdb": "2040-09-10T16:32:02.473895732",
+      "tcb": "2040-09-10T16:32:33.639140661",
+      "utcDayFraction": 0.6881167987751851,
+      "topocentricSeconds": 5.084437419504949e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1412557539947594720",
+      "tdb": "2014-10-06T01:06:12.129961026",
+      "tcb": "2014-10-06T01:06:30.606528008",
+      "utcDayFraction": 0.045196152716666715,
+      "topocentricSeconds": -6.028197362074536e-8
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3367499572424184892",
+      "tdb": "2076-09-16T16:33:24.606600333",
+      "tcb": "2076-09-16T16:34:13.394930450",
+      "utcDayFraction": 0.689067409547361,
+      "topocentricSeconds": 4.965169585697052e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1671347132858664008",
+      "tdb": "2022-12-18T07:06:05.042151706",
+      "tcb": "2022-12-18T07:06:27.531302545",
+      "utcDayFraction": 0.2950909567593519,
+      "topocentricSeconds": -1.7235509815439424e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "88621950696924659",
+      "tdb": "1972-10-22T17:13:02.879321264",
+      "tcb": "1972-10-22T17:13:00.828004900",
+      "utcDayFraction": 0.7168946403317014,
+      "topocentricSeconds": 7.457342011030384e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2577898716386069974",
+      "tdb": "2051-09-09T18:59:08.568581645",
+      "tcb": "2051-09-09T18:59:45.113994212",
+      "utcDayFraction": 0.7902706721061806,
+      "topocentricSeconds": 1.0568549441813523e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2093162907299375199",
+      "tdb": "2036-04-30T10:08:59.484849840",
+      "tcb": "2036-04-30T10:09:28.514337748",
+      "utcDayFraction": 0.4221099464722107,
+      "topocentricSeconds": -1.0761793056146551e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2630045793570578895",
+      "tdb": "2053-05-05T08:17:05.755992209",
+      "tcb": "2053-05-05T08:17:43.109955529",
+      "utcDayFraction": 0.344404752070544,
+      "topocentricSeconds": -1.29620263573829e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "418906718935385202",
+      "tdb": "1983-04-11T10:59:11.121039532",
+      "tcb": "1983-04-11T10:59:14.190853870",
+      "utcDayFraction": 0.4571520299213194,
+      "topocentricSeconds": -7.508434782734375e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1838370959451470365",
+      "tdb": "2028-04-03T10:36:31.637115029",
+      "tcb": "2028-04-03T10:36:56.716003357",
+      "utcDayFraction": 0.44123207720329866,
+      "topocentricSeconds": -8.194588330206164e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1232016777629298229",
+      "tdb": "2009-01-15T10:53:29.813638053",
+      "tcb": "2009-01-15T10:53:45.490884782",
+      "utcDayFraction": 0.45305126502579857,
+      "topocentricSeconds": -1.038744582753336e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2145942080791295201",
+      "tdb": "2038-01-01T07:01:52.975228724",
+      "tcb": "2038-01-01T07:02:22.823068163",
+      "utcDayFraction": 0.29217351036112266,
+      "topocentricSeconds": -1.5960198553813802e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "924822069749839801",
+      "tdb": "1999-04-22T23:01:41.935417908",
+      "tcb": "1999-04-22T23:01:52.849549892",
+      "utcDayFraction": 0.9587702527754746,
+      "topocentricSeconds": 1.6303966933705043e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1627855842263610270",
+      "tdb": "2021-08-01T22:11:14.446857064",
+      "tcb": "2021-08-01T22:11:36.261666835",
+      "utcDayFraction": 0.9236720325262732,
+      "topocentricSeconds": 1.04617281910331e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3976393120661243601",
+      "tdb": "2096-01-03T01:39:12.845188469",
+      "tcb": "2096-01-03T01:40:11.074533565",
+      "utcDayFraction": 0.06809793106019679,
+      "topocentricSeconds": 2.753973660890146e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "4047319551458392760",
+      "tdb": "2098-04-02T23:26:23.644030618",
+      "tcb": "2098-04-02T23:27:22.973104061",
+      "utcDayFraction": 0.9758617869532407,
+      "topocentricSeconds": 1.533373019411326e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1302628581276709935",
+      "tdb": "2011-04-12T17:16:53.462355437",
+      "tcb": "2011-04-12T17:17:10.234452157",
+      "utcDayFraction": 0.7192971841427662,
+      "topocentricSeconds": 1.5847028146255115e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "915933367502685317",
+      "tdb": "1999-01-10T01:56:39.686832696",
+      "tcb": "1999-01-10T01:56:50.463143591",
+      "utcDayFraction": 0.08027202182079862,
+      "topocentricSeconds": 1.851267554852981e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "514788076765098324",
+      "tdb": "1986-04-25T04:41:48.950662174",
+      "tcb": "1986-04-25T04:41:53.507135942",
+      "utcDayFraction": 0.19506672567504624,
+      "topocentricSeconds": -5.511596831743459e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3606454740731052006",
+      "tdb": "2084-04-13T08:59:32.916669688",
+      "tcb": "2084-04-13T09:00:25.410046984",
+      "utcDayFraction": 0.3738857760648843,
+      "topocentricSeconds": -1.1308152855623796e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2925579031878757102",
+      "tdb": "2062-09-15T20:51:04.061223179",
+      "tcb": "2062-09-15T20:51:45.997487850",
+      "utcDayFraction": 0.8679962819109027,
+      "topocentricSeconds": 1.0560353144945314e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1862862986854179829",
+      "tdb": "2029-01-11T21:56:59.038435352",
+      "tcb": "2029-01-11T21:57:24.497077412",
+      "utcDayFraction": 0.9137714604146875,
+      "topocentricSeconds": 1.6934568879180007e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3597053659010178086",
+      "tdb": "2083-12-26T13:34:51.193895568",
+      "tcb": "2083-12-26T13:35:43.541507231",
+      "utcDayFraction": 0.5650695622463657,
+      "topocentricSeconds": -1.7027852497101094e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1696667801986284486",
+      "tdb": "2023-10-07T08:37:14.168629326",
+      "tcb": "2023-10-07T08:37:37.050382151",
+      "utcDayFraction": 0.3583910449593287,
+      "topocentricSeconds": -2.0465039187970036e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2319195809183907022",
+      "tdb": "2043-06-29T13:04:01.368070150",
+      "tcb": "2043-06-29T13:04:33.902242938",
+      "utcDayFraction": 0.5436595359609028,
+      "topocentricSeconds": -4.946927673378791e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3294338628398314343",
+      "tdb": "2074-05-23T22:04:20.583396453",
+      "tcb": "2074-05-23T22:05:08.237351654",
+      "utcDayFraction": 0.9188819249345255,
+      "topocentricSeconds": 1.7112229033413445e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2572004000648916138",
+      "tdb": "2051-07-03T13:33:52.832964324",
+      "tcb": "2051-07-03T13:34:29.286978157",
+      "utcDayFraction": 0.5643940846775233,
+      "topocentricSeconds": -2.9998089709619175e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1564114363441721990",
+      "tdb": "2019-07-26T04:13:15.625133995",
+      "tcb": "2019-07-26T04:13:36.451619521",
+      "utcDayFraction": 0.17507455696747687,
+      "topocentricSeconds": -1.2014103665391887e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "2868002031244913200",
+      "tdb": "2060-11-18T11:14:23.427727785",
+      "tcb": "2060-11-18T11:15:04.471249666",
+      "utcDayFraction": 0.4675259827916667,
+      "topocentricSeconds": -1.4504252413398162e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3090509292506536799",
+      "tdb": "2067-12-07T18:48:44.689749210",
+      "tcb": "2067-12-07T18:49:29.183290216",
+      "utcDayFraction": 0.7830498441759143,
+      "topocentricSeconds": 1.5236815556989415e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "690120556574027165",
+      "tdb": "1991-11-14T12:09:48.756767487",
+      "tcb": "1991-11-14T12:09:56.031806056",
+      "utcDayFraction": 0.5061409030921875,
+      "topocentricSeconds": -1.1556392728276788e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "384214018182895306",
+      "tdb": "1982-03-05T22:07:30.368371822",
+      "tcb": "1982-03-05T22:07:32.900268968",
+      "utcDayFraction": 0.9212752649919677,
+      "topocentricSeconds": 1.8439438779003885e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "3496905665615697803",
+      "tdb": "2080-10-23T10:41:37.798086665",
+      "tcb": "2080-10-23T10:42:28.592883870",
+      "utcDayFraction": 0.4447756446504977,
+      "topocentricSeconds": -1.7039914948441606e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1799222105497445406",
+      "tdb": "2027-01-06T07:55:37.681514970",
+      "tcb": "2027-01-06T07:56:02.153392569",
+      "utcDayFraction": 0.32949649821071764,
+      "topocentricSeconds": -1.610152892371147e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "4045407743380150493",
+      "tdb": "2098-03-11T20:22:55.565658254",
+      "tcb": "2098-03-11T20:23:54.865088735",
+      "utcDayFraction": 0.8484534739640393,
+      "topocentricSeconds": 2.0732803255323236e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1489588129770443546",
+      "tdb": "2017-03-15T14:29:21.956018340",
+      "tcb": "2017-03-15T14:29:41.626959862",
+      "utcDayFraction": 0.602925583837338,
+      "topocentricSeconds": 6.419509647943335e-7
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "252794967216980016",
+      "tdb": "1978-01-04T20:49:59.401030633",
+      "tcb": "1978-01-04T20:49:59.895249384",
+      "utcDayFraction": 0.8674793631946297,
+      "topocentricSeconds": 1.8251437957642806e-6
+    },
+    {
+      "observer": "Canberra DSS-43",
+      "taiNanos": "1483228836500000000",
+      "tdb": "2017-01-01T00:01:08.683951473",
+      "tcb": "2017-01-01T00:01:28.256290895",
+      "utcDayFraction": 0.9999942130299417,
+      "topocentricSeconds": 9.698660702224594e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1551428813686274239",
+      "tdb": "2019-03-01T08:27:25.871673520",
+      "tcb": "2019-03-01T08:27:46.501467086",
+      "utcDayFraction": 0.3515820170629514,
+      "topocentricSeconds": 1.5712375478374278e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3399069041038114107",
+      "tdb": "2077-09-17T01:51:13.220518320",
+      "tcb": "2077-09-17T01:52:02.498339297",
+      "utcDayFraction": 0.0764356263206829,
+      "topocentricSeconds": 9.297334779914419e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "617803732277552197",
+      "tdb": "1989-07-30T12:09:24.460868218",
+      "tcb": "1989-07-30T12:09:30.614620113",
+      "utcDayFraction": 0.5058828420393169,
+      "topocentricSeconds": -1.728470019732222e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2230907490291414176",
+      "tdb": "2040-09-10T16:32:02.473893412",
+      "tcb": "2040-09-10T16:32:33.639138342",
+      "utcDayFraction": 0.6881167987751851,
+      "topocentricSeconds": -1.81088898128191e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1412557539947594720",
+      "tdb": "2014-10-06T01:06:12.129961626",
+      "tcb": "2014-10-06T01:06:30.606528607",
+      "utcDayFraction": 0.045196152716666715,
+      "topocentricSeconds": 5.391610913459133e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3367499572424184892",
+      "tdb": "2076-09-16T16:33:24.606598030",
+      "tcb": "2076-09-16T16:34:13.394928148",
+      "utcDayFraction": 0.689067409547361,
+      "topocentricSeconds": -1.8061492654190651e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1671347132858664008",
+      "tdb": "2022-12-18T07:06:05.042155491",
+      "tcb": "2022-12-18T07:06:27.531306330",
+      "utcDayFraction": 0.2950909567593519,
+      "topocentricSeconds": 2.062054290020662e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "88621950696924659",
+      "tdb": "1972-10-22T17:13:02.879318577",
+      "tcb": "1972-10-22T17:13:00.828002213",
+      "utcDayFraction": 0.7168946403317014,
+      "topocentricSeconds": -1.9416822371256127e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2577898716386069974",
+      "tdb": "2051-09-09T18:59:08.568578732",
+      "tcb": "2051-09-09T18:59:45.113991299",
+      "utcDayFraction": 0.7902706721061806,
+      "topocentricSeconds": -1.8555824577849538e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2093162907299375199",
+      "tdb": "2036-04-30T10:08:59.484851957",
+      "tcb": "2036-04-30T10:09:28.514339865",
+      "utcDayFraction": 0.4221099464722107,
+      "topocentricSeconds": 1.0407318697151172e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2630045793570578895",
+      "tdb": "2053-05-05T08:17:05.755995232",
+      "tcb": "2053-05-05T08:17:43.109958552",
+      "utcDayFraction": 0.344404752070544,
+      "topocentricSeconds": 1.726574394463054e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "418906718935385202",
+      "tdb": "1983-04-11T10:59:11.121040887",
+      "tcb": "1983-04-11T10:59:14.190855225",
+      "utcDayFraction": 0.4571520299213194,
+      "topocentricSeconds": 6.042953800448284e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1838370959451470365",
+      "tdb": "2028-04-03T10:36:31.637116619",
+      "tcb": "2028-04-03T10:36:56.716004947",
+      "utcDayFraction": 0.44123207720329866,
+      "topocentricSeconds": 7.703753897800054e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1232016777629298229",
+      "tdb": "2009-01-15T10:53:29.813639649",
+      "tcb": "2009-01-15T10:53:45.490886378",
+      "utcDayFraction": 0.45305126502579857,
+      "topocentricSeconds": 5.565697161733526e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2145942080791295201",
+      "tdb": "2038-01-01T07:01:52.975232379",
+      "tcb": "2038-01-01T07:02:22.823071817",
+      "utcDayFraction": 0.29217351036112266,
+      "topocentricSeconds": 2.0582368851228587e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "924822069749839801",
+      "tdb": "1999-04-22T23:01:41.935415666",
+      "tcb": "1999-04-22T23:01:52.849547649",
+      "utcDayFraction": 0.9587702527754746,
+      "topocentricSeconds": -6.117055069163133e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1627855842263610270",
+      "tdb": "2021-08-01T22:11:14.446855181",
+      "tcb": "2021-08-01T22:11:36.261664951",
+      "utcDayFraction": 0.9236720325262732,
+      "topocentricSeconds": -8.373214809922775e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3976393120661243601",
+      "tdb": "2096-01-03T01:39:12.845189116",
+      "tcb": "2096-01-03T01:40:11.074534212",
+      "utcDayFraction": 0.06809793106019679,
+      "topocentricSeconds": 9.225596796356671e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "4047319551458392760",
+      "tdb": "2098-04-02T23:26:23.644028719",
+      "tcb": "2098-04-02T23:27:22.973102162",
+      "utcDayFraction": 0.9758617869532407,
+      "topocentricSeconds": -3.6495028033151425e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1302628581276709935",
+      "tdb": "2011-04-12T17:16:53.462351950",
+      "tcb": "2011-04-12T17:17:10.234448670",
+      "utcDayFraction": 0.7192971841427662,
+      "topocentricSeconds": -1.902865691954126e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "915933367502685317",
+      "tdb": "1999-01-10T01:56:39.686833585",
+      "tcb": "1999-01-10T01:56:50.463144480",
+      "utcDayFraction": 0.08027202182079862,
+      "topocentricSeconds": 1.0741881905177721e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "514788076765098324",
+      "tdb": "1986-04-25T04:41:48.950664550",
+      "tcb": "1986-04-25T04:41:53.507138318",
+      "utcDayFraction": 0.19506672567504624,
+      "topocentricSeconds": 1.8252730099184954e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3606454740731052006",
+      "tdb": "2084-04-13T08:59:32.916672283",
+      "tcb": "2084-04-13T09:00:25.410049580",
+      "utcDayFraction": 0.3738857760648843,
+      "topocentricSeconds": 1.4646293725287685e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2925579031878757102",
+      "tdb": "2062-09-15T20:51:04.061220732",
+      "tcb": "2062-09-15T20:51:45.997485404",
+      "utcDayFraction": 0.8679962819109027,
+      "topocentricSeconds": -1.390627015872151e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1862862986854179829",
+      "tdb": "2029-01-11T21:56:59.038432611",
+      "tcb": "2029-01-11T21:57:24.497074671",
+      "utcDayFraction": 0.9137714604146875,
+      "topocentricSeconds": -1.0468438028259411e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3597053659010178086",
+      "tdb": "2083-12-26T13:34:51.193894865",
+      "tcb": "2083-12-26T13:35:43.541506529",
+      "utcDayFraction": 0.5650695622463657,
+      "topocentricSeconds": -8.727456445975132e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1696667801986284486",
+      "tdb": "2023-10-07T08:37:14.168632894",
+      "tcb": "2023-10-07T08:37:37.050385720",
+      "utcDayFraction": 0.3583910449593287,
+      "topocentricSeconds": 1.5215918800028962e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2319195809183907022",
+      "tdb": "2043-06-29T13:04:01.368070064",
+      "tcb": "2043-06-29T13:04:33.902242852",
+      "utcDayFraction": 0.5436595359609028,
+      "topocentricSeconds": -5.809237708712643e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3294338628398314343",
+      "tdb": "2074-05-23T22:04:20.583393659",
+      "tcb": "2074-05-23T22:05:08.237348860",
+      "utcDayFraction": 0.9188819249345255,
+      "topocentricSeconds": -1.0823869334595712e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2572004000648916138",
+      "tdb": "2051-07-03T13:33:52.832963778",
+      "tcb": "2051-07-03T13:34:29.286977611",
+      "utcDayFraction": 0.5643940846775233,
+      "topocentricSeconds": -8.457933687559618e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1564114363441721990",
+      "tdb": "2019-07-26T04:13:15.625137045",
+      "tcb": "2019-07-26T04:13:36.451622571",
+      "utcDayFraction": 0.17507455696747687,
+      "topocentricSeconds": 1.8485539406433958e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "2868002031244913200",
+      "tdb": "2060-11-18T11:14:23.427729711",
+      "tcb": "2060-11-18T11:15:04.471251592",
+      "utcDayFraction": 0.4675259827916667,
+      "topocentricSeconds": 4.7535980378355346e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3090509292506536799",
+      "tdb": "2067-12-07T18:48:44.689745591",
+      "tcb": "2067-12-07T18:49:29.183286596",
+      "utcDayFraction": 0.7830498441759143,
+      "topocentricSeconds": -2.0960470097611435e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "690120556574027165",
+      "tdb": "1991-11-14T12:09:48.756768621",
+      "tcb": "1991-11-14T12:09:56.031807190",
+      "utcDayFraction": 0.5061409030921875,
+      "topocentricSeconds": -2.1253863075748614e-8
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "384214018182895306",
+      "tdb": "1982-03-05T22:07:30.368369059",
+      "tcb": "1982-03-05T22:07:32.900266206",
+      "utcDayFraction": 0.9212752649919677,
+      "topocentricSeconds": -9.185944208648864e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "3496905665615697803",
+      "tdb": "2080-10-23T10:41:37.798089094",
+      "tcb": "2080-10-23T10:42:28.592886299",
+      "utcDayFraction": 0.4447756446504977,
+      "topocentricSeconds": 7.25004213832656e-7
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1799222105497445406",
+      "tdb": "2027-01-06T07:55:37.681518434",
+      "tcb": "2027-01-06T07:56:02.153396033",
+      "utcDayFraction": 0.32949649821071764,
+      "topocentricSeconds": 1.8537257028770747e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "4045407743380150493",
+      "tdb": "2098-03-11T20:22:55.565654586",
+      "tcb": "2098-03-11T20:23:54.865085066",
+      "utcDayFraction": 0.8484534739640393,
+      "topocentricSeconds": -1.5955130752778619e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1489588129770443546",
+      "tdb": "2017-03-15T14:29:21.956016533",
+      "tcb": "2017-03-15T14:29:41.626958056",
+      "utcDayFraction": 0.602925583837338,
+      "topocentricSeconds": -1.1649541664514752e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "252794967216980016",
+      "tdb": "1978-01-04T20:49:59.401027254",
+      "tcb": "1978-01-04T20:49:59.895246005",
+      "utcDayFraction": 0.8674793631946297,
+      "topocentricSeconds": -1.5538322892380205e-6
+    },
+    {
+      "observer": "Equator",
+      "taiNanos": "1483228836500000000",
+      "tdb": "2017-01-01T00:01:08.683950538",
+      "tcb": "2017-01-01T00:01:28.256289959",
+      "utcDayFraction": 0.9999942130299417,
+      "topocentricSeconds": 3.4524251817494615e-8
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1551428813686274239",
+      "tdb": "2019-03-01T08:27:25.871672742",
+      "tcb": "2019-03-01T08:27:46.501466308",
+      "utcDayFraction": 0.3515820170629514,
+      "topocentricSeconds": 7.935930897663354e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3399069041038114107",
+      "tdb": "2077-09-17T01:51:13.220516558",
+      "tcb": "2077-09-17T01:52:02.498337535",
+      "utcDayFraction": 0.0764356263206829,
+      "topocentricSeconds": -8.32026143354498e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "617803732277552197",
+      "tdb": "1989-07-30T12:09:24.460867886",
+      "tcb": "1989-07-30T12:09:30.614619781",
+      "utcDayFraction": 0.5058828420393169,
+      "topocentricSeconds": -5.049891417449864e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2230907490291414176",
+      "tdb": "2040-09-10T16:32:02.473894404",
+      "tcb": "2040-09-10T16:32:33.639139334",
+      "utcDayFraction": 0.6881167987751851,
+      "topocentricSeconds": -8.189176759435673e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1412557539947594720",
+      "tdb": "2014-10-06T01:06:12.129960272",
+      "tcb": "2014-10-06T01:06:30.606527253",
+      "utcDayFraction": 0.045196152716666715,
+      "topocentricSeconds": -8.151372703883459e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3367499572424184892",
+      "tdb": "2076-09-16T16:33:24.606599004",
+      "tcb": "2076-09-16T16:34:13.394929122",
+      "utcDayFraction": 0.689067409547361,
+      "topocentricSeconds": -8.31840405662778e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1671347132858664008",
+      "tdb": "2022-12-18T07:06:05.042153379",
+      "tcb": "2022-12-18T07:06:27.531304218",
+      "utcDayFraction": 0.2950909567593519,
+      "topocentricSeconds": -5.017570294842122e-8
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "88621950696924659",
+      "tdb": "1972-10-22T17:13:02.879319791",
+      "tcb": "1972-10-22T17:13:00.828003427",
+      "utcDayFraction": 0.7168946403317014,
+      "topocentricSeconds": -7.276586686077828e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2577898716386069974",
+      "tdb": "2051-09-09T18:59:08.568579774",
+      "tcb": "2051-09-09T18:59:45.113992341",
+      "utcDayFraction": 0.7902706721061806,
+      "topocentricSeconds": -8.141785655983117e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2093162907299375199",
+      "tdb": "2036-04-30T10:08:59.484851556",
+      "tcb": "2036-04-30T10:09:28.514339464",
+      "utcDayFraction": 0.4221099464722107,
+      "topocentricSeconds": 6.394901500108349e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2630045793570578895",
+      "tdb": "2053-05-05T08:17:05.755994098",
+      "tcb": "2053-05-05T08:17:43.109957418",
+      "utcDayFraction": 0.344404752070544,
+      "topocentricSeconds": 5.929432697734851e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "418906718935385202",
+      "tdb": "1983-04-11T10:59:11.121041069",
+      "tcb": "1983-04-11T10:59:14.190855407",
+      "utcDayFraction": 0.4571520299213194,
+      "topocentricSeconds": 7.862293471818868e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1838370959451470365",
+      "tdb": "2028-04-03T10:36:31.637116665",
+      "tcb": "2028-04-03T10:36:56.716004993",
+      "utcDayFraction": 0.44123207720329866,
+      "topocentricSeconds": 8.165256506888294e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1232016777629298229",
+      "tdb": "2009-01-15T10:53:29.813639455",
+      "tcb": "2009-01-15T10:53:45.490886184",
+      "utcDayFraction": 0.45305126502579857,
+      "topocentricSeconds": 3.6313461968716593e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2145942080791295201",
+      "tdb": "2038-01-01T07:01:52.975230483",
+      "tcb": "2038-01-01T07:02:22.823069922",
+      "utcDayFraction": 0.29217351036112266,
+      "topocentricSeconds": 1.6273816920881227e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "924822069749839801",
+      "tdb": "1999-04-22T23:01:41.935416990",
+      "tcb": "1999-04-22T23:01:52.849548973",
+      "utcDayFraction": 0.9587702527754746,
+      "topocentricSeconds": 7.115176601946854e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1627855842263610270",
+      "tdb": "2021-08-01T22:11:14.446855484",
+      "tcb": "2021-08-01T22:11:36.261665254",
+      "utcDayFraction": 0.9236720325262732,
+      "topocentricSeconds": -5.342385737829676e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3976393120661243601",
+      "tdb": "2096-01-03T01:39:12.845188381",
+      "tcb": "2096-01-03T01:40:11.074533477",
+      "utcDayFraction": 0.06809793106019679,
+      "topocentricSeconds": 1.8771835876425476e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "4047319551458392760",
+      "tdb": "2098-04-02T23:26:23.644029903",
+      "tcb": "2098-04-02T23:27:22.973103346",
+      "utcDayFraction": 0.9758617869532407,
+      "topocentricSeconds": 8.182775725637612e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1302628581276709935",
+      "tdb": "2011-04-12T17:16:53.462354631",
+      "tcb": "2011-04-12T17:17:10.234451351",
+      "utcDayFraction": 0.7192971841427662,
+      "topocentricSeconds": 7.784501018491281e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "915933367502685317",
+      "tdb": "1999-01-10T01:56:39.686832792",
+      "tcb": "1999-01-10T01:56:50.463143687",
+      "utcDayFraction": 0.08027202182079862,
+      "topocentricSeconds": 2.812290303172871e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "514788076765098324",
+      "tdb": "1986-04-25T04:41:48.950663418",
+      "tcb": "1986-04-25T04:41:53.507137185",
+      "utcDayFraction": 0.19506672567504624,
+      "topocentricSeconds": 6.926625783789352e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3606454740731052006",
+      "tdb": "2084-04-13T08:59:32.916671586",
+      "tcb": "2084-04-13T09:00:25.410048883",
+      "utcDayFraction": 0.3738857760648843,
+      "topocentricSeconds": 7.674325572133971e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2925579031878757102",
+      "tdb": "2062-09-15T20:51:04.061221293",
+      "tcb": "2062-09-15T20:51:45.997485965",
+      "utcDayFraction": 0.8679962819109027,
+      "topocentricSeconds": -8.297535270165423e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1862862986854179829",
+      "tdb": "2029-01-11T21:56:59.038433975",
+      "tcb": "2029-01-11T21:57:24.497076035",
+      "utcDayFraction": 0.9137714604146875,
+      "topocentricSeconds": 3.169173481357558e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3597053659010178086",
+      "tdb": "2083-12-26T13:34:51.193895814",
+      "tcb": "2083-12-26T13:35:43.541507478",
+      "utcDayFraction": 0.5650695622463657,
+      "topocentricSeconds": 7.598443046432594e-8
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1696667801986284486",
+      "tdb": "2023-10-07T08:37:14.168630561",
+      "tcb": "2023-10-07T08:37:37.050383387",
+      "utcDayFraction": 0.3583910449593287,
+      "topocentricSeconds": -8.113393484409249e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2319195809183907022",
+      "tdb": "2043-06-29T13:04:01.368070535",
+      "tcb": "2043-06-29T13:04:33.902243324",
+      "utcDayFraction": 0.5436595359609028,
+      "topocentricSeconds": -1.093786005448578e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3294338628398314343",
+      "tdb": "2074-05-23T22:04:20.583395123",
+      "tcb": "2074-05-23T22:05:08.237350324",
+      "utcDayFraction": 0.9188819249345255,
+      "topocentricSeconds": 3.816801031526502e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2572004000648916138",
+      "tdb": "2051-07-03T13:33:52.832964459",
+      "tcb": "2051-07-03T13:34:29.286978291",
+      "utcDayFraction": 0.5643940846775233,
+      "topocentricSeconds": -1.6552640978863926e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1564114363441721990",
+      "tdb": "2019-07-26T04:13:15.625134744",
+      "tcb": "2019-07-26T04:13:36.451620270",
+      "utcDayFraction": 0.17507455696747687,
+      "topocentricSeconds": -4.52479310234042e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "2868002031244913200",
+      "tdb": "2060-11-18T11:14:23.427728781",
+      "tcb": "2060-11-18T11:15:04.471250662",
+      "utcDayFraction": 0.4675259827916667,
+      "topocentricSeconds": -4.5454107679403916e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3090509292506536799",
+      "tdb": "2067-12-07T18:48:44.689747484",
+      "tcb": "2067-12-07T18:49:29.183288489",
+      "utcDayFraction": 0.7830498441759143,
+      "topocentricSeconds": -2.0305413950510564e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "690120556574027165",
+      "tdb": "1991-11-14T12:09:48.756768125",
+      "tcb": "1991-11-14T12:09:56.031806694",
+      "utcDayFraction": 0.5061409030921875,
+      "topocentricSeconds": -5.17381460164246e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "384214018182895306",
+      "tdb": "1982-03-05T22:07:30.368370791",
+      "tcb": "1982-03-05T22:07:32.900267938",
+      "utcDayFraction": 0.9212752649919677,
+      "topocentricSeconds": 8.132787963541742e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "3496905665615697803",
+      "tdb": "2080-10-23T10:41:37.798087653",
+      "tcb": "2080-10-23T10:42:28.592884858",
+      "utcDayFraction": 0.4447756446504977,
+      "topocentricSeconds": -7.158369659564841e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1799222105497445406",
+      "tdb": "2027-01-06T07:55:37.681516811",
+      "tcb": "2027-01-06T07:56:02.153394410",
+      "utcDayFraction": 0.32949649821071764,
+      "topocentricSeconds": 2.3094072029002587e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "4045407743380150493",
+      "tdb": "2098-03-11T20:22:55.565657015",
+      "tcb": "2098-03-11T20:23:54.865087495",
+      "utcDayFraction": 0.8484534739640393,
+      "topocentricSeconds": 8.338039028036974e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1489588129770443546",
+      "tdb": "2017-03-15T14:29:21.956018537",
+      "tcb": "2017-03-15T14:29:41.626960060",
+      "utcDayFraction": 0.602925583837338,
+      "topocentricSeconds": 8.391084212538372e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "252794967216980016",
+      "tdb": "1978-01-04T20:49:59.401029016",
+      "tcb": "1978-01-04T20:49:59.895247767",
+      "utcDayFraction": 0.8674793631946297,
+      "topocentricSeconds": 2.0817198369333425e-7
+    },
+    {
+      "observer": "South Pole",
+      "taiNanos": "1483228836500000000",
+      "tdb": "2017-01-01T00:01:08.683950663",
+      "tcb": "2017-01-01T00:01:28.256290085",
+      "utcDayFraction": 0.9999942130299417,
+      "topocentricSeconds": 1.598074432594332e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1551428813686274239",
+      "tdb": "2019-03-01T08:27:25.871670805",
+      "tcb": "2019-03-01T08:27:46.501464371",
+      "utcDayFraction": 0.3515820170629514,
+      "topocentricSeconds": -1.143366510720752e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3399069041038114107",
+      "tdb": "2077-09-17T01:51:13.220516213",
+      "tcb": "2077-09-17T01:52:02.498337190",
+      "utcDayFraction": 0.0764356263206829,
+      "topocentricSeconds": -1.1769997567054585e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "617803732277552197",
+      "tdb": "1989-07-30T12:09:24.460869497",
+      "tcb": "1989-07-30T12:09:30.614621392",
+      "utcDayFraction": 0.5058828420393169,
+      "topocentricSeconds": 1.1059979525957202e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2230907490291414176",
+      "tdb": "2040-09-10T16:32:02.473897316",
+      "tcb": "2040-09-10T16:32:33.639142246",
+      "utcDayFraction": 0.6881167987751851,
+      "topocentricSeconds": 2.093250762625178e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1412557539947594720",
+      "tdb": "2014-10-06T01:06:12.129960168",
+      "tcb": "2014-10-06T01:06:30.606527149",
+      "utcDayFraction": 0.045196152716666715,
+      "topocentricSeconds": -9.187408685337652e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3367499572424184892",
+      "tdb": "2076-09-16T16:33:24.606601931",
+      "tcb": "2076-09-16T16:34:13.394932048",
+      "utcDayFraction": 0.689067409547361,
+      "topocentricSeconds": 2.09462418124598e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1671347132858664008",
+      "tdb": "2022-12-18T07:06:05.042151914",
+      "tcb": "2022-12-18T07:06:27.531302753",
+      "utcDayFraction": 0.2950909567593519,
+      "topocentricSeconds": -1.5150430663545206e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "88621950696924659",
+      "tdb": "1972-10-22T17:13:02.879322606",
+      "tcb": "1972-10-22T17:13:00.828006242",
+      "utcDayFraction": 0.7168946403317014,
+      "topocentricSeconds": 2.087905428041579e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2577898716386069974",
+      "tdb": "2051-09-09T18:59:08.568582240",
+      "tcb": "2051-09-09T18:59:45.113994806",
+      "utcDayFraction": 0.7902706721061806,
+      "topocentricSeconds": 1.6516694422647263e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2093162907299375199",
+      "tdb": "2036-04-30T10:08:59.484850476",
+      "tcb": "2036-04-30T10:09:28.514338384",
+      "utcDayFraction": 0.4221099464722107,
+      "topocentricSeconds": -4.4050528007189525e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2630045793570578895",
+      "tdb": "2053-05-05T08:17:05.755992227",
+      "tcb": "2053-05-05T08:17:43.109955546",
+      "utcDayFraction": 0.344404752070544,
+      "topocentricSeconds": -1.2787679814049886e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "418906718935385202",
+      "tdb": "1983-04-11T10:59:11.121040227",
+      "tcb": "1983-04-11T10:59:14.190854565",
+      "utcDayFraction": 0.4571520299213194,
+      "topocentricSeconds": -5.606250914088999e-8
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1838370959451470365",
+      "tdb": "2028-04-03T10:36:31.637115612",
+      "tcb": "2028-04-03T10:36:56.716003940",
+      "utcDayFraction": 0.44123207720329866,
+      "topocentricSeconds": -2.3651845856582226e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1232016777629298229",
+      "tdb": "2009-01-15T10:53:29.813639292",
+      "tcb": "2009-01-15T10:53:45.490886020",
+      "utcDayFraction": 0.45305126502579857,
+      "topocentricSeconds": 1.9930319168805352e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2145942080791295201",
+      "tdb": "2038-01-01T07:01:52.975228735",
+      "tcb": "2038-01-01T07:02:22.823068174",
+      "utcDayFraction": 0.29217351036112266,
+      "topocentricSeconds": -1.5854742264784862e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "924822069749839801",
+      "tdb": "1999-04-22T23:01:41.935415826",
+      "tcb": "1999-04-22T23:01:52.849547809",
+      "utcDayFraction": 0.9587702527754746,
+      "topocentricSeconds": -4.5235535776812913e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1627855842263610270",
+      "tdb": "2021-08-01T22:11:14.446856201",
+      "tcb": "2021-08-01T22:11:36.261665971",
+      "utcDayFraction": 0.9236720325262732,
+      "topocentricSeconds": 1.8281854948897901e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3976393120661243601",
+      "tdb": "2096-01-03T01:39:12.845186585",
+      "tcb": "2096-01-03T01:40:11.074531680",
+      "utcDayFraction": 0.06809793106019679,
+      "topocentricSeconds": -1.6089672764466723e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "4047319551458392760",
+      "tdb": "2098-04-02T23:26:23.644028372",
+      "tcb": "2098-04-02T23:27:22.973101815",
+      "utcDayFraction": 0.9758617869532407,
+      "topocentricSeconds": -7.127539001039549e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1302628581276709935",
+      "tdb": "2011-04-12T17:16:53.462355402",
+      "tcb": "2011-04-12T17:17:10.234452122",
+      "utcDayFraction": 0.7192971841427662,
+      "topocentricSeconds": 1.5492218852831453e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "915933367502685317",
+      "tdb": "1999-01-10T01:56:39.686830776",
+      "tcb": "1999-01-10T01:56:50.463141671",
+      "utcDayFraction": 0.08027202182079862,
+      "topocentricSeconds": -1.7349267154740603e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "514788076765098324",
+      "tdb": "1986-04-25T04:41:48.950660625",
+      "tcb": "1986-04-25T04:41:53.507134392",
+      "utcDayFraction": 0.19506672567504624,
+      "topocentricSeconds": -2.1003473597777655e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3606454740731052006",
+      "tdb": "2084-04-13T08:59:32.916669816",
+      "tcb": "2084-04-13T09:00:25.410047112",
+      "utcDayFraction": 0.3738857760648843,
+      "topocentricSeconds": -1.0030483878766764e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2925579031878757102",
+      "tdb": "2062-09-15T20:51:04.061223071",
+      "tcb": "2062-09-15T20:51:45.997487743",
+      "utcDayFraction": 0.8679962819109027,
+      "topocentricSeconds": 9.486462921306713e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1862862986854179829",
+      "tdb": "2029-01-11T21:56:59.038433724",
+      "tcb": "2029-01-11T21:57:24.497075785",
+      "utcDayFraction": 0.9137714604146875,
+      "topocentricSeconds": 6.62097523749833e-8
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3597053659010178086",
+      "tdb": "2083-12-26T13:34:51.193897227",
+      "tcb": "2083-12-26T13:35:43.541508890",
+      "utcDayFraction": 0.5650695622463657,
+      "topocentricSeconds": 1.4886623319664634e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1696667801986284486",
+      "tdb": "2023-10-07T08:37:14.168630821",
+      "tcb": "2023-10-07T08:37:37.050383646",
+      "utcDayFraction": 0.3583910449593287,
+      "topocentricSeconds": -5.518394243589093e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2319195809183907022",
+      "tdb": "2043-06-29T13:04:01.368071958",
+      "tcb": "2043-06-29T13:04:33.902244747",
+      "utcDayFraction": 0.5436595359609028,
+      "topocentricSeconds": 1.3136068129209215e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3294338628398314343",
+      "tdb": "2074-05-23T22:04:20.583394858",
+      "tcb": "2074-05-23T22:05:08.237350058",
+      "utcDayFraction": 0.9188819249345255,
+      "topocentricSeconds": 1.161480846986751e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2572004000648916138",
+      "tdb": "2051-07-03T13:33:52.832966145",
+      "tcb": "2051-07-03T13:34:29.286979977",
+      "utcDayFraction": 0.5643940846775233,
+      "topocentricSeconds": 1.5205550865749162e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1564114363441721990",
+      "tdb": "2019-07-26T04:13:15.625133438",
+      "tcb": "2019-07-26T04:13:36.451618964",
+      "utcDayFraction": 0.17507455696747687,
+      "topocentricSeconds": -1.7588418255326012e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "2868002031244913200",
+      "tdb": "2060-11-18T11:14:23.427729777",
+      "tcb": "2060-11-18T11:15:04.471251658",
+      "utcDayFraction": 0.4675259827916667,
+      "topocentricSeconds": 5.416596397047908e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3090509292506536799",
+      "tdb": "2067-12-07T18:48:44.689749388",
+      "tcb": "2067-12-07T18:49:29.183290394",
+      "utcDayFraction": 0.7830498441759143,
+      "topocentricSeconds": 1.7016833346851718e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "690120556574027165",
+      "tdb": "1991-11-14T12:09:48.756769646",
+      "tcb": "1991-11-14T12:09:56.031808215",
+      "utcDayFraction": 0.5061409030921875,
+      "topocentricSeconds": 1.0034697804461694e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "384214018182895306",
+      "tdb": "1982-03-05T22:07:30.368369810",
+      "tcb": "1982-03-05T22:07:32.900266956",
+      "utcDayFraction": 0.9212752649919677,
+      "topocentricSeconds": -1.6816007196137142e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "3496905665615697803",
+      "tdb": "2080-10-23T10:41:37.798088718",
+      "tcb": "2080-10-23T10:42:28.592885923",
+      "utcDayFraction": 0.4447756446504977,
+      "topocentricSeconds": 3.491788517248455e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1799222105497445406",
+      "tdb": "2027-01-06T07:55:37.681515329",
+      "tcb": "2027-01-06T07:56:02.153392928",
+      "utcDayFraction": 0.32949649821071764,
+      "topocentricSeconds": -1.2505597571247696e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "4045407743380150493",
+      "tdb": "2098-03-11T20:22:55.565656824",
+      "tcb": "2098-03-11T20:23:54.865087304",
+      "utcDayFraction": 0.8484534739640393,
+      "topocentricSeconds": 6.428153401238923e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1489588129770443546",
+      "tdb": "2017-03-15T14:29:21.956019024",
+      "tcb": "2017-03-15T14:29:41.626960546",
+      "utcDayFraction": 0.602925583837338,
+      "topocentricSeconds": 1.3257802461686102e-6
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "252794967216980016",
+      "tdb": "1978-01-04T20:49:59.401029494",
+      "tcb": "1978-01-04T20:49:59.895248245",
+      "utcDayFraction": 0.8674793631946297,
+      "topocentricSeconds": 6.861550736106568e-7
+    },
+    {
+      "observer": "Mauna Kea",
+      "taiNanos": "1483228836500000000",
+      "tdb": "2017-01-01T00:01:08.683949581",
+      "tcb": "2017-01-01T00:01:28.256289003",
+      "utcDayFraction": 0.9999942130299417,
+      "topocentricSeconds": -9.219329887785946e-7
+    }
+  ]
+}

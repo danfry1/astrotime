@@ -45,6 +45,13 @@ function absorb(text) {
   hash = ((hash ^ 10n) * FNV_PRIME) & MASK // newline separator
 }
 
+// Goldstone DSS-14 (WGS84), for the topocentric TDB terms.
+const observer = {
+  longitude: (-116.889 * Math.PI) / 180,
+  latitude: (35.426 * Math.PI) / 180,
+  height: 1002,
+}
+
 let count = 0
 for (let i = 0; i < 5000; i += 1) {
   const n = nextTaiNanos()
@@ -71,7 +78,8 @@ for (let i = 0; i < 5000; i += 1) {
   // Nutation is the other user of the deterministic sine and cosine.
   const { dpsi, deps } = nutation(instant)
   absorb(`${dpsi}|${deps}|${equationOfTheEquinoxes(instant)}|${meanObliquity(instant)}`)
-  count += 11
+  absorb(formatIso(instant, { scale: 'tdb', precision: 'nanos', observer }))
+  count += 12
 }
 
 console.log(`astrotime-conformance-v3 ${count} ${hash.toString(16).padStart(16, '0')}`)
