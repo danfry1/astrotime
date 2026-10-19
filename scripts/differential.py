@@ -104,6 +104,12 @@ def iso_epoch_nanos(text):
     whole_seconds = whole_days * 86_400 + int(hour_text) * 3_600 + int(minute_text) * 60 + int(second)
     return whole_seconds * NS + int(fraction.ljust(9, "0") or "0")
 
+# Both sides evaluate the same full Fairhead & Bretagnon series; the only
+# remaining difference is where each rounds to a nanosecond (astropy carries
+# the instant as two doubles), so a reading can land one nanosecond apart at a
+# half-nanosecond boundary.
+TDB_LIMIT_NS = 1
+
 mismatches = []
 max_tdb_error_ns = 0
 max_jd_error_seconds = 0.0
@@ -120,7 +126,7 @@ for idx in range(N):
         or tt != ref_tt[idx]
         or yday != ref_yday[idx]
         or abs(gps - float(ref_gps[idx])) > 1e-6
-        or tdb_error_ns > 10_000
+        or tdb_error_ns > TDB_LIMIT_NS
         or jd_error > 1e-9
     ):
         mismatches.append(
@@ -140,7 +146,7 @@ for idx in range(N):
         )
 
 print(f"\ncompared {N} instants across UTC, TT, TDB, GPS, day-of-year and UTC/TT JD")
-print(f"maximum TDB error: {max_tdb_error_ns} ns (limit 10000 ns)")
+print(f"maximum TDB error: {max_tdb_error_ns} ns (limit {TDB_LIMIT_NS} ns)")
 print(f"maximum two-part JD error: {max_jd_error_seconds:.3e} s (limit 1e-9 s)")
 print(f"mismatches: {len(mismatches)}")
 for m in mismatches[:10]:
@@ -164,7 +170,7 @@ if REPORT_PATH is not None:
                     "astropy": astropy.__version__,
                     "erfa": erfa.__version__,
                 },
-                "limits": {"tdbErrorNanos": 10_000, "julianDateErrorSeconds": 1e-9},
+                "limits": {"tdbErrorNanos": TDB_LIMIT_NS, "julianDateErrorSeconds": 1e-9},
                 "observed": {
                     "maxTdbErrorNanos": max_tdb_error_ns,
                     "maxJulianDateErrorSeconds": max_jd_error_seconds,

@@ -28,7 +28,8 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   table from `leap-seconds.list` (IANA/NIST) or `Leap_Second.dat` (IERS) via
   `parseLeapSecondsList`. No global mutable state.
 - Scales: `utc | tai | tt | gps | tdb`. TT = TAI + 32.184 s; GPS = TAI − 19 s;
-  TDB = TT + the seven-term Fairhead & Bretagnon truncation (USNO Circular 179 eq. 2.6; < 10 µs vs ERFA, documented).
+  TDB = TT + the full 787-term geocentric Fairhead & Bretagnon series (ERFA `dtdb`, reproduced to 1e-13 s;
+  coefficients generated from a hash-pinned ERFA source by `scripts/generate-tdb-series.mjs`).
   UT1 is out of scope (needs IERS EOP data).
 - Leap-second semantics: UTC `23:59:60` is representable and valid only when the
   table has a positive leap at that boundary. `instantToUnixMillis` follows POSIX:

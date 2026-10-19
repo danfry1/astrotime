@@ -19,9 +19,10 @@ import {
   type UtcOptions,
 } from './instant.js'
 import { IERS_LEAP_SECONDS, leapEntryIndexForUnix, PRE_1972_DELTA_AT } from './leap-seconds.js'
-import { assertSafeInteger, deterministicSin, floorDiv, fromNanos, toNanos } from './numeric.js'
+import { assertSafeInteger, floorDiv, fromNanos, toNanos } from './numeric.js'
 import { assertOptionsObject } from './options.js'
 import { err, ok, type Result } from './result.js'
+import { fairheadBretagnonTdbMinusTt } from './tdb.js'
 
 /**
  * Supported time scales.
@@ -29,8 +30,9 @@ import { err, ok, type Result } from './result.js'
  * - `tai` — International Atomic Time (uniform).
  * - `tt`  — Terrestrial Time = TAI + 32.184 s.
  * - `gps` — GPS time = TAI − 19 s.
- * - `tdb` — Barycentric Dynamical Time ≈ TT + periodic terms (≤ 1.7 ms;
- *           this implementation agrees with ERFA's full series to < 10 µs).
+ * - `tdb` — Barycentric Dynamical Time ≈ TT + periodic terms (≤ 1.7 ms):
+ *           the full geocentric Fairhead & Bretagnon series, reproducing
+ *           ERFA `dtdb` within 1e-13 s.
  */
 export type TimeScale = 'utc' | 'tai' | 'tt' | 'gps' | 'tdb'
 
@@ -87,34 +89,15 @@ export const J2000_INSTANT: Instant = instantFromTaiNanos(
 export const GPS_EPOCH_INSTANT: Instant = instantFromTaiNanos(GPS_EPOCH_NANOS - GPS_MINUS_TAI_NANOS)
 
 /**
- * TDB − TT in seconds for a TT time expressed as days since J2000.
- * The seven-term truncation of the Fairhead & Bretagnon series given in USNO
- * Circular 179 (eq. 2.6). Agrees with ERFA `dtdb` to < 10 µs (1972–2100).
+ * TDB − TT in seconds for a TT time expressed as days since J2000: the full
+ * Fairhead & Bretagnon series (see `./tdb.ts`), geocentric.
  */
 function tdbMinusTt(daysSinceJ2000Tt: number): number {
   const centuries = daysSinceJ2000Tt / 36_525
-  const phases = [
-    628.3076 * centuries + 6.2401,
-    575.3385 * centuries + 4.297,
-    1256.6152 * centuries + 6.1969,
-    606.9777 * centuries + 4.0212,
-    52.9691 * centuries + 0.4444,
-    21.3299 * centuries + 5.5431,
-    628.3076 * centuries + 4.249,
-  ] as const
   if (!Number.isFinite(centuries) || Math.abs(centuries) > TDB_MAX_ABS_CENTURIES) {
-    throw new RangeError('TDB approximation is outside the supported ±999999-year civil range')
+    throw new RangeError('TDB model is outside the supported ±999999-year civil range')
   }
-  // deterministicSin keeps TDB bit-identical across JS engines (Math.sin is not specified exactly).
-  return (
-    0.001_657 * deterministicSin(phases[0]) +
-    0.000_022 * deterministicSin(phases[1]) +
-    0.000_014 * deterministicSin(phases[2]) +
-    0.000_005 * deterministicSin(phases[3]) +
-    0.000_005 * deterministicSin(phases[4]) +
-    0.000_002 * deterministicSin(phases[5]) +
-    0.000_01 * centuries * deterministicSin(phases[6])
-  )
+  return fairheadBretagnonTdbMinusTt(daysSinceJ2000Tt)
 }
 
 const tdbOffsetNanos = (ttNanos: bigint): bigint =>
@@ -233,9 +216,11 @@ export const instantFromScaleSeconds = (
  * Seconds since 2000-01-01T12:00:00 **as read on `scale`'s own clock** — the
  * standard per-scale J2000 origin. `instantToJ2000Seconds(i, 'tdb')` follows
  * the SPICE ephemeris-time convention (ET = 0 at 2000-01-01T12:00:00 TDB) but
- * is **approximate ET**: the TDB−TT model is a seven-term series that agrees
- * with ERFA to < 10 µs and CSPICE to < 30 µs over 1972–2100 (validated in CI;
- * accuracy is not bounded outside that interval). `'tt'` gives TT seconds
+ * uses the full geocentric Fairhead & Bretagnon TDB−TT series (ERFA `dtdb`,
+ * ±3 ns against the DE405 time ephemeris over 1950–2050 per ERFA; topocentric
+ * terms of up to ~2 µs are not applied). CSPICE's own one-term model differs
+ * from it by up to 40 µs over 1972–2100, so values match SPICE ET only to that
+ * tolerance. `'tt'` gives TT seconds
  * past the IAU J2000.0 epoch, exactly. Origins of different scales differ by
  * up to ΔAT + 32.184 s. Float resolution is ~0.1 µs near the present; use
  * `instantToJ2000Nanos` for integer nanoseconds.

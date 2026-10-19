@@ -5,6 +5,35 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **Accuracy**: TDB now evaluates the full 787-term Fairhead & Bretagnon
+  (1990) series with ERFA's JPL-mass adjustments — the geocentric model ERFA
+  `dtdb` and astropy use — instead of the seven-term USNO Circular 179
+  truncation. Against ERFA the offset now agrees within 1.0e-14 s over
+  1600–2500 (was 9.3 µs); a seeded 100 000-epoch astropy sweep finds a 1 ns
+  maximum TDB difference, which is nanosecond rounding, and the 28 golden
+  epochs match exactly. Acceptance limits tighten to 1e-13 s against `dtdb`
+  and 1 ns against astropy. The coefficient table is generated from a
+  SHA-256-pinned ERFA v2.0.1 `dtdb.c` by `scripts/generate-tdb-series.mjs`
+  and is guarded by a content digest; the ERFA BSD 3-clause notice ships in
+  `THIRD-PARTY-NOTICES.md`. Within ±10 000 years of J2000 the evaluation is
+  ERFA's; beyond it the series' T^n factors are held at their ±10-millennium
+  values. ERFA's unbounded T^4 block reaches ~1000 s at ±700 millennia, where
+  the double day argument resolves only milliseconds, and the resulting
+  microsecond staircase broke the 1 ns TDB inverse contract (a property test
+  found it). 308 000 random instants across the ±999 999-year civil range now
+  round-trip with zero error.
+- **Accuracy contract**: CSPICE's one-term ET model differs from the full
+  series by up to 36.53 µs over 1972–2100 (half-day grid, `naif0012.tls`), so
+  the CSPICE bound is restated as 40 µs. It was 30 µs only because the
+  seven-term truncation happened to sit closer to CSPICE's model. The series
+  remains geocentric: the topocentric term for an observer on the Earth's
+  surface (up to ~2 µs) is not applied, as in astropy without a location.
+- **Behavior**: TDB readings change by up to 9.3 µs relative to 0.12.0, and
+  the cross-engine conformance digest changes to `7315d8d88afc4a91` (identical
+  on V8, JavaScriptCore and Hermes). Two TDB lattice tests use new
+  rounding-boundary instants, each confirmed against ERFA to sit exactly on a
+  half-nanosecond offset. A TDB conversion now costs a few microseconds and the
+  gzipped bundle grows from ~28 KB to ~44 KB.
 - **Fix**: a UTC two-part Julian date within 0.5 ns of a positive leap
   second resolved to the instant one second after it. The fraction was split
   into whole seconds before rounding to nanoseconds, so a value such as
