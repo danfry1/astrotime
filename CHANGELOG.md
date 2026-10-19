@@ -5,6 +5,23 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **New**: `tcg` (Geocentric Coordinate Time) and `tcb` (Barycentric
+  Coordinate Time) join `TimeScale`, with ` TCG` / ` TCB` designators in
+  parse and format. Both follow their IAU definitions (2000 B1.9, 2006 B3)
+  with the defining constants carried as integer ratios, so a reading is
+  exact rational arithmetic rounded once. TCG equals the exactly evaluated
+  definition on all 500 committed reference instants across the
+  ±999 999-year range, and instant → TCG → instant is exact. Over a
+  100 000-epoch astropy sweep both agree within 1 ns; astropy's
+  double-precision Julian dates misround about 0.5% of TCG readings, and
+  exact rational arithmetic sides with astrotime on every one of them. TCB is
+  computed from TT plus the unrounded TDB offset, rounding once rather than
+  twice, and its inverse corrects against that forward map, so
+  instant → TCB → instant is exact as well (TT → TCB always runs faster than
+  one-for-one). `API-STABILITY.md` now records that
+  `TimeScale` may gain members in minor releases. The conformance digest
+  now covers 175 000 outputs across seven scales and is
+  `3009b1a3d2455b1b`, identical on V8, JavaScriptCore and Hermes.
 - **Accuracy**: TDB now evaluates the full 787-term Fairhead & Bretagnon
   (1990) series with ERFA's JPL-mass adjustments — the geocentric model ERFA
   `dtdb` and astropy use — instead of the seven-term USNO Circular 179
@@ -29,8 +46,8 @@ cost of changing a public name rises to permanent the moment it has one.
   remains geocentric: the topocentric term for an observer on the Earth's
   surface (up to ~2 µs) is not applied, as in astropy without a location.
 - **Behavior**: TDB readings change by up to 9.3 µs relative to 0.12.0, and
-  the cross-engine conformance digest changes to `7315d8d88afc4a91` (identical
-  on V8, JavaScriptCore and Hermes). Two TDB lattice tests use new
+  the cross-engine conformance digest changes (its current value is in the
+  TCG/TCB entry above). Two TDB lattice tests use new
   rounding-boundary instants, each confirmed against ERFA to sit exactly on a
   half-nanosecond offset. A TDB conversion now costs a few microseconds and the
   gzipped bundle grows from ~28 KB to ~44 KB.

@@ -11,7 +11,7 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
 - **Leap-second-aware UTC** — `23:59:60` is a real, validated time; the IERS table ships in the box and can be replaced at runtime from `leap-seconds.list` / `Leap_Second.dat` (with `#h` integrity verification).
-- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention and evaluates the full 787-term Fairhead & Bretagnon series — the model ERFA and astropy use, reproduced to 1e-13 s; CSPICE's simpler model differs by up to 40 µs), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
+- **Time scales** — UTC, TAI, TT, GPS, TDB, TCG, TCB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention and evaluates the full 787-term Fairhead & Bretagnon series — the model ERFA and astropy use, reproduced to 1e-13 s; CSPICE's simpler model differs by up to 40 µs; `tcg` and `tcb` are the IAU-defined coordinate times, computed in exact rational arithmetic), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
 - **Deterministic** — bit-identical output on V8, JavaScriptCore *and* Hermes (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
@@ -63,7 +63,7 @@ is backed by something you can re-run:
 |---|---|
 | Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
 | Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
-| Output is identical everywhere | A 135 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
+| Output is identical everywhere | A 175 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
 | The documentation is true | 47 documented requirements and 10 repository hazards are mapped bidirectionally to implementation and verification evidence in [`REQUIREMENTS.md`](REQUIREMENTS.md), [`HAZARD-LOG.md`](HAZARD-LOG.md) and [`TRACEABILITY.md`](TRACEABILITY.md); CI fails if any link rots |
 | The tests would notice a bug | Mutation testing (85.46% across 3 308 mutants; 91.16% for leap-second code with no uncovered mutants) with a published [survivor analysis and runner limitation](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
 | The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an attested [raw evidence archive](https://github.com/danfry1/astrotime/releases) attached to every release |
@@ -86,7 +86,7 @@ non-UTC time scales actually matter to you:
 |---|---|---|---|---|
 | Sub-millisecond precision | ✅ nanosecond | ✅ nanosecond | ❌ millisecond | ❌ millisecond |
 | Leap seconds (`23:59:60`) | ✅ validated | ❌ ignored by design | ❌ | ❌ |
-| TAI / TT / GPS / TDB scales | ✅ | ❌ | ❌ | ❌ |
+| TAI / TT / GPS / TDB / TCG / TCB scales | ✅ | ❌ | ❌ | ❌ |
 | Julian dates, day-of-year, SPICE ET | ✅ | ❌ | partial (ordinal only) | partial |
 | Time zones & locale formatting | ❌ use `Intl` | ✅ | ✅ | ✅ |
 | Calendar arithmetic (add a month) | ❌ out of scope | ✅ | ✅ | ✅ |
@@ -95,7 +95,7 @@ non-UTC time scales actually matter to you:
 **Use Temporal or Luxon** if you want zones, locales and calendar maths and
 your timestamps are wall-clock civil time. **Use astrotime** — possibly
 alongside them — if a second matters across a leap boundary, if you need
-TAI/TT/GPS/TDB, or if your telemetry is finer than a millisecond. They
+TAI/TT/GPS/TDB/TCG/TCB, or if your telemetry is finer than a millisecond. They
 compose: `Temporal.Instant.fromEpochNanoseconds(instantToUnixNanos(i))`.
 
 ## Which scale do I want?
@@ -106,6 +106,7 @@ compose: `Temporal.Instant.fromEpochNanoseconds(instantToUnixNanos(i))`.
 | Elapsed time, intervals, rates | `Duration` (or `tai`) |
 | Ephemerides, SPICE ET, orbit propagation | `tdb` (or `tt`) |
 | GPS receivers, RINEX, week/seconds-of-week | `gps` |
+| Relativistic models in the GCRS or BCRS (IERS Conventions, pulsar timing, VLBI) | `tcg` / `tcb` |
 | Astronomy epochs, Julian dates | the scale your source says (be explicit) |
 
 ## Concepts
@@ -117,7 +118,7 @@ compose: `Temporal.Instant.fromEpochNanoseconds(instantToUnixNanos(i))`.
 | `CivilDateTime` | Broken-down time (`year, month, day, dayOfYear, hour, minute, second (0–60), nanosecond`). |
 | `CivilFields` | Input fields: `{ year, month, day }` or `{ year, dayOfYear }` plus optional time. |
 | `LeapSecondTable` | `{ entries: [{ unixSeconds, deltaAt }], expires, updated }` — TAI−UTC history. |
-| `TimeScale` | `'utc' \| 'tai' \| 'tt' \| 'gps' \| 'tdb'` |
+| `TimeScale` | `'utc' \| 'tai' \| 'tt' \| 'gps' \| 'tdb' \| 'tcg' \| 'tcb'` |
 
 **Errors:** expected failures (parsing, invalid fields) return a `Result<T, E>`
 rather than throwing — malformed timestamps are ordinary data in a telemetry
@@ -334,10 +335,27 @@ matches astropy to the nanosecond over a 100 000-epoch sweep; ERFA states
 Summing 787 terms makes a TDB conversion cost a few microseconds; the other
 scales are integer offsets.
 
-TAI, TT and GPS integer-nanosecond conversions are exact inverses. TDB's
-periodic offset varies continuously, so its two integer-nanosecond lattices
-cannot be bijective at every rounding boundary; its inverse selects the
-closest TT reading and round-trips within 1 ns over the supported civil range.
+TCG and TCB are defined by IAU resolutions as exact linear functions:
+TT = TCG − L_G (TCG − T0) with L_G = 6.969290134e-10 (2000 B1.9), and
+TDB = TCB − L_B (TCB − T0) + TDB0 with L_B = 1.550519768e-8 and
+TDB0 = −65.5 µs (2006 B3), where T0 = 1977-01-01T00:00:32.184. astrotime
+carries the constants as integer ratios and rounds once, so a TCG reading is
+the defined value to the nanosecond; astropy's double-precision Julian dates
+misround about 0.5% of TCG readings by 1 ns, and exact rational arithmetic
+sides with astrotime on every one. TCB is computed from TT and the unrounded
+TDB offset, so it inherits TDB's model accuracy (and its geocentric caveat)
+but rounds only once. TCG runs ~2.2 s per century ahead of TT and TCB
+~49 s per century ahead of TDB, so near the ±999 999-year edges their civil
+readings can leave the formattable range before TAI's do.
+
+TAI, TT and GPS integer-nanosecond conversions are exact inverses, and so are
+instant → TCG → instant and instant → TCB → instant: both run faster than TT
+(TCB because L_B exceeds TDB − TT's largest rate), so every TT nanosecond has
+its own reading, and one falling between two of them resolves to the nearer.
+TDB's periodic offset varies continuously, so its two integer-nanosecond
+lattices cannot be bijective at every rounding boundary; its inverse selects
+the closest TT reading and round-trips within 1 ns over the supported civil
+range.
 
 GPS seconds-of-week inputs must be in `[0, 604800)` and GPS week numbers must
 be safe integers; out-of-range values throw rather than silently normalizing

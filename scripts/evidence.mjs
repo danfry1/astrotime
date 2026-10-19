@@ -318,7 +318,7 @@ const metric = (name) =>
   coverage?.current === true ? `${String(coverage.total[name].pct)}%` : 'not current'
 const differentialSummary =
   differential?.current === true
-    ? `${String(differential.cases)} cases, ${String(differential.observed.mismatches)} mismatches, maximum TDB error ${String(differential.observed.maxTdbErrorNanos)} ns`
+    ? `${String(differential.cases)} cases, ${String(differential.observed.mismatches)} mismatches, maximum TDB error ${String(differential.observed.maxTdbErrorNanos)} ns${differential.observed.maxCoordinateTimeErrorNanos === undefined ? '' : `, maximum TCG/TCB error ${String(differential.observed.maxCoordinateTimeErrorNanos)} ns`}`
     : 'not included or stale'
 
 const summary = `# Evidence bundle — ${evidence.package} ${evidence.version}

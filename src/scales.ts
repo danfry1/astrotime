@@ -20,6 +20,12 @@ import {
 } from './instant.js'
 import { IERS_LEAP_SECONDS, leapEntryIndexForUnix, PRE_1972_DELTA_AT } from './leap-seconds.js'
 import { assertSafeInteger, floorDiv, fromNanos, toNanos } from './numeric.js'
+import {
+  tcbNanosFromTt,
+  tcgNanosFromTt,
+  tdbNanosFromTcb,
+  ttNanosFromTcg,
+} from './coordinate-time.js'
 import { assertOptionsObject } from './options.js'
 import { err, ok, type Result } from './result.js'
 import { fairheadBretagnonTdbMinusTt } from './tdb.js'
@@ -33,8 +39,11 @@ import { fairheadBretagnonTdbMinusTt } from './tdb.js'
  * - `tdb` — Barycentric Dynamical Time ≈ TT + periodic terms (≤ 1.7 ms):
  *           the full geocentric Fairhead & Bretagnon series, reproducing
  *           ERFA `dtdb` within 1e-13 s.
+ * - `tcg` — Geocentric Coordinate Time: TT = TCG − L_G (TCG − T0), exact.
+ * - `tcb` — Barycentric Coordinate Time: TDB = TCB − L_B (TCB − T0) + TDB0,
+ *           exact from TDB (IAU 2006 Resolution B3).
  */
-export type TimeScale = 'utc' | 'tai' | 'tt' | 'gps' | 'tdb'
+export type TimeScale = 'utc' | 'tai' | 'tt' | 'gps' | 'tdb' | 'tcg' | 'tcb'
 
 export const TIME_SCALES = Object.freeze([
   'utc',
@@ -42,6 +51,8 @@ export const TIME_SCALES = Object.freeze([
   'tt',
   'gps',
   'tdb',
+  'tcg',
+  'tcb',
 ] as const satisfies readonly TimeScale[])
 
 /** Upper-case designators used when formatting/parsing non-UTC readings (`… TAI`). */
@@ -51,11 +62,13 @@ export const TIME_SCALE_LABELS = Object.freeze({
   tt: 'TT',
   gps: 'GPS',
   tdb: 'TDB',
+  tcg: 'TCG',
+  tcb: 'TCB',
 } as const satisfies Record<TimeScale, string>)
 
 /** Internal runtime guard for JavaScript callers (TypeScript checks this statically). */
 export function assertTimeScale(scale: unknown): asserts scale is TimeScale {
-  if (scale !== 'utc' && scale !== 'tai' && scale !== 'tt' && scale !== 'gps' && scale !== 'tdb') {
+  if (!(TIME_SCALES as readonly unknown[]).includes(scale)) {
     throw new RangeError(`Unsupported time scale: ${String(scale)}`)
   }
 }
@@ -100,10 +113,34 @@ function tdbMinusTt(daysSinceJ2000Tt: number): number {
   return fairheadBretagnonTdbMinusTt(daysSinceJ2000Tt)
 }
 
+/** The unrounded TDB − TT offset in femtoseconds, for single-rounding TCB. */
+const tdbOffsetFemtos = (ttNanos: bigint): bigint =>
+  BigInt(Math.round(tdbMinusTt(Number(ttNanos - J2000_NANOS_FROM_1970) / 86_400e9) * 1e15))
+
 const tdbOffsetNanos = (ttNanos: bigint): bigint =>
   BigInt(Math.round(tdbMinusTt(Number(ttNanos - J2000_NANOS_FROM_1970) / 86_400e9) * 1e9))
 
 const tdbNanosFromTt = (ttNanos: bigint): bigint => ttNanos + tdbOffsetNanos(ttNanos)
+
+const tcbNanosFromTtReading = (ttNanos: bigint): bigint =>
+  tcbNanosFromTt(ttNanos, tdbOffsetFemtos(ttNanos))
+
+/**
+ * TT reading whose TCB reading is closest to `tcbNanos`. TT → TCB always runs
+ * faster than one-for-one (L_B ≈ 1.55e-8 exceeds TDB − TT's largest rate,
+ * ≈ 3.3e-10), so each TT nanosecond has its own TCB reading and correcting a
+ * first estimate against the actual forward map makes instant → TCB → instant
+ * exact. A reading between two TT nanoseconds' readings resolves to the nearer.
+ */
+function ttNanosFromTcb(tcbNanos: bigint): bigint {
+  let tt = ttNanosFromTdb(tdbNanosFromTcb(tcbNanos))
+  for (let step = 0; step < 8 && tcbNanosFromTtReading(tt) > tcbNanos; step += 1) tt -= 1n
+  for (let step = 0; step < 8 && tcbNanosFromTtReading(tt + 1n) <= tcbNanos; step += 1) tt += 1n
+  // Now reading(tt) ≤ tcbNanos < reading(tt + 1); keep the nearer, ties low.
+  const below = tcbNanos - tcbNanosFromTtReading(tt)
+  const above = tcbNanosFromTtReading(tt + 1n) - tcbNanos
+  return above < below ? tt + 1n : tt
+}
 
 function ttNanosFromTdb(tdbNanos: bigint): bigint {
   // Correct the inverse against the actual integer-nanosecond forward map.
@@ -147,6 +184,10 @@ export function instantToScaleNanos(
       return instant.taiNanos + GPS_MINUS_TAI_NANOS
     case 'tdb':
       return tdbNanosFromTt(instant.taiNanos + TT_MINUS_TAI_NANOS)
+    case 'tcg':
+      return tcgNanosFromTt(instant.taiNanos + TT_MINUS_TAI_NANOS)
+    case 'tcb':
+      return tcbNanosFromTtReading(instant.taiNanos + TT_MINUS_TAI_NANOS)
     case 'utc':
       return instantToUnixNanos(instant, options)
     default:
@@ -156,10 +197,12 @@ export function instantToScaleNanos(
 
 /**
  * Converts a scale reading back to an instant. Exact inverse of
- * `instantToScaleNanos` for `tai`, `tt` and `gps`. TDB is inverted to the
- * closest integer-nanosecond TT reading (within 1 ns over the supported civil
- * range); a varying continuous offset cannot be bijective on both integer
- * nanosecond lattices.
+ * `instantToScaleNanos` for `tai`, `tt`, `gps`, `tcg` and `tcb` (TCG and TCB
+ * run faster than TT, so every TT nanosecond has its own reading; one falling
+ * between two of them resolves to the nearer). TDB is inverted to the closest
+ * integer-nanosecond TT reading (within 1 ns over the supported civil range);
+ * a varying continuous offset cannot be bijective on both integer nanosecond
+ * lattices.
  * For `'utc'` the reading is POSIX time, which is **not injective**: an
  * inserted leap second shares its Unix value with the following second (this
  * conversion picks the post-leap instant), and a deleted second's value never
@@ -181,6 +224,10 @@ export function instantFromScaleNanos(
       return instantFromTaiNanos(nanos - GPS_MINUS_TAI_NANOS)
     case 'tdb':
       return instantFromTaiNanos(ttNanosFromTdb(nanos) - TT_MINUS_TAI_NANOS)
+    case 'tcg':
+      return instantFromTaiNanos(ttNanosFromTcg(nanos) - TT_MINUS_TAI_NANOS)
+    case 'tcb':
+      return instantFromTaiNanos(ttNanosFromTcb(nanos) - TT_MINUS_TAI_NANOS)
     case 'utc':
       return instantFromUnixNanos(nanos, options)
     default:
