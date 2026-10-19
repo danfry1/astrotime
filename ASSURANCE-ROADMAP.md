@@ -17,7 +17,7 @@ qualified implementations.
 | Reference-implementation golden vectors (astropy/ERFA, NAIF CSPICE) | `tests/golden.test.ts`, `tests/drift.test.ts`, `tests/spice.test.ts` |
 | Property-based round-trip invariants over the documented range | `tests/properties.test.ts` |
 | Adversarial suite (mutable/partial/fabricated tables, negative leaps, pathological input) | `tests/adversarial.test.ts` |
-| Cross-engine bit-identity over 175k outputs: V8, JSC and Hermes (the React Native engine, via the Metro-style Babel transform) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, CI `conformance` job + scheduled workflow |
+| Cross-engine bit-identity over 175k outputs: V8, JSC, Hermes (the React Native engine, via the Metro-style Babel transform) and SpiderMonkey (the Firefox engine, in Mozilla's SHA-256-pinned js shell) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, `scripts/conformance-spidermonkey.sh`, CI `conformance` job + scheduled workflow |
 | Requirements-to-tests traceability, enforced in CI | `REQUIREMENTS.md`, `scripts/check-traceability.mjs` |
 | Mutation testing, with survivor analysis | `stryker.config.json`, scores below |
 | Large-scale differential sweep vs astropy (100 000 random instants, monthly + on demand) | `scripts/differential.py`, `.github/workflows/differential.yml` |
@@ -34,16 +34,13 @@ qualified implementations.
 
 ## Planned (in order)
 
-1. **SpiderMonkey in conformance CI** — Hermes is done (see above); adding
-   SpiderMonkey would extend the bit-identity claim to the last major engine
-   family.
-2. **Independent reproduction** — an assessor rebuilds the npm tarball from
+1. **Independent reproduction** — an assessor rebuilds the npm tarball from
    the signed tag and records the independently reproduced artifact hash.
-3. **Independent V&V** — external audit against `REQUIREMENTS.md` by a party
+2. **Independent V&V** — external audit against `REQUIREMENTS.md` by a party
    with no involvement in development. Only an adopting organization's
    software-assurance process can classify usage; this repository's job is
    minimizing the cost of that assessment.
-4. **Project-specific structural analysis** — if an adopter classifies a
+3. **Project-specific structural analysis** — if an adopter classifies a
    component as safety-critical, run an MC/DC-capable tool on the exact
    qualified implementation/runtime and obtain Technical Authority review of
    any justified deviation. V8 branch coverage is not mislabeled as MC/DC.

@@ -63,8 +63,8 @@ reference. Backticked fragments must appear verbatim in `vitest list` output.
 | REQ-API-001 | An options argument, member or configurable pattern with the wrong runtime shape is rejected rather than ignored, so a positional scale or JavaScript `null` cannot silently select a default. | `rejects a bare scale where an options object belongs`, `names the fix in the message, since the mistake is a near miss`, `rejects null, which typeof reports as an object`, `rejects every non-object shape without leaking a native TypeError`, `rejects null option members instead of silently selecting defaults`, `reports non-string pattern configuration without leaking a native TypeError` |
 | REQ-API-002 | The package runtime export surface is an explicit, reviewed contract. | `matches the reviewed runtime export contract exactly` |
 | REQ-FMT-002 | ISO output at nanosecond precision parses back to the same instant on every scale, across the full civil range. | `ISO format at nanosecond precision parses back to the same instant (all scales)` |
-| REQ-DET-001 | Outputs are bit-identical across JavaScript engines (deterministic sine; no engine-dependent math), including Hermes for React Native. | CI job `Cross-engine conformance (V8 vs JSC)`; `Conformance under Hermes (React Native engine)`; `sha1 (FIPS 180 vectors)` |
+| REQ-DET-001 | Outputs are bit-identical across JavaScript engines (deterministic sine; no engine-dependent math), including Hermes for React Native and SpiderMonkey for Firefox. | CI job `Cross-engine conformance (V8 vs JSC vs SpiderMonkey)`; `Conformance under Hermes (React Native engine)`; `Conformance under SpiderMonkey (Firefox engine)`; `sha1 (FIPS 180 vectors)` |
 
 The final row's cross-engine digest is enforced by the `conformance` job in
-`.github/workflows/ci.yml`, which fails unless V8 and JSC produce identical
-digests over 175 000 outputs.
+`.github/workflows/ci.yml`, which fails unless V8, JSC and SpiderMonkey produce
+identical digests over 175 000 outputs.

@@ -158,6 +158,15 @@ cost of changing a public name rises to permanent the moment it has one.
   accuracy bound changes. The numerics are untouched and the cross-engine
   conformance digest is unchanged (`astrotime-conformance-v2 135000
   a85edc8d2639f9b4`).
+- **Verification**: the conformance digest now also runs under
+  SpiderMonkey, the Firefox engine, on every pull request and in the
+  scheduled extended-verification workflow.
+  `scripts/conformance-spidermonkey.sh` fetches Mozilla's official js shell
+  from the Firefox 153.4.0esr release on archive.mozilla.org, checks it
+  against a recorded SHA-256 taken from that release's `SHA256SUMS`, runs
+  the unmodified `scripts/conformance.mjs` as an ES module against the built
+  `dist/index.mjs`, and fails unless the digest equals Node's. SpiderMonkey
+  produces `3009b1a3d2455b1b`, identical to V8, JavaScriptCore and Hermes.
 
 - **Fix**: an options argument that is not an options object is rejected.
   `formatInstant(i, pattern, 'tai')` was accepted in silence and the default
