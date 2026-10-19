@@ -170,8 +170,21 @@ const tcbNanosFromTtReading = (ttNanos: bigint, site: Site): bigint =>
  * exact. A reading between two TT nanoseconds' readings resolves to the nearer.
  */
 function ttNanosFromTcb(tcbNanos: bigint, site: Site): bigint {
-  const reading = (tt: bigint) => tcbNanosFromTtReading(tt, site)
-  let tt = ttNanosFromTdb(tdbNanosFromTcb(tcbNanos), site)
+  // Each reading sums the 787-term TDB series; the search revisits the same
+  // TT values, so evaluate each once.
+  const readings = new Map<bigint, bigint>()
+  const reading = (tt: bigint): bigint => {
+    let value = readings.get(tt)
+    if (value === undefined) {
+      value = tcbNanosFromTtReading(tt, site)
+      readings.set(tt, value)
+    }
+    return value
+  }
+  // A starting estimate within a few nanoseconds is enough: the search below
+  // settles it against the forward map.
+  const tdb = tdbNanosFromTcb(tcbNanos)
+  let tt = tdb - tdbOffsetNanos(tdb, site)
   for (let step = 0; step < 8 && reading(tt) > tcbNanos; step += 1) tt -= 1n
   for (let step = 0; step < 8 && reading(tt + 1n) <= tcbNanos; step += 1) tt += 1n
   // Now reading(tt) ≤ tcbNanos < reading(tt + 1); keep the nearer, ties low.

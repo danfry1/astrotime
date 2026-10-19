@@ -39,7 +39,11 @@ const fullRangeTaiNanos = fc.bigInt({
 const modernTaiNanos = fc.bigInt({ min: 63_072_010_000_000_000n, max: 7_258_118_400_000_000_000n })
 const RUNS = { numRuns: 10_000 }
 
-describe('round-trip properties', () => {
+// 10 000 runs per property across seven scales: TDB and TCB each sum the
+// 787-term series several times per round trip, which under coverage on a
+// shared CI runner approaches vitest's 5 s default. The bound is for the
+// runner, not the code; a regression would still show up as a large slowdown.
+describe('round-trip properties', { timeout: 30_000 }, () => {
   it('instant → UTC fields → instant is the identity', () => {
     fc.assert(
       fc.property(taiNanos, (n) => {
