@@ -14,8 +14,8 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 - **Time scales** — UTC, TAI, TT, GPS, TDB, TCG, TCB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention and evaluates the full 787-term Fairhead & Bretagnon series — the model ERFA and astropy use, reproduced to 1e-13 s; CSPICE's simpler model differs by up to 40 µs; `tcg` and `tcb` are the IAU-defined coordinate times, computed in exact rational arithmetic), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
-- **Deterministic** — bit-identical output on V8, JavaScriptCore *and* Hermes (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
-- **Small and fast** — ~44 KB gzipped (a third of it the TDB coefficient table), tree-shakeable, no runtime dependencies; formatting and parsing both run at million-scale operations per second in the repository benchmark (machine-dependent, so run `bun run bench` for a relevant number). CI-verified on Node ≥ 22, Bun, and Hermes (React Native ≥ 0.70, where BigInt became available) — the Hermes check runs the real engine after the same Babel transform Metro applies. Plain ES2022 with zero dependencies, so browsers and Deno are supported targets too.
+- **Deterministic** — bit-identical output on V8, JavaScriptCore, Hermes *and* SpiderMonkey (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
+- **Small and fast** — ~44 KB gzipped (a third of it the TDB coefficient table), tree-shakeable, no runtime dependencies; formatting and parsing both run at million-scale operations per second in the repository benchmark (machine-dependent, so run `bun run bench` for a relevant number). CI-verified on Node ≥ 22, Bun, and Hermes (React Native ≥ 0.70, where BigInt became available) — the Hermes check runs the real engine after the same Babel transform Metro applies. The conformance digest is also checked under SpiderMonkey, Firefox's engine, by running the unmodified ES module in Mozilla's official js shell. Plain ES2022 with zero dependencies, so browsers and Deno are supported targets too.
 
 ```ts
 import { parseInstantOrThrow, formatIso, formatOrdinal, durationBetween, durationToSeconds } from 'astrotime'
@@ -63,7 +63,7 @@ is backed by something you can re-run:
 |---|---|
 | Conversions match the reference implementations | Golden vectors from **astropy** (ERFA/SOFA) and **NAIF CSPICE**, committed to the repo, plus a monthly **differential sweep of 100 000 random instants** against astropy — currently zero mismatches |
 | Every leap second is handled, including the awkward ones | Every inserted leap second since 1972 probed at ±1 ns; negative leap seconds (never yet announced) exercised across Unix, Julian dates, truncation and ranges |
-| Output is identical everywhere | A 175 000-value digest is compared across **V8, JavaScriptCore and Hermes** (the React Native engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
+| Output is identical everywhere | A 175 000-value digest is compared across **V8, JavaScriptCore, Hermes** (the React Native engine) **and SpiderMonkey** (the Firefox engine) — the TDB series uses a built-in deterministic sine because `Math.sin` is not specified bit-exactly |
 | The documentation is true | 47 documented requirements and 10 repository hazards are mapped bidirectionally to implementation and verification evidence in [`REQUIREMENTS.md`](REQUIREMENTS.md), [`HAZARD-LOG.md`](HAZARD-LOG.md) and [`TRACEABILITY.md`](TRACEABILITY.md); CI fails if any link rots |
 | The tests would notice a bug | Mutation testing (85.46% across 3 308 mutants; 91.16% for leap-second code with no uncovered mutants) with a published [survivor analysis and runner limitation](ASSURANCE-ROADMAP.md#mutation-scores), rather than coverage alone |
 | The published package is the source | Reproducible `npm pack` shasum, SLSA provenance, signed tags, and an attested [raw evidence archive](https://github.com/danfry1/astrotime/releases) attached to every release |
@@ -491,6 +491,7 @@ bun run check:release   # format, lint, knip, typecheck, coverage, dist suite, t
 bun run evidence        # regenerate the release evidence bundle
 bun run test:mutation   # Stryker mutation testing
 ./scripts/conformance-hermes.sh   # digest under the React Native engine
+./scripts/conformance-spidermonkey.sh   # digest under the Firefox engine
 pip install astropy==6.0.1 spiceypy==6.0.0   # regenerate reference fixtures (see CONTRIBUTING.md)
 ```
 

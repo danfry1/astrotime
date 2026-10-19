@@ -75,7 +75,7 @@ jobs:
           bun run attw /tmp/astrotime-*.tgz --ignore-rules no-resolution cjs-resolves-to-esm
 
   conformance:
-    name: Cross-engine conformance (V8 vs JSC)
+    name: Cross-engine conformance (V8 vs JSC vs SpiderMonkey)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: quality
@@ -104,6 +104,9 @@ jobs:
           echo "node: $NODE_DIGEST"
           echo "bun:  $BUN_DIGEST"
           test "$NODE_DIGEST" = "$BUN_DIGEST"
+
+      - name: Conformance under SpiderMonkey (Firefox engine)
+        run: ./scripts/conformance-spidermonkey.sh
 
   node-compat:
     name: Node ${{ matrix.node-version }} smoke
