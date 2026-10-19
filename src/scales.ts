@@ -76,6 +76,7 @@ const J2000_NANOS_FROM_1970 = BigInt(J2000_SECONDS_FROM_1970) * NANOS_PER_SECOND
 /** GPS epoch 1980-01-06T00:00:00 (GPS = UTC at that instant). */
 const GPS_EPOCH_NANOS = BigInt(daysFromCivil(1980, 1, 6) * SECONDS_PER_DAY) * NANOS_PER_SECOND
 const NANOS_PER_WEEK = 7n * NANOS_PER_DAY
+const SECONDS_PER_WEEK = 604_800
 /** Covers the documented civil range, years −999 999 through +999 999. */
 const TDB_MAX_ABS_CENTURIES = 10_020
 
@@ -446,11 +447,15 @@ export function instantToGpsWeek(instant: Instant): GpsWeek {
   }
 }
 
-/** Instant from a safe-integer GPS week and fractional seconds of week in `[0, 604800)`. */
+/**
+ * Instant from a safe-integer GPS week and fractional seconds of week in
+ * `[0, 604800)`. The range applies to the value given: one just below 604800
+ * that rounds to a whole week at nanosecond resolution carries into the next.
+ */
 export function instantFromGpsWeek(week: number, secondsOfWeek: number): Instant {
   assertSafeInteger(week, 'GPS week')
   const secondsNanos = toNanos(secondsOfWeek, NANOS_PER_SECOND, 'GPS seconds of week')
-  if (secondsNanos < 0n || secondsNanos >= NANOS_PER_WEEK) {
+  if (secondsOfWeek < 0 || secondsOfWeek >= SECONDS_PER_WEEK) {
     throw new RangeError(
       `GPS seconds of week must be between 0 (inclusive) and 604800 (exclusive), got ${String(secondsOfWeek)}`,
     )

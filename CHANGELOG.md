@@ -21,6 +21,68 @@ cost of changing a public name rises to permanent the moment it has one.
   `overrides` pin fixed releases that Bun's seven-day `minimumReleaseAge`
   gate otherwise declined to select. The published package has no runtime
   dependencies and was not affected.
+- **Fix**: a validation failure found after a UTC offset is applied now names
+  the UTC reading it was found at. `2016-12-31T23:59:60+01:00` was rejected
+  with "a leap second can only occur at 23:59:60" — which the text literally
+  says — because the check runs on 22:59:60 UTC; the reason now reads
+  "2016-12-31T23:59:60+01:00 is 2016-12-31T22:59:60 UTC; a leap second can
+  only occur at 23:59:60". The same applies to `before1972: 'reject'`
+  (`1972-01-01T00:30:00+01:00` reported year 1971), the civil-range check
+  (`+999999-12-31T23:59:59-01:00` reported year 1000000), table expiry and
+  negative leap seconds. Error codes, `field` and `value` are unchanged.
+- **Breaking**: a parse pattern may no longer read a field below one it
+  omits. `parseInstant('2026 19', { format: 'YYYY DD' })` returned 19
+  January, `'YYYY mm'` put the minutes in hour zero and `'YYYY-MM-DD HH ss'`
+  put the seconds in minute zero — each a default the text never stated, the
+  same defect for which `'YYYY-MM DDD'` was already rejected. A field now
+  requires every larger unit (`DD` needs `MM` or `DDD`, `HH` a full date, `mm`
+  `HH`, `ss` `mm`, a fraction `ss`), and `parsePatternError` explains the
+  gap. Stopping early (`'YYYY-MM'`, `'YYYY-MM-DD HH'`) is reduced precision
+  and still reads the start of the unit. Format patterns are deliberately
+  unaffected: `'mm:ss'` renders exactly the fields it names and defaults
+  nothing.
+- **Breaking**: ISO text with `Z` or a UTC offset on a date without a time
+  (`2026-08-19+01:00`, `2026-08-19Z`, `2026-231Z`) is rejected; ISO 8601
+  attaches a zone designator to a time of day only, and `2026-08-19+01:00`
+  was silently read as 23:00 UTC on the 18th. A scale label on a bare date
+  (`2017-01-01 TAI`) is still accepted, since a TAI or TT date is meaningful
+  and reads as midnight on that clock.
+- **Breaking**: the ISO grammar now matches its documentation. A basic-format
+  offset inside extended text (`…T00:59:60+0100`) is rejected; `±HH` and
+  `±HH:mm` remain, as ISO 8601 allows both in extended format. A signed year
+  needs the six digits of an expanded year (`+2026-08-19`, `+0000-01-01`,
+  `+12345-…` are rejected; `+002026-…`, `-0044-…` and `2026-…` are not), so
+  `-00000-01-01` is now a grammar error rather than a negative-zero one. The
+  optional space before a scale label is kept: the `Z` pattern token writes
+  `…:37TAI`, and an ISO-shaped pattern's output therefore still reads back.
+- **Breaking**: `parseInstant` rejects text whose instant would have a UTC
+  reading or a TAI serialization outside the ±999 999-year civil range.
+  `-999999-01-01T00:00:00 TT` parsed, and then `formatIso` and `String()`
+  threw, because its UTC reading is 42.184 s earlier in year −1 000 000. At
+  the far end the last 37 s of UTC text and the last 19 s of GPS text fell in
+  TAI year 1 000 000, so the parsed instant could not be serialized. These now return an
+  `InvalidTimeError` for `year`, as an offset shifted past the range already
+  did.
+- **Breaking**: `parseDuration` rejects durations longer than
+  `Number.MAX_SAFE_INTEGER` days. `P9999999999999999D` parsed, and then
+  `String()`, `JSON.stringify` and `formatDuration` threw on the value; the
+  parser now returns a `TimeParseError` instead. In clock form, hours after a
+  day count are limited to 0–23: `1T36:00:00` was silently read as
+  `P2DT12H`. Clock hours without a day count remain unbounded (`36:00:00`).
+- **Fix**: `instantFromGpsWeek(10, 604799.9999999999)` threw although the
+  value is inside the documented `[0, 604800)` range: it rounds to 604800 s at
+  nanosecond resolution. The range is now checked on the value given, and
+  such a value carries into the first instant of the next week. Values below
+  zero, which previously passed when they rounded to `0`, now throw as
+  documented.
+- **Documentation**: the deterministic sine's error comments are corrected.
+  They claimed "max error ~4e-15" and "< 1e-13" for the Taylor series to
+  x^15 on [−π/2, π/2]; the truncation error is ≈ 6.07e-12 (the first omitted
+  term, (π/2)^17/17!), and 6.02e-12 is measured against `Math.sin`. Scaled by
+  the TDB series amplitude that is ~1e-14 s of TDB offset, so no published
+  accuracy bound changes. The numerics are untouched and the cross-engine
+  conformance digest is unchanged (`astrotime-conformance-v2 135000
+  a85edc8d2639f9b4`).
 
 - **Fix**: an options argument that is not an options object is rejected.
   `formatInstant(i, pattern, 'tai')` was accepted in silence and the default

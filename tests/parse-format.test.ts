@@ -32,7 +32,6 @@ describe('parseInstant iso', () => {
     ['2026-231T12:34:56.789Z', '2026-08-19T12:34:56.789000000Z'],
     ['2026-231', '2026-08-19T00:00:00.000000000Z'],
     ['2026-08-19T13:34:56+01:00', '2026-08-19T12:34:56.000000000Z'],
-    ['2026-08-19T07:04:56-0530', '2026-08-19T12:34:56.000000000Z'],
     ['2026-08-19T11:34:56-01', '2026-08-19T12:34:56.000000000Z'],
     ['2026-08-19T12:34:56+00:00', '2026-08-19T12:34:56.000000000Z'],
     ['2026-08-19T12:34:56-00:00', '2026-08-19T12:34:56.000000000Z'],
@@ -76,7 +75,11 @@ describe('parseInstant iso', () => {
       'expected YYYY-MM-DD or YYYY-DDD with optional THH:mm[:ss[.fff]][Z|±HH:mm| TAI]',
     ],
     ['-0000-01-01', 'iso', 'negative-zero years are not allowed'],
-    ['-00000-01-01', 'iso', 'negative-zero years are not allowed'],
+    [
+      '-00000-01-01',
+      'iso',
+      'expected YYYY-MM-DD or YYYY-DDD with optional THH:mm[:ss[.fff]][Z|±HH:mm| TAI]',
+    ],
     ['-000000-01-01', 'iso', 'negative-zero years are not allowed'],
     ['2026-08-19T12:00:00+24:00', 'iso', 'invalid UTC offset +24:00'],
     ['2026-08-19T12:00:00+00:60', 'iso', 'invalid UTC offset +00:60'],
@@ -127,7 +130,7 @@ describe('parseInstant iso', () => {
       true,
     )
     expect(expectErr(parseInstant('2017-01-01T00:58:60+01:00')).reason).toBe(
-      'a leap second can only occur at 23:59:60',
+      '2017-01-01T00:58:60+01:00 is 2016-12-31T23:58:60 UTC; a leap second can only occur at 23:59:60',
     )
     const table: LeapSecondTable = {
       entries: [...IERS_LEAP_SECONDS.entries, { unixSeconds: 1_893_456_000, deltaAt: 36 }],
@@ -135,7 +138,10 @@ describe('parseInstant iso', () => {
     }
     expect(
       expectErr(parseInstant('2030-01-01T00:59:59+01:00', { leapSeconds: table })).message,
-    ).toBe('Invalid second 59: this second is deleted by a negative leap second')
+    ).toBe(
+      'Invalid second 59: 2030-01-01T00:59:59+01:00 is 2029-12-31T23:59:59 UTC; ' +
+        'this second is deleted by a negative leap second',
+    )
     expect(
       formatIso(iso('2030-01-01T00:59:58+01:00', { leapSeconds: table }), { leapSeconds: table }),
     ).toBe('2029-12-31T23:59:58.000Z')
@@ -147,6 +153,136 @@ describe('parseInstant iso', () => {
       expect(parsed.ok).toBe(false)
       if (!parsed.ok) expect(parsed.error).toBeInstanceOf(InvalidTimeError)
     }
+  })
+
+  it('names the UTC reading when a check fails after an offset shift', () => {
+    // Each of these used to report a value the text never contained: the
+    // input literally says 23:59:60, 1972 and 999999.
+    const leap = expectInstanceOf(
+      expectErr(parseInstant('2016-12-31T23:59:60.25+01:00')),
+      InvalidTimeError,
+    )
+    expect(leap.message).toBe(
+      'Invalid second 60: 2016-12-31T23:59:60.25+01:00 is 2016-12-31T22:59:60.25 UTC; ' +
+        'a leap second can only occur at 23:59:60',
+    )
+    expect([leap.code, leap.field, leap.value]).toStrictEqual(['INVALID_TIME', 'second', 60])
+    const early = expectInstanceOf(
+      expectErr(parseInstant('1972-01-01T00:30:00+01:00', { before1972: 'reject' })),
+      InvalidTimeError,
+    )
+    expect(early.message).toBe(
+      'Invalid year 1971: 1972-01-01T00:30:00+01:00 is 1971-12-31T23:30:00 UTC; ' +
+        'UTC is undefined before 1972-01-01',
+    )
+    const late = expectInstanceOf(
+      expectErr(parseInstant('+999999-12-31T23:59:59-01:00')),
+      InvalidTimeError,
+    )
+    expect(late.message).toBe(
+      'Invalid year 1000000: +999999-12-31T23:59:59-01:00 is +1000000-01-01T00:59:59 UTC; ' +
+        'must be between -999999 and 999999',
+    )
+    expect(expectErr(parseInstant('-999999-01-01T00:00:00+01:00')).message).toBe(
+      'Invalid year -1000000: -999999-01-01T00:00:00+01:00 is -1000000-12-31T23:00:00 UTC; ' +
+        'must be between -999999 and 999999',
+    )
+    // A field that is wrong before any shift is still reported as written.
+    expect(expectErr(parseInstant('2026-02-29T00:30:00+01:00')).message).toBe(
+      'Invalid day 29: must be between 1 and 28',
+    )
+  })
+
+  it('rejects text whose instant falls outside the renderable civil range', () => {
+    // '-999999-01-01T00:00:00 TT' parsed, and then formatIso and String()
+    // both threw: its UTC reading is 42.184 s earlier, in year -1000000.
+    for (const text of [
+      '-999999-01-01T00:00:00 TT',
+      '-999999-01-01T00:00:09.999999999 TAI',
+      '-999999-001T00:00:00 TDB',
+    ]) {
+      const error = expectInstanceOf(expectErr(parseInstant(text)), InvalidTimeError)
+      expect(error.toJSON()).toStrictEqual({
+        name: 'InvalidTimeError',
+        code: 'INVALID_TIME',
+        message: `Invalid year -1000000: ${text} is before -999999-01-01T00:00:00 UTC, the start of the supported civil range`,
+        field: 'year',
+        value: -1_000_000,
+        reason: `${text} is before -999999-01-01T00:00:00 UTC, the start of the supported civil range`,
+      })
+    }
+    // GPS runs 19 s behind TAI, so the last GPS seconds of the range have a
+    // TAI reading, and so a serialization, in year 1000000.
+    expect(expectErr(parseInstant('+999999-12-31T23:59:50 GPS')).message).toBe(
+      'Invalid year 1000000: +999999-12-31T23:59:50 GPS is after ' +
+        '+999999-12-31T23:59:59.999999999 TAI, the end of the supported civil range',
+    )
+    expect(expectErr(parseInstant('+999999-12-31T23:59:59Z')).message).toMatch(
+      /Invalid year 1000000: .* the end of the supported civil range/,
+    )
+    // The edges themselves parse and render in both directions.
+    for (const text of [
+      '-999999-01-01T00:00:00Z',
+      '-999999-01-01T00:00:10 TAI',
+      '-999999-01-01T00:00:42.184 TT',
+      '+999999-12-31T23:59:59.999999999 TAI',
+      '+999999-12-31T23:59:40.999999999 GPS',
+    ]) {
+      const instant = parseInstantOrThrow(text)
+      expect(String(instant)).toMatch(/ TAI$/)
+      expect(
+        instantsEqual(parseInstantOrThrow(formatIso(instant, { precision: 'nanos' })), instant),
+      ).toBe(true)
+    }
+  })
+
+  it('rejects Z or a UTC offset on a bare date but keeps a scale label', () => {
+    // ISO 8601 attaches Z and offsets to a time of day only; '2026-08-19+01:00'
+    // was read as 23:00 UTC on the 18th, a time the text never stated.
+    for (const [text, format, designator] of [
+      ['2026-08-19+01:00', 'iso', '+01:00'],
+      ['2026-08-19-05', 'iso', '-05'],
+      ['2026-08-19Z', 'iso', 'Z'],
+      ['2026-231Z', 'iso', 'Z'],
+      ['2026-231Z', 'ordinal', 'Z'],
+    ] as const) {
+      const error = expectInstanceOf(expectErr(parseInstant(text, { format })), TimeParseError)
+      expect(error.reason).toBe(
+        `${designator} needs a time of day; ISO 8601 has no UTC offset on a date alone`,
+      )
+    }
+    // A scale label names the clock the date is read on (a TAI date).
+    expect(formatIso(iso('2017-01-01 TAI'), { scale: 'tai' })).toBe('2017-01-01T00:00:00.000 TAI')
+    expect(formatOrdinal(iso('2026-231 GPS'), { scale: 'gps' })).toBe('2026-231T00:00:00.000 GPS')
+    expect(isValidInstant('2026-08-19T00:00Z')).toBe(true)
+  })
+
+  it('reads only the documented extended-format offsets and year widths', () => {
+    // A basic-format offset inside extended text, and a signed year without
+    // the six digits an expanded year carries, were both accepted.
+    for (const text of [
+      '2016-12-31T23:59:60+0100',
+      '2026-08-19T07:04:56-0530',
+      '+2026-08-19',
+      '+0000-01-01',
+      '-12345-01-01',
+      '+12345-01-01T00:00:00Z',
+    ]) {
+      expect(expectInstanceOf(expectErr(parseInstant(text)), TimeParseError).reason).toBe(
+        'expected YYYY-MM-DD or YYYY-DDD with optional THH:mm[:ss[.fff]][Z|±HH:mm| TAI]',
+      )
+    }
+    // ±HH alone is ISO 8601 in either format, and the Z token writes a scale
+    // label without a space, which therefore still reads back.
+    expect(formatIso(iso('2026-08-19T11:34:56-01'))).toBe('2026-08-19T12:34:56.000Z')
+    expect(formatIso(iso('2026-08-19T07:04:56-05:30'))).toBe('2026-08-19T12:34:56.000Z')
+    expect(formatIso(iso('+002026-08-19T00:00:00Z'))).toBe('2026-08-19T00:00:00.000Z')
+    expect(formatIso(iso('-0044-03-15T00:00:00Z'))).toBe('-0044-03-15T00:00:00.000Z')
+    const tai = formatInstant(iso('2017-01-01T00:00:00Z'), 'YYYY-MM-DD[T]HH:mm:ssZ', {
+      scale: 'tai',
+    })
+    expect(tai).toBe('2017-01-01T00:00:37TAI')
+    expect(formatIso(iso(tai))).toBe('2017-01-01T00:00:00.000Z')
   })
 
   it('resolves scales from designators and the scale option', () => {
@@ -424,6 +560,30 @@ describe('parse pattern validation', () => {
     // A complete calendar date is cross-checked, and an ordinal-only one stands.
     expect(parsePatternError('YYYY-MM-DD DDD')).toBeNull()
     expect(parsePatternError('YYYY DDD')).toBeNull()
+  })
+
+  it('rejects a pattern that reads a field below a missing one', () => {
+    // 'YYYY DD' read "2026 19" as 19 January: the month defaulted in silence.
+    expect(parsePatternError('YYYY DD')).toBe('reads DD without MM, which would silently default')
+    expect(() => parseInstant('2026 19', { format: 'YYYY DD' })).toThrow(
+      /reads DD without MM, which would silently default/,
+    )
+    expect(parsePatternError('YYYY mm')).toBe('reads mm without HH, which would silently default')
+    expect(parsePatternError('YYYY-MM-DD HH ss')).toBe(
+      'reads ss without mm, which would silently default',
+    )
+    expect(parsePatternError('YYYY-MM HH')).toBe(
+      'reads HH without DD or DDD, which would silently default',
+    )
+    expect(parsePatternError('YYYY-MM-DD HH:mm.SSS')).toBe(
+      'reads S…S without ss, which would silently default',
+    )
+    // Stopping early is reduced precision, not a gap; DDD supplies the day.
+    for (const pattern of ['YYYY', 'YYYY-MM', 'YYYY-MM-DD HH', 'YYYY-DDD HH:mm', 'YYYYDDDHHmmss'])
+      expect(parsePatternError(pattern)).toBeNull()
+    // Formatting renders exactly the fields asked for, so a gap is harmless there.
+    expect(formatPatternError('YYYY DD')).toBeNull()
+    expect(formatInstant(iso('2026-08-19T12:34:56Z'), 'mm:ss')).toBe('34:56')
   })
 
   it('rejects a pattern with no year whatever the text is', () => {

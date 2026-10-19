@@ -214,6 +214,19 @@ describe('GPS', () => {
     expect(() => instantFromGpsWeek(1, 604_800)).toThrow(RangeError)
     expect(() => instantToGpsWeek(instantFromTaiNanos(10n ** 100n))).toThrow(RangeError)
   })
+
+  it('carries seconds of week that round to a whole week into the next week', () => {
+    // 604799.9999999999 is inside [0, 604800) but rounds to 604800 s at
+    // nanosecond resolution; it used to throw as though it were out of range.
+    const carried = instantFromGpsWeek(10, 604_799.999_999_999_9)
+    expect(instantsEqual(carried, instantFromGpsWeek(11, 0))).toBe(true)
+    expect(instantToGpsWeek(carried)).toStrictEqual({ week: 11, secondsOfWeek: 0 })
+    expect(instantToGpsWeek(instantFromGpsWeek(10, 604_799.999_999_999))).toStrictEqual({
+      week: 10,
+      secondsOfWeek: 604_799.999_999_999,
+    })
+    expect(() => instantFromGpsWeek(10, -1e-12)).toThrow(RangeError)
+  })
 })
 
 describe('public scale metadata and runtime guards', () => {

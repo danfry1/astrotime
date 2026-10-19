@@ -148,14 +148,18 @@ typed `Result` failures instead.
 ```ts
 import { parseInstant, parseInstantOrThrow, formatInstant, formatIso, formatOrdinal, isValidInstant } from 'astrotime'
 
-// ISO 8601 calendar or ordinal, optional time, 1–9 fraction digits,
-// Z / ±HH:mm offsets, or a scale designator
+// ISO 8601 extended calendar or ordinal, optional time, 1–9 fraction digits,
+// Z / ±HH / ±HH:mm offsets (with a time only), or a scale designator.
+// Years are YYYY, -YYYY, or ±YYYYYY (expanded: sign plus six digits).
 parseInstant('2026-08-19T12:34:56.789012345Z')
 parseInstant('2026-231T12:34:56.789')        // day-of-year ("SCET"-style)
 parseInstant('2026-08-19T13:34:56+01:00')
 parseInstant('2017-01-01T00:59:60+01:00')    // the 2016 UTC leap second, shifted
 parseInstant('2017-01-01T00:00:37 TAI')      // scale designators parse back
 parseInstant('2026-08-19')                   // midnight UTC
+parseInstant('2017-01-01 TAI')               // midnight on the TAI clock
+parseInstant('2026-08-19Z')                  // error: Z / offsets need a time of day
+parseInstant('2026-08-19T13:34:56+0100')     // error: basic-format offset in extended text
 
 // Only the ordinal form
 parseInstant('2026-231', { format: 'ordinal' })
@@ -209,7 +213,12 @@ A parse pattern is held to the same standard, and a defect in it throws
 rather than reporting the *text* as unparseable — the pattern comes from
 your source, the text does not. Parsing asks more of a pattern than
 formatting does, so it has its own check: `'HH:mm'` renders perfectly well
-and names no instant to read back.
+and names no instant to read back. Nor may a parse pattern skip a unit:
+`'YYYY DD'` would read `2026 19` as 19 January, so a field requires every
+larger one (`DD` needs `MM` or `DDD`; `ss` needs `mm` needs `HH`; a fraction
+needs `ss`). Stopping early is fine — `'YYYY-MM'` reads the first of the
+month. Formatting has no such rule, since `'mm:ss'` renders exactly what it
+says.
 
 ```ts
 import { parsePatternError } from 'astrotime'
@@ -217,6 +226,7 @@ import { parsePatternError } from 'astrotime'
 parsePatternError('YYYY-MM-DD HH:mm') // null
 parsePatternError('HH:mm')            // 'no year (YYYY), so it cannot identify a date'
 parsePatternError('YYYY-MM DDD')      // 'combines DDD with MM but not DD, …'
+parsePatternError('YYYY DD')          // 'reads DD without MM, which would silently default'
 ```
 
 When a pattern comes from configuration or a user, check it first rather
@@ -335,7 +345,9 @@ closest TT reading and round-trips within 1 ns over the supported civil range.
 
 GPS seconds-of-week inputs must be in `[0, 604800)` and GPS week numbers must
 be safe integers; out-of-range values throw rather than silently normalizing
-into an adjacent week.
+into an adjacent week. An in-range value so close to 604800 that it rounds to
+a whole week at nanosecond resolution (`604799.9999999999`) is the first
+instant of the next week.
 
 ### Durations
 
@@ -348,7 +360,7 @@ formatDuration(d, 'clock')            // '26:03:04'   (hours absorb days)
 formatDuration(d, 'D[d] HH:mm:ss.SSS')// '1d 02:03:04.500'
 
 parseDuration('PT90M')                // ISO 8601
-parseDuration('1T02:03:04.005')       // day-count prefix + clock time
+parseDuration('1T02:03:04.005')       // day-count prefix + clock time (hours 0–23)
 parseDuration('36:00:00')             // clock, hours unbounded
 durationToComponents(d)               // { sign: 1, days: 1, hours: 2, minutes: 3, seconds: 4, nanos: 500000000 }
 
@@ -438,7 +450,7 @@ binary protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigin
 
 ## Precision & limits
 
-- `Instant` and `Duration` arithmetic is exact to 1 ns at any magnitude (`bigint`). Civil/ISO conversions cover years −999 999 … +999 999 and **throw `RangeError`** beyond, rather than emitting strings that cannot round-trip; `instantToDate` throws outside the ECMAScript `Date` range; decomposing/formatting a duration throws past 2^53 days.
+- `Instant` and `Duration` arithmetic is exact to 1 ns at any magnitude (`bigint`). Civil/ISO conversions cover years −999 999 … +999 999 and **throw `RangeError`** beyond, rather than emitting strings that cannot round-trip; `parseInstant` returns an `InvalidTimeError` for text that would resolve beyond it in UTC or in the TAI serialization (`-999999-01-01T00:00:00 TT` is 42 s too early in UTC); `instantToDate` throws outside the ECMAScript `Date` range; decomposing/formatting a duration throws past 2^53 days, and `parseDuration` rejects text beyond that rather than returning a duration that cannot be printed.
 - Functions returning a float `number` carry double resolution (~0.1 µs for J2000 seconds today; ~50 µs for a single-float Julian date — use the two-part form) and throw rather than return infinity when the value exceeds the finite `number` range.
 - `instantNow()` has millisecond precision (it reads `Date.now()`); nanosecond precision applies to stored and parsed timestamps.
 - UTC before 1972 is approximated with TAI − UTC = 10 s (the real pre-1972 "rubber second" UTC is out of scope); opt into rejection with `before1972: 'reject'`.
