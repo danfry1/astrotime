@@ -67,4 +67,5 @@ reference. Backticked fragments must appear verbatim in `vitest list` output.
 
 The final row's cross-engine digest is enforced by the `conformance` job in
 `.github/workflows/ci.yml`, which fails unless V8, JSC and SpiderMonkey produce
-identical digests over 175 000 outputs.
+identical digests over 195 000 outputs (nutation and the equation of the
+equinoxes included).

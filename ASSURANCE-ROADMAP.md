@@ -17,7 +17,7 @@ qualified implementations.
 | Reference-implementation golden vectors (astropy/ERFA, NAIF CSPICE) | `tests/golden.test.ts`, `tests/drift.test.ts`, `tests/spice.test.ts` |
 | Property-based round-trip invariants over the documented range | `tests/properties.test.ts` |
 | Adversarial suite (mutable/partial/fabricated tables, negative leaps, pathological input) | `tests/adversarial.test.ts` |
-| Cross-engine bit-identity over 175k outputs: V8, JSC, Hermes (the React Native engine, via the Metro-style Babel transform) and SpiderMonkey (the Firefox engine, in Mozilla's SHA-256-pinned js shell) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, `scripts/conformance-spidermonkey.sh`, CI `conformance` job + scheduled workflow |
+| Cross-engine bit-identity over 195k outputs, nutation included: V8, JSC, Hermes (the React Native engine, via the Metro-style Babel transform) and SpiderMonkey (the Firefox engine, in Mozilla's SHA-256-pinned js shell) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, `scripts/conformance-spidermonkey.sh`, CI `conformance` job + scheduled workflow |
 | Requirements-to-tests traceability, enforced in CI | `REQUIREMENTS.md`, `scripts/check-traceability.mjs` |
 | Mutation testing, with survivor analysis | `stryker.config.json`, scores below |
 | Large-scale differential sweep vs astropy (100 000 random instants, monthly + on demand) | `scripts/differential.py`, `.github/workflows/differential.yml` |

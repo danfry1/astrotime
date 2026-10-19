@@ -16,7 +16,11 @@ cost of changing a public name rises to permanent the moment it has one.
   ERFA `ee06a`, and apparent sidereal time within 1.3e-12 rad of `gst06a` on
   the tested IERS dates. The tables carry `@__PURE__` annotations, so a
   consumer that never calls nutation does not bundle them — now checked by
-  `check:package`.
+  `check:package` (a `formatIso`-only bundle drops from ~31.4 KB to ~20.8 KB
+  gzipped). The cross-engine digest moves to `astrotime-conformance-v3` and
+  adds nutation and the equation of the equinoxes: 195 000 outputs,
+  `7c169553779050b9`, identical on V8, JavaScriptCore, Hermes and
+  SpiderMonkey.
 - **New**: UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time.
   `parseIersFinals` reads IERS `finals2000A` Earth-orientation files
   (Bulletin B where present, else Bulletin A with its prediction flag);
@@ -49,8 +53,7 @@ cost of changing a public name rises to permanent the moment it has one.
   instant → TCB → instant is exact as well (TT → TCB always runs faster than
   one-for-one). `API-STABILITY.md` now records that
   `TimeScale` may gain members in minor releases. The conformance digest
-  now covers 175 000 outputs across seven scales and is
-  `3009b1a3d2455b1b`, identical on V8, JavaScriptCore and Hermes.
+  covers the two new scales (its current value is in the nutation entry).
 - **Accuracy**: TDB now evaluates the full 787-term Fairhead & Bretagnon
   (1990) series with ERFA's JPL-mass adjustments — the geocentric model ERFA
   `dtdb` and astropy use — instead of the seven-term USNO Circular 179
@@ -166,7 +169,7 @@ cost of changing a public name rises to permanent the moment it has one.
   against a recorded SHA-256 taken from that release's `SHA256SUMS`, runs
   the unmodified `scripts/conformance.mjs` as an ES module against the built
   `dist/index.mjs`, and fails unless the digest equals Node's. SpiderMonkey
-  produces `3009b1a3d2455b1b`, identical to V8, JavaScriptCore and Hermes.
+  produces the same digest as V8, JavaScriptCore and Hermes.
 
 - **Fix**: an options argument that is not an options object is rejected.
   `formatInstant(i, pattern, 'tai')` was accepted in silence and the default
