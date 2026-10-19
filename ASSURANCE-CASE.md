@@ -38,8 +38,8 @@ a separately qualified implementation.
 2. The adopter selects a documented UTC data-validity policy rather than
    assuming future UTC is known.
 3. The leap-second table is monitored, reviewed and updated before expiry.
-4. The adopter does not interpret pre-1972 UTC as exact or the analytical TDB
-   series as nanosecond-accurate physics.
+4. The adopter does not interpret pre-1972 UTC as exact, or geocentric TDB as
+   a topocentric (observer-on-Earth) reading.
 5. The supported runtime and platform are tested in the integrated system.
 6. The system hazard analysis determines whether timestamps can command,
    inhibit or otherwise contribute to a hazardous action.
@@ -52,14 +52,19 @@ a separately qualified implementation.
   can be rejected.
 - UTC after the bundled table's expiry is unknown; permissive use is explicit
   and can be rejected.
-- TDB uses a seven-term analytical approximation. Its integer-lattice inverse
-  has at most 1 ns numerical round-trip error, while physical agreement is
-  separately bounded to 10 microseconds against ERFA and 30 microseconds
-  against the committed CSPICE vectors.
+- TDB uses the full geocentric Fairhead & Bretagnon series. Its
+  integer-lattice inverse has at most 1 ns numerical round-trip error. Model
+  fidelity is separately bounded to 1e-13 s against ERFA `dtdb` (1600–2500)
+  and 1 ns against astropy readings; physical accuracy is ERFA's stated ±3 ns
+  against DE405 over 1950–2050, excluding the topocentric term (up to ~2 µs).
+  CSPICE's one-term model differs from it by up to 40 microseconds.
 - Single-number Julian dates have ordinary IEEE-754 resolution limits. The
   two-part API exists for nanosecond preservation.
-- UT1, Earth-orientation parameters, spacecraft clocks, ephemerides and time
-  zones are outside scope.
+- UT1, the Earth Rotation Angle and mean sidereal time are only as good as
+  the IERS data supplied: they are refused outside its span and across gaps,
+  flagged when predictions contribute, and omit sub-daily ocean-tide and
+  libration terms (tens of microseconds of UT1). Nutation, apparent sidereal
+  time, spacecraft clocks, ephemerides and time zones are outside scope.
 - No defect-free or mission-independent safety claim is made.
 
 ## Acceptance gates

@@ -1,4 +1,4 @@
-type ErrorCode = 'TIME_PARSE' | 'INVALID_TIME' | 'LEAP_SECOND_TABLE'
+type ErrorCode = 'TIME_PARSE' | 'INVALID_TIME' | 'LEAP_SECOND_TABLE' | 'EARTH_ORIENTATION'
 
 abstract class AstrotimeBaseError extends Error {
   abstract override readonly name: string
@@ -82,10 +82,43 @@ export class LeapSecondTableError extends AstrotimeBaseError {
   }
 }
 
-export type AstrotimeError = TimeParseError | InvalidTimeError | LeapSecondTableError
+/**
+ * Earth-orientation data could not be parsed (`line` is set), or does not
+ * cover the requested instant (`line` is `null`). Expected failures: EOP
+ * tables are external data with a finite span, so callers handle the
+ * `Result` rather than catching.
+ */
+export class EarthOrientationError extends AstrotimeBaseError {
+  override readonly name = 'EarthOrientationError' as const
+  override readonly code = 'EARTH_ORIENTATION' as const
+
+  constructor(
+    readonly line: number | null,
+    readonly reason: string,
+    options?: { cause?: unknown },
+  ) {
+    super(
+      line === null
+        ? `Earth orientation unavailable: ${reason}`
+        : `Invalid Earth-orientation data at line ${String(line)}: ${reason}`,
+      options,
+    )
+  }
+
+  toJSON(): Record<string, unknown> {
+    return { ...this.baseJson(), line: this.line, reason: this.reason }
+  }
+}
+
+export type AstrotimeError =
+  | TimeParseError
+  | InvalidTimeError
+  | LeapSecondTableError
+  | EarthOrientationError
 
 /** Type guard for the union of all astrotime error classes. */
 export const isAstrotimeError = (value: unknown): value is AstrotimeError =>
   value instanceof TimeParseError ||
   value instanceof InvalidTimeError ||
-  value instanceof LeapSecondTableError
+  value instanceof LeapSecondTableError ||
+  value instanceof EarthOrientationError

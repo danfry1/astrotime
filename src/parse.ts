@@ -22,9 +22,9 @@ export type ParseOptions = UtcOptions & {
   /**
    * `'iso'` (default) accepts calendar and ordinal ISO 8601 extended forms
    * with optional time, fraction (1–9 digits) and designator (`Z`, `±HH` or
-   * `±HH:mm`, or ` TAI` / ` TT` / ` GPS` / ` TDB`); `'ordinal'` accepts only
-   * the day-of-year form; any other string is a strict token pattern (see
-   * `INSTANT_TOKEN`). The year is four digits, optionally negative, or a sign
+   * `±HH:mm`, or ` TAI` / ` TT` / ` GPS` / ` TDB` / ` TCG` / ` TCB`);
+   * `'ordinal'` accepts only the day-of-year form; any other string is a
+   * strict token pattern (see `INSTANT_TOKEN`). The year is four digits, optionally negative, or a sign
    * and six digits (the expanded form the formatter writes). `Z` and UTC
    * offsets need a time of day, as in ISO 8601; a scale label may follow a
    * bare date (`2017-01-01 TAI` is midnight on the TAI clock), and its space
@@ -44,7 +44,7 @@ export type ParseError = TimeParseError | InvalidTimeError
 
 const YEAR = String.raw`([+-]\d{6}|-?\d{4})`
 const TIME = String.raw`(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)?`
-const DESIGNATOR = String.raw`(Z|[+-]\d{2}(?::\d{2})?| ?(?:TAI|TT|GPS|TDB))?`
+const DESIGNATOR = String.raw`(Z|[+-]\d{2}(?::\d{2})?| ?(?:TAI|TT|GPS|TDB|TCG|TCB))?`
 const ISO_CALENDAR = new RegExp(`^${YEAR}-(\\d{2})-(\\d{2})${TIME}${DESIGNATOR}$`)
 const ISO_ORDINAL = new RegExp(`^${YEAR}-(\\d{3})${TIME}${DESIGNATOR}$`)
 const SECONDS_PER_DAY = 86_400
@@ -61,6 +61,8 @@ const LABEL_TO_SCALE: Readonly<Record<string, TimeScale>> = {
   TT: 'tt',
   GPS: 'gps',
   TDB: 'tdb',
+  TCG: 'tcg',
+  TCB: 'tcb',
 }
 
 const parseFraction = (digits: string | undefined): number =>
@@ -395,7 +397,7 @@ function compilePattern(pattern: string): Compiled {
         fields.push('Y')
         break
       case 'Z':
-        source += String.raw`(Z|TAI|TT|GPS|TDB)`
+        source += String.raw`(Z|TAI|TT|GPS|TDB|TCG|TCB)`
         fields.push('Z')
         break
       case 'D':

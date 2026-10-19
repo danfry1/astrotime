@@ -49,8 +49,8 @@ describe('J2000', () => {
     expect(formatIso(J2000_INSTANT)).toBe('2000-01-01T11:58:55.816Z')
     expect(instantToJ2000Seconds(J2000_INSTANT, 'tt')).toBe(0)
     // SPICE ET = 0 at 2000-01-01T12:00:00 TDB, not TT: at TT noon, ET is the
-    // (negative) TDB−TT offset, ≈ −95.8 µs from the truncated series.
-    expect(instantToJ2000Nanos(J2000_INSTANT, 'tdb')).toBe(-95_757n)
+    // (negative) TDB−TT offset. ERFA dtdb(2451545, 0) = −99 307.199 ns.
+    expect(instantToJ2000Nanos(J2000_INSTANT, 'tdb')).toBe(-99_307n)
     expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 TDB'), 'tdb')).toBe(0n)
     expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00Z'), 'utc')).toBe(0n)
     expect(instantToJ2000Nanos(parseInstantOrThrow('2000-01-01T12:00:00 TAI'), 'tai')).toBe(0n)
@@ -313,8 +313,9 @@ describe('TDB', () => {
   it('bounds an unavoidable TDB lattice collision to one nanosecond', () => {
     // At this rounding boundary the decreasing TDB−TT offset maps adjacent
     // TT nanoseconds to the same TDB nanosecond. No inverse can recover both.
-    const before = instantFromTaiNanos(954_817_935_924_574_570n)
-    const after = instantFromTaiNanos(954_817_935_924_574_571n)
+    // ERFA dtdb puts the offset at exactly 67 426.5 ns here.
+    const before = instantFromTaiNanos(962_582_433_246_698_246n)
+    const after = instantFromTaiNanos(962_582_433_246_698_247n)
     const tdbNanos = instantToScaleNanos(before, 'tdb')
     expect(instantToScaleNanos(after, 'tdb')).toBe(tdbNanos)
 
@@ -328,9 +329,10 @@ describe('TDB', () => {
 
   it('chooses a closest TT reading for an unrepresentable TDB nanosecond', () => {
     // At an increasing-offset boundary the forward map jumps by 2 ns, so the
-    // TDB nanosecond between these values has no exact TT preimage.
-    const before = instantFromTaiNanos(970_754_996_798_492_621n)
-    const after = instantFromTaiNanos(970_754_996_798_492_622n)
+    // TDB nanosecond between these values has no exact TT preimage. ERFA dtdb
+    // puts the offset at exactly −21 226.5 ns here.
+    const before = instantFromTaiNanos(978_480_033_303_409_770n)
+    const after = instantFromTaiNanos(978_480_033_303_409_771n)
     const beforeTdb = instantToScaleNanos(before, 'tdb')
     const afterTdb = instantToScaleNanos(after, 'tdb')
     expect(afterTdb - beforeTdb).toBe(2n)
@@ -339,6 +341,31 @@ describe('TDB', () => {
     const closest = instantFromScaleNanos(gap, 'tdb')
     const residual = instantToScaleNanos(closest, 'tdb') - gap
     expect(residual === -1n || residual === 1n).toBe(true)
+  })
+
+  it('keeps the TDB inverse within a nanosecond hundreds of millennia from J2000', () => {
+    // ERFA's unbounded T^4 block reached ~1000 s here, and with the day
+    // argument only millisecond-resolved the forward map became a staircase
+    // of microsecond steps that broke the inverse by over a microsecond.
+    for (const taiNanos of [-28_218_263_441_375_916_087_437n, 31_390_062_365_669_987_033_600n]) {
+      const instant = instantFromTaiNanos(taiNanos)
+      const back = instantFromScaleNanos(instantToScaleNanos(instant, 'tdb'), 'tdb')
+      const error = instantToTaiNanos(back) - taiNanos
+      expect(error >= -1n && error <= 1n).toBe(true)
+    }
+  })
+
+  it('holds the TDB polynomial factors continuously beyond ±10 000 years', () => {
+    // Offsets either side of the hold point differ only by the periodic terms'
+    // motion over one second, never by a jump.
+    const yearNanos = 31_557_600_000_000_000n
+    for (const years of [-10_000n, 10_000n]) {
+      const at = J2000_INSTANT.taiNanos + years * yearNanos
+      const offset = (tai: bigint) =>
+        instantToScaleNanos(instantFromTaiNanos(tai), 'tdb') - (tai + 32_184_000_000n)
+      const step = offset(at + 1_000_000_000n) - offset(at - 1_000_000_000n)
+      expect(step >= -10n && step <= 10n).toBe(true)
+    }
   })
 
   it('rejects TDB readings beyond the supported civil range', () => {

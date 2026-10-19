@@ -5,6 +5,69 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **New**: UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time.
+  `parseIersFinals` reads IERS `finals2000A` Earth-orientation files
+  (Bulletin B where present, else Bulletin A with its prediction flag);
+  `earthOrientationAt` interpolates UT1 − UTC, UT1 − TAI and polar motion;
+  `earthRotationAngle` (IAU 2000), `greenwichMeanSiderealTime` (IAU 2006) and
+  `instantToUt1JulianDateParts` build on it. All return a `Result` with the new
+  `EarthOrientationError`. UT1 − TAI is interpolated, so a leap second never
+  corrupts it; four-point Lagrange is the default (linear errs by up to
+  ~20 µs on UT1's fortnightly tide, 28.5 µs on one tested date), with
+  `'linear'` for astropy parity. Instants outside the table or inside a gap
+  are refused rather than extrapolated, and `predicted` reports Bulletin A
+  predictions. The ERA formula is evaluated in exact rational arithmetic on
+  UT1 in femtoseconds. Against a verbatim IERS excerpt, linear UT1 − UTC
+  matches astropy within 8e-15 s and ERA/GMST match ERFA `era00`/`gmst06`
+  within 4e-14 rad; Lagrange results match an independent implementation.
+  No EOP data is bundled. UT1 leaves the non-goals; long-term ΔT, nutation
+  and apparent sidereal time remain out of scope.
+- **New**: `tcg` (Geocentric Coordinate Time) and `tcb` (Barycentric
+  Coordinate Time) join `TimeScale`, with ` TCG` / ` TCB` designators in
+  parse and format. Both follow their IAU definitions (2000 B1.9, 2006 B3)
+  with the defining constants carried as integer ratios, so a reading is
+  exact rational arithmetic rounded once. TCG equals the exactly evaluated
+  definition on all 500 committed reference instants across the
+  ±999 999-year range, and instant → TCG → instant is exact. Over a
+  100 000-epoch astropy sweep both agree within 1 ns; astropy's
+  double-precision Julian dates misround about 0.5% of TCG readings, and
+  exact rational arithmetic sides with astrotime on every one of them. TCB is
+  computed from TT plus the unrounded TDB offset, rounding once rather than
+  twice, and its inverse corrects against that forward map, so
+  instant → TCB → instant is exact as well (TT → TCB always runs faster than
+  one-for-one). `API-STABILITY.md` now records that
+  `TimeScale` may gain members in minor releases. The conformance digest
+  now covers 175 000 outputs across seven scales and is
+  `3009b1a3d2455b1b`, identical on V8, JavaScriptCore and Hermes.
+- **Accuracy**: TDB now evaluates the full 787-term Fairhead & Bretagnon
+  (1990) series with ERFA's JPL-mass adjustments — the geocentric model ERFA
+  `dtdb` and astropy use — instead of the seven-term USNO Circular 179
+  truncation. Against ERFA the offset now agrees within 1.0e-14 s over
+  1600–2500 (was 9.3 µs); a seeded 100 000-epoch astropy sweep finds a 1 ns
+  maximum TDB difference, which is nanosecond rounding, and the 28 golden
+  epochs match exactly. Acceptance limits tighten to 1e-13 s against `dtdb`
+  and 1 ns against astropy. The coefficient table is generated from a
+  SHA-256-pinned ERFA v2.0.1 `dtdb.c` by `scripts/generate-tdb-series.mjs`
+  and is guarded by a content digest; the ERFA BSD 3-clause notice ships in
+  `THIRD-PARTY-NOTICES.md`. Within ±10 000 years of J2000 the evaluation is
+  ERFA's; beyond it the series' T^n factors are held at their ±10-millennium
+  values. ERFA's unbounded T^4 block reaches ~1000 s at ±700 millennia, where
+  the double day argument resolves only milliseconds, and the resulting
+  microsecond staircase broke the 1 ns TDB inverse contract (a property test
+  found it). 308 000 random instants across the ±999 999-year civil range now
+  round-trip with zero error.
+- **Accuracy contract**: CSPICE's one-term ET model differs from the full
+  series by up to 36.53 µs over 1972–2100 (half-day grid, `naif0012.tls`), so
+  the CSPICE bound is restated as 40 µs. It was 30 µs only because the
+  seven-term truncation happened to sit closer to CSPICE's model. The series
+  remains geocentric: the topocentric term for an observer on the Earth's
+  surface (up to ~2 µs) is not applied, as in astropy without a location.
+- **Behavior**: TDB readings change by up to 9.3 µs relative to 0.12.0, and
+  the cross-engine conformance digest changes (its current value is in the
+  TCG/TCB entry above). Two TDB lattice tests use new
+  rounding-boundary instants, each confirmed against ERFA to sit exactly on a
+  half-nanosecond offset. A TDB conversion now costs a few microseconds and the
+  gzipped bundle grows from ~28 KB to ~44 KB.
 - **Fix**: a UTC two-part Julian date within 0.5 ns of a positive leap
   second resolved to the instant one second after it. The fraction was split
   into whole seconds before rounding to nanoseconds, so a value such as

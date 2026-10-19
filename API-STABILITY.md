@@ -19,6 +19,12 @@ a promise bent before anyone relied on it. This is not a licence to keep
 reshaping the surface; further changes of this kind need the same
 justification and the same note.
 
+**`TimeScale` may gain members in minor releases** (`tcg` and `tcb` were
+added this way). That is additive at runtime: every existing scale behaves as
+before. A TypeScript consumer that switches exhaustively over `TimeScale` will
+see a compile error naming the new member, which is the intended prompt to
+handle it; give such switches a `default` branch if that is unwanted.
+
 Deliberately open questions, to be settled at 1.0 with real-usage evidence:
 
 1. **Result-by-default vs throw-by-default naming** (`parseInstant` returns
@@ -35,4 +41,7 @@ Deliberately open questions, to be settled at 1.0 with real-usage evidence:
    Additive if a consumer (e.g. a leap-table-only user) asks.
 
 Out of scope permanently (see README): time zones and locales (`Intl`),
-UT1/ΔT, SCLK/SPICE kernels, calendar (month/year) arithmetic.
+long-term ΔT models, SCLK/SPICE kernels, calendar (month/year) arithmetic.
+UT1 was listed here until IERS-data-driven UT1, Earth rotation angle and mean
+sidereal time were added; it remains outside `TimeScale` because it depends
+on measured data.

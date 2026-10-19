@@ -2,6 +2,7 @@
 export { type Err, type Ok, type Result, unwrap, unwrapOr } from './result.js'
 export {
   type AstrotimeError,
+  EarthOrientationError,
   InvalidTimeError,
   isAstrotimeError,
   LeapSecondTableError,
@@ -178,3 +179,16 @@ export {
   parseInstantOrThrow,
   parsePatternError,
 } from './parse.js'
+
+// Earth orientation: UT1, Earth rotation angle, sidereal time
+export {
+  earthOrientationAt,
+  earthRotationAngle,
+  type EarthOrientation,
+  type EarthOrientationEntry,
+  type EarthOrientationOptions,
+  type EarthOrientationTable,
+  greenwichMeanSiderealTime,
+  instantToUt1JulianDateParts,
+  parseIersFinals,
+} from './earth-orientation.js'
