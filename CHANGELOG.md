@@ -5,6 +5,23 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **New**: UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time.
+  `parseIersFinals` reads IERS `finals2000A` Earth-orientation files
+  (Bulletin B where present, else Bulletin A with its prediction flag);
+  `earthOrientationAt` interpolates UT1 − UTC, UT1 − TAI and polar motion;
+  `earthRotationAngle` (IAU 2000), `greenwichMeanSiderealTime` (IAU 2006) and
+  `instantToUt1JulianDateParts` build on it. All return a `Result` with the new
+  `EarthOrientationError`. UT1 − TAI is interpolated, so a leap second never
+  corrupts it; four-point Lagrange is the default (linear errs by up to
+  ~20 µs on UT1's fortnightly tide, 28.5 µs on one tested date), with
+  `'linear'` for astropy parity. Instants outside the table or inside a gap
+  are refused rather than extrapolated, and `predicted` reports Bulletin A
+  predictions. The ERA formula is evaluated in exact rational arithmetic on
+  UT1 in femtoseconds. Against a verbatim IERS excerpt, linear UT1 − UTC
+  matches astropy within 8e-15 s and ERA/GMST match ERFA `era00`/`gmst06`
+  within 4e-14 rad; Lagrange results match an independent implementation.
+  No EOP data is bundled. UT1 leaves the non-goals; long-term ΔT, nutation
+  and apparent sidereal time remain out of scope.
 - **New**: `tcg` (Geocentric Coordinate Time) and `tcb` (Barycentric
   Coordinate Time) join `TimeScale`, with ` TCG` / ` TCB` designators in
   parse and format. Both follow their IAU definitions (2000 B1.9, 2006 B3)
