@@ -5,6 +5,23 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **Fix**: a UTC two-part Julian date within 0.5 ns of a positive leap
+  second resolved to the instant one second after it. The fraction was split
+  into whole seconds before rounding to nanoseconds, so a value such as
+  23:59:59.9999999997 on 2016-12-31 rounded to a full second without carrying,
+  skipped the `23:59:60` branch, and landed on `2017-01-01T00:00:00`. The
+  carry now happens first. Round trips from `instantToJulianDateParts` were
+  unaffected; external quasi-JDs (`instantFromModifiedJulianDate` included)
+  were not.
+- **Documentation**: the README offset-millisecond example now defines the
+  instant it converts, so its stated output is reproducible.
+- **Build**: development-only transitive dependencies with published
+  advisories (`tinypool`, `undici`, `fast-uri`, `brace-expansion`,
+  `source-map-js` and others) are updated; `oxfmt` moves to 0.72.0 and three
+  `overrides` pin fixed releases that Bun's seven-day `minimumReleaseAge`
+  gate otherwise declined to select. The published package has no runtime
+  dependencies and was not affected.
+
 - **Fix**: an options argument that is not an options object is rejected.
   `formatInstant(i, pattern, 'tai')` was accepted in silence and the default
   scale used, so it rendered a UTC reading 37 seconds from the TAI one the

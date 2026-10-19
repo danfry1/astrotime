@@ -132,6 +132,20 @@ describe('Julian dates', () => {
     )
   })
 
+  it('carries a UTC quasi-JD that rounds up into the leap second, not past it', () => {
+    const leapDay = 2_457_753.5 // 2016-12-31, 86 401 s long
+    const at = (seconds: number) =>
+      formatIso(instantFromJulianDateParts(leapDay, seconds / 86_401, 'utc'), {
+        precision: 'nanos',
+      })
+    expect(at(86_399.9999999997)).toBe('2016-12-31T23:59:60.000000000Z')
+    expect(at(86_400.9999999997)).toBe('2017-01-01T00:00:00.000000000Z')
+    expect(at(86_398.9999999997)).toBe('2016-12-31T23:59:59.000000000Z')
+    // An ordinary 86 400 s day carries into the next midnight
+    const ordinary = instantFromJulianDateParts(2_457_752.5, 86_399.9999999997 / 86_400, 'utc')
+    expect(formatIso(ordinary, { precision: 'nanos' })).toBe('2016-12-31T00:00:00.000000000Z')
+  })
+
   it('UTC uses the SOFA quasi-JD convention on leap-second days (monotonic)', () => {
     const before = iso('2016-12-31T23:59:59.5Z')
     const leap = iso('2016-12-31T23:59:60.5Z')

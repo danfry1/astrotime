@@ -405,8 +405,9 @@ So keep the exact `Instant`, and hand the numeric layer an *offset from a
 nearby origin* — typically the start of your view window:
 
 ```ts
-import { instantFromOffsetMillis, instantToOffsetMillis, truncateInstant, unixMillisResolutionNanos } from 'astrotime'
+import { instantFromOffsetMillis, instantToOffsetMillis, parseInstantOrThrow, truncateInstant, unixMillisResolutionNanos } from 'astrotime'
 
+const i = parseInstantOrThrow('2026-08-19T12:34:56.789012345Z')
 const origin = truncateInstant(i, 'day', 'utc')   // any nearby instant works
 const x = instantToOffsetMillis(i, origin)        // 45296789.012345 — feed this to the plot
 const back = instantFromOffsetMillis(x, origin)   // exactly i, to the nanosecond
