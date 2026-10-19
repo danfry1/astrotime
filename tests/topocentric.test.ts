@@ -144,6 +144,16 @@ describe('topocentric TDB and TCB', () => {
     expect(() =>
       instantToScaleNanos(instant, 'tdb', { observer: null as unknown as Observer }),
     ).toThrow('observer must be { longitude, latitude, height } with finite numbers')
+    // Each field is checked on its own, not only caught later as a NaN reading.
+    for (const observer of [
+      { longitude: Number.NaN, latitude: 0, height: 0 },
+      { longitude: 0, latitude: Number.POSITIVE_INFINITY, height: 0 },
+      { longitude: 0, latitude: 0 },
+    ]) {
+      expect(() =>
+        instantToScaleNanos(instant, 'tdb', { observer: observer as unknown as Observer }),
+      ).toThrow('observer must be { longitude, latitude, height } with finite numbers')
+    }
     expect(() =>
       instantToScaleNanos(instant, 'tdb', { observer: { longitude: 0, latitude: 2, height: 0 } }),
     ).toThrow('observer latitude must be within ±π/2 radians, got 2')

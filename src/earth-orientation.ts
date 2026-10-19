@@ -94,7 +94,8 @@ type FinalsRow = EarthOrientationEntry | null | { readonly problem: string }
 
 function parseFinalsRow(line: string): FinalsRow {
   const mjd = fixedField(line, 8, 15)
-  if (mjd === null || mjd === undefined || !Number.isSafeInteger(mjd))
+  // Blank (null) and malformed (undefined) fields fail the safe-integer test too.
+  if (typeof mjd !== 'number' || !Number.isSafeInteger(mjd))
     return { problem: 'MJD (columns 8–15) must be a whole day' }
   if (!datesAgree(line, mjd)) return { problem: `date columns disagree with MJD ${String(mjd)}` }
   const ut1A = fixedField(line, 59, 68)
