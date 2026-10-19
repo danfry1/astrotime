@@ -36,7 +36,9 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   reached through functions that take an `EarthOrientationTable` parsed from IERS `finals2000A` and return a
   `Result` (data has a finite span). UT1 − TAI is interpolated (continuous across leap seconds), four-point Lagrange
   by default within runs of consecutive days; ERA is evaluated in exact rational bigint arithmetic on UT1 in
-  femtoseconds; GMST is IAU 2006.
+  femtoseconds; GMST is IAU 2006. GAST adds the IAU 2006/2000A equation of the equinoxes (`src/nutation.ts`:
+  nut06a, obl06 and eect00 ported term for term from tables generated from hash-pinned ERFA sources by
+  `scripts/generate-nutation-series.mjs`, marked `@__PURE__` so bundlers drop them when unused).
 - Leap-second semantics: UTC `23:59:60` is representable and valid only when the
   table has a positive leap at that boundary. `instantToUnixMillis` follows POSIX:
   the leap second repeats the following second's Unix value. Pre-1972 UTC is
@@ -78,5 +80,5 @@ Expected failures (parsing, invalid fields) return `Result`; bugs throw `RangeEr
 ## Non-goals
 
 Time zones and locale formatting (use `Intl` with `instantToDate`), long-term ΔT
-models, nutation and apparent sidereal time, calendar (month/year) arithmetic,
+models, precession-nutation matrices and celestial frame transformations, calendar (month/year) arithmetic,
 SPICE kernels/SCLK.

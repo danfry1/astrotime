@@ -192,3 +192,12 @@ export {
   instantToUt1JulianDateParts,
   parseIersFinals,
 } from './earth-orientation.js'
+
+// Nutation and apparent sidereal time (IAU 2006/2000A)
+export {
+  equationOfTheEquinoxes,
+  greenwichApparentSiderealTime,
+  meanObliquity,
+  type Nutation,
+  nutation,
+} from './nutation.js'

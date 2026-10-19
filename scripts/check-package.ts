@@ -46,6 +46,26 @@ try {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
     console.log('bun not found on PATH; skipped Bun smoke run')
   }
+  // The package is one bundled file, so `sideEffects: false` cannot drop the
+  // ~13 KB nutation tables: only their `@__PURE__` annotations can. Bundle a
+  // consumer that never calls nutation and check the leading IAU 2000A
+  // coefficient (the 18.6-year term) is absent from the output.
+  // This script runs under Bun (`bun run check:package`); its bundler is typed
+  // locally so the Node-only typecheck needs no Bun type definitions.
+  const { Bun: bun } = globalThis as unknown as {
+    Bun: {
+      build: (options: { entrypoints: string[]; minify: boolean }) => Promise<{
+        outputs: { text: () => Promise<string> }[]
+      }>
+    }
+  }
+  const bundle = await bun.build({ entrypoints: [join(workDir, 'smoke.mjs')], minify: true })
+  const output = await bundle.outputs[0]?.text()
+  if (output === undefined) throw new Error('tree-shaking check produced no bundle')
+  if (output.includes('172064161')) {
+    throw new Error('the nutation tables are bundled into a consumer that never uses them')
+  }
+  console.log(`tree-shaking check passed: ${String(output.length)} bytes without nutation tables`)
 } finally {
   rmSync(workDir, { recursive: true, force: true })
 }

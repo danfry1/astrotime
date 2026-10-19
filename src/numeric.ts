@@ -116,3 +116,10 @@ export function deterministicSin(x: number): number {
                         (-1 / 39_916_800 + r2 * (1 / 6_227_020_800 - r2 / 1_307_674_368_000)))))))
   )
 }
+
+/**
+ * cos(x) as sin(x + π/2), deterministic across JS engines. Adding π/2 rounds
+ * by at most half an ulp of the sum, so for the reduced arguments the series
+ * pass in (|x| < ~200 rad) this adds < 3e-14 to the sine's own error.
+ */
+export const deterministicCos = (x: number): number => deterministicSin(x + Math.PI / 2)

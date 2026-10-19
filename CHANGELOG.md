@@ -5,6 +5,18 @@
 An API-surface audit, done now because the library has no adopters and the
 cost of changing a public name rises to permanent the moment it has one.
 
+- **New**: apparent sidereal time and nutation (IAU 2006/2000A).
+  `greenwichApparentSiderealTime` adds the equation of the equinoxes to GMST;
+  `nutation` (Δψ, Δε), `meanObliquity` and `equationOfTheEquinoxes` need only
+  TT. The 678 luni-solar and 687 planetary IAU 2000A terms and the 33 + 1
+  complementary terms are generated from SHA-256-pinned ERFA v2.0.1 sources and
+  evaluated in ERFA's order with the deterministic sine and cosine.
+  Nutation reproduces ERFA `nut06a` within 4.9e-16 rad and obliquity `obl06`
+  exactly over 1800–2200; the equation of the equinoxes is within 3.1 µas of
+  ERFA `ee06a`, and apparent sidereal time within 1.3e-12 rad of `gst06a` on
+  the tested IERS dates. The tables carry `@__PURE__` annotations, so a
+  consumer that never calls nutation does not bundle them — now checked by
+  `check:package`.
 - **New**: UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time.
   `parseIersFinals` reads IERS `finals2000A` Earth-orientation files
   (Bulletin B where present, else Bulletin A with its prediction flag);

@@ -12,7 +12,7 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
 - **Leap-second-aware UTC** — `23:59:60` is a real, validated time; the IERS table ships in the box and can be replaced at runtime from `leap-seconds.list` / `Leap_Second.dat` (with `#h` integrity verification).
 - **Time scales** — UTC, TAI, TT, GPS, TDB, TCG, TCB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention and evaluates the full 787-term Fairhead & Bretagnon series — the model ERFA and astropy use, reproduced to 1e-13 s; CSPICE's simpler model differs by up to 40 µs; `tcg` and `tcb` are the IAU-defined coordinate times, computed in exact rational arithmetic), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
-- **Earth rotation** — UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time (IAU 2006) from IERS `finals2000A` data you supply, with four-point Lagrange interpolation, gaps and predictions reported rather than papered over.
+- **Earth rotation** — UT1, the Earth Rotation Angle, and Greenwich mean and apparent sidereal time (IAU 2006/2000A) from IERS `finals2000A` data you supply, with four-point Lagrange interpolation, gaps and predictions reported rather than papered over; IAU 2006/2000A nutation and obliquity on their own.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
 - **Deterministic** — bit-identical output on V8, JavaScriptCore *and* Hermes (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
@@ -90,7 +90,7 @@ non-UTC time scales actually matter to you:
 | TAI / TT / GPS / TDB / TCG / TCB scales | ✅ | ❌ | ❌ | ❌ |
 | Julian dates, day-of-year, SPICE ET | ✅ | ❌ | partial (ordinal only) | partial |
 | Time zones & locale formatting | ❌ use `Intl` | ✅ | ✅ | ✅ |
-| UT1, Earth rotation angle, sidereal time | ✅ from IERS data | ❌ | ❌ | ❌ |
+| UT1, Earth rotation angle, sidereal time, nutation | ✅ from IERS data | ❌ | ❌ | ❌ |
 | Calendar arithmetic (add a month) | ❌ out of scope | ✅ | ✅ | ✅ |
 | Available today without a polyfill | ✅ | partial | ✅ | ✅ (maintenance mode) |
 
@@ -518,7 +518,7 @@ is bundled — the data changes daily and a stale copy would be a silent
 hazard — so fetch a current file:
 
 ```ts
-import { earthOrientationAt, earthRotationAngle, greenwichMeanSiderealTime, instantToUt1JulianDateParts, parseIersFinals, parseInstantOrThrow, unwrap } from 'astrotime'
+import { earthOrientationAt, earthRotationAngle, greenwichApparentSiderealTime, greenwichMeanSiderealTime, instantToUt1JulianDateParts, parseIersFinals, parseInstantOrThrow, unwrap } from 'astrotime'
 
 const text = await (await fetch('https://datacenter.iers.org/data/9/finals2000A.all')).text()
 const eop = unwrap(parseIersFinals(text))
@@ -527,6 +527,7 @@ const i = parseInstantOrThrow('2026-10-19T12:00:00Z')
 earthOrientationAt(i, eop)        // ok: { ut1MinusUtc: -0.0394018…, ut1MinusTai: -37.0394018…, xp, yp, predicted: true }
 earthRotationAngle(i, eop)        // ok: 3.6238887… rad (IAU 2000)
 greenwichMeanSiderealTime(i, eop) // ok: 3.6298814… rad (IAU 2006 mean sidereal time)
+greenwichApparentSiderealTime(i, eop) // ok: 3.6299181… rad (IAU 2006/2000A; 0.504 s of time ahead of mean)
 instantToUt1JulianDateParts(i, eop)
 ```
 
@@ -550,7 +551,19 @@ instantToUt1JulianDateParts(i, eop)
   7e-10 rad for recent data). ERA and GMST match ERFA `era00`/`gmst06` on the
   same UT1 within 1e-13 rad. Sub-daily ocean-tide and libration corrections
   to UT1 (tens of µs, IERS Conventions ch. 5) are not applied, as in ERFA and
-  astropy; apparent sidereal time (which needs nutation) is not provided.
+  astropy.
+- **Apparent sidereal time** adds the IAU 2006/2000A equation of the
+  equinoxes (Δψ cos ε_A plus the IERS complementary terms) to GMST. It is
+  within 3.1 µas of ERFA `gst06a`, which derives it through the full
+  precession-nutation matrix, over 1800–2200 (1.3e-12 rad on the tested
+  dates) — far below the UT1 data's own uncertainty.
+
+`nutation(i)` (Δψ, Δε: the 1 365-term IAU 2000A series with the IAU 2006
+adjustments, as ERFA `nut06a`), `meanObliquity(i)` (IAU 2006) and
+`equationOfTheEquinoxes(i)` need only TT, no IERS data. They reproduce ERFA
+within 1e-14 rad (5e-16 measured) and, like the rest of the library, are
+bit-identical across engines. Their coefficient tables (~13 KB gzipped) are
+dropped by any bundler from applications that never call them.
 
 ## API reference
 
@@ -566,7 +579,7 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 | Numeric interop | `instantToOffsetMillis/Seconds` · `instantFromOffsetMillis/Seconds` · `unixMillisResolutionNanos` |
 | Arithmetic & order | `addToInstant` · `subtractFromInstant` · `durationBetween` · `compareInstants` · `instantsEqual` · `isBefore` · `isAfter` · `minInstant` · `maxInstant` · `clampInstant` · `instantRange` · `truncateInstant(i, unit, scale)` |
 | Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `freezeLeapSecondTable` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
-| Earth orientation | `parseIersFinals → R` · `earthOrientationAt → R` · `earthRotationAngle → R` · `greenwichMeanSiderealTime → R` · `instantToUt1JulianDateParts → R` |
+| Earth orientation | `parseIersFinals → R` · `earthOrientationAt → R` · `earthRotationAngle → R` · `greenwichMeanSiderealTime → R` · `greenwichApparentSiderealTime → R` · `instantToUt1JulianDateParts → R` · `nutation` · `meanObliquity` · `equationOfTheEquinoxes` |
 | Calendar | `isLeapYear` · `daysInMonth` · `daysInYear` · `dayOfYear` · `daysFromCivil` · `civilFromDays` · `civilFromOrdinal` |
 | Constants | `J2000_INSTANT` · `GPS_EPOCH_INSTANT` · `UNIX_EPOCH_INSTANT` · `UTC_START_INSTANT` · `TT_MINUS_TAI_NANOS` · `GPS_MINUS_TAI_NANOS` · `JD_UNIX_EPOCH` · `JD_J2000` · `MJD_OFFSET` · `NANOS_PER_*` · `TIME_SCALES` · `TIME_SCALE_LABELS` |
 | Results & errors | `unwrap` · `unwrapOr` · `isAstrotimeError` · `TimeParseError` · `InvalidTimeError` · `LeapSecondTableError` · `EarthOrientationError` · `isInstant` · `isDuration` |

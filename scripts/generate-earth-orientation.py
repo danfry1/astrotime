@@ -6,10 +6,10 @@ finals2000A.all (see SOURCE below), and computes at seeded instants:
 
 - `linear`: astropy's IERS_A reading of the same excerpt (Bulletin B where
   present, else A; linear interpolation with leap-second handling), with ERFA
-  era00 and gmst06 evaluated on astropy's UT1.
+  era00, gmst06 and gst06a evaluated on astropy's UT1.
 - `lagrange`: four-point Lagrange interpolation of UT1 − TAI and polar motion
   within runs of consecutive days, implemented here independently of
-  astrotime, again with ERFA era00 and gmst06.
+  astrotime, again with ERFA era00, gmst06 and gst06a.
 
   pip install astropy==6.0.1
   python3 scripts/generate-earth-orientation.py tests/fixtures/finals2000A-excerpt.txt \
@@ -128,6 +128,7 @@ for k, c in enumerate(cases):
                 "yp": float(pm[1][k].value),
                 "era": float(erfa.era00(ut1.jd1[k], ut1.jd2[k])),
                 "gmst": float(erfa.gmst06(ut1.jd1[k], ut1.jd2[k], tt.jd1[k], tt.jd2[k])),
+                "gast": float(erfa.gst06a(ut1.jd1[k], ut1.jd2[k], tt.jd1[k], tt.jd2[k])),
             },
             "lagrange": {
                 "ut1MinusTai": lag_ut1_tai,
@@ -135,6 +136,7 @@ for k, c in enumerate(cases):
                 "yp": lag_y,
                 "era": float(erfa.era00(lag_jd1, lag_jd2)),
                 "gmst": float(erfa.gmst06(lag_jd1, lag_jd2, tt.jd1[k], tt.jd2[k])),
+                "gast": float(erfa.gst06a(lag_jd1, lag_jd2, tt.jd1[k], tt.jd2[k])),
             },
         }
     )

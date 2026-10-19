@@ -6,6 +6,7 @@ import {
   EarthOrientationError,
   earthOrientationAt,
   earthRotationAngle,
+  greenwichApparentSiderealTime,
   greenwichMeanSiderealTime,
   IERS_LEAP_SECONDS,
   instantFromTaiNanos,
@@ -28,6 +29,7 @@ type Values = {
   yp: number
   era: number
   gmst: number
+  gast: number
 }
 type Row = { taiNanos: string; linear: Values; lagrange: Values }
 const rows = reference.rows as Row[]
@@ -139,6 +141,20 @@ describe('UT1, Earth rotation angle and sidereal time', () => {
     }
   })
 
+  it('matches ERFA gst06a apparent sidereal time within 2e-11 rad on both interpolations', () => {
+    // gst06a goes through the full IAU 2006/2000A precession-nutation matrix;
+    // astrotime adds the equation of the equinoxes to GMST (≤ 3.1 µas apart
+    // over 1800–2200, 1.3e-12 rad on these dates).
+    for (const row of rows) {
+      const instant = instantFromTaiNanos(BigInt(row.taiNanos))
+      for (const interpolation of ['linear', 'lagrange'] as const) {
+        const gast = unwrap(greenwichApparentSiderealTime(instant, table, { interpolation }))
+        expect(angleError(gast, row[interpolation].gast)).toBeLessThan(2e-11)
+        expect(gast >= 0 && gast < 2 * Math.PI).toBe(true)
+      }
+    }
+  })
+
   it('keeps UT1 continuous through a leap second while UT1 − UTC jumps by one second', () => {
     const at = (text: string) => unwrap(earthOrientationAt(parseInstantOrThrow(text), table))
     const before = at('2016-12-31T23:59:59.5Z')
@@ -208,6 +224,7 @@ describe('UT1, Earth rotation angle and sidereal time', () => {
     expect(instantToUt1JulianDateParts(outside, table).ok).toBe(false)
     expect(earthRotationAngle(outside, table).ok).toBe(false)
     expect(greenwichMeanSiderealTime(outside, table).ok).toBe(false)
+    expect(greenwichApparentSiderealTime(outside, table).ok).toBe(false)
   })
 
   it('rejects malformed hand-built tables and options as programmer errors', () => {
