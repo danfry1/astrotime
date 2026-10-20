@@ -108,6 +108,34 @@ jobs:
       - name: Conformance under SpiderMonkey (Firefox engine)
         run: ./scripts/conformance-spidermonkey.sh
 
+  mutation-dry-run:
+    # The full Stryker campaign runs only at release and monthly. Its initial
+    # test run, under Stryker's instrumentation, is far slower than the
+    # ordinary suite; running just that here catches a test that would exceed
+    # its time limit there before a release does.
+    name: Suite under Stryker instrumentation (dry run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: quality
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        with:
+          node-version: 24
+
+      - run: bun install --frozen-lockfile
+
+      - name: Stryker initial test run, no mutants
+        run: bun run test:mutation:dry
+
   node-compat:
     name: Node ${{ matrix.node-version }} smoke
     runs-on: ubuntu-latest

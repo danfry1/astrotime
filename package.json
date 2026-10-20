@@ -50,6 +50,7 @@
     "check:complexity": "node scripts/check-complexity.mjs",
     "check:traceability": "node scripts/check-traceability.mjs",
     "test:mutation": "stryker run && node scripts/stamp-mutation.mjs",
+    "test:mutation:dry": "stryker run --dryRunOnly",
     "test:differential": "bun run build && python3 scripts/differential.py 100000 reports/differential/report.json && node scripts/stamp-differential.mjs",
     "test:dist": "vitest run --config vitest.dist.config.ts",
     "evidence": "node scripts/evidence.mjs",

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **CI**: every pull request now runs the suite under Stryker's
+  instrumentation without mutating (`bun run test:mutation:dry`, about two
+  minutes). The full mutation campaign runs only at release and monthly, so
+  the 0.13.0 release was the first place a test exceeding its time limit
+  under that instrumentation could surface.
+
 ## 0.13.0 - 2026-10-20
 
 TDB from the full Fairhead & Bretagnon series, optionally topocentric; the

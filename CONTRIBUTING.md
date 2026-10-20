@@ -29,6 +29,7 @@ Requires [Bun](https://bun.sh/) and Node.js 24.15+ (the pinned npm 12 toolchain 
 | `bun run check:package` | Build, pack, install the tarball in a temp dir and smoke-test it under Node |
 | `bun run test:differential` | Compare 100,000 seeded epochs against pinned Astropy/ERFA (requires `astropy==6.0.1`) |
 | `bun run test:mutation` | Run the complete Stryker campaign and provenance-stamp its report |
+| `bun run test:mutation:dry` | Run the suite once under Stryker's instrumentation, without mutants (CI runs this on every pull request) |
 | `bun run check:release` | Everything CI runs before a release |
 
 ## Correctness ground truth
