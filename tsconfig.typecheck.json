@@ -2,6 +2,6 @@
   "extends": "./tsconfig.json",
   "compilerOptions": { "noEmit": true, "rootDir": ".", "outDir": "./.typecheck", "types": ["node"] },
   "include": ["src/**/*.ts", "tests/**/*.ts",
-    "benchmarks/**/*.ts", "scripts/**/*.ts", "vitest.config.ts", "tsdown.config.ts"],
+    "benchmarks/**/*.ts", "scripts/**/*.ts", "vitest.config.ts", "vitest.mutation.config.ts", "tsdown.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

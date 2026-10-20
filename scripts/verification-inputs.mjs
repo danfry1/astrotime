@@ -6,6 +6,7 @@ const INPUTS = [
   'src',
   'tests',
   'vitest.config.ts',
+  'vitest.mutation.config.ts',
   'tsconfig.json',
   'stryker.config.json',
   'package.json',

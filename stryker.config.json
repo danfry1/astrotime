@@ -8,7 +8,7 @@
     "!src/assert.ts"
   ],
   "vitest": {
-    "configFile": "vitest.config.ts"
+    "configFile": "vitest.mutation.config.ts"
   },
   "reporters": [
     "clear-text",
