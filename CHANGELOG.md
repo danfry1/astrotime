@@ -1,15 +1,5 @@
 # Changelog
 
-## Unreleased
-
-- **CI**: every pull request now runs the suite under Stryker's
-  instrumentation without mutating (`bun run test:mutation:dry`, about two
-  minutes). The full mutation campaign runs only at release and monthly, so
-  the 0.13.0 release was the first place a test exceeding its time limit
-  under that instrumentation could surface. The property suite's 30 s limit
-  moves from the suite into `vitest.config.ts`, because a suite-level
-  timeout takes precedence over the mutation configuration's 300 s one.
-
 ## 0.13.0 - 2026-10-20
 
 TDB from the full Fairhead & Bretagnon series, optionally topocentric; the
@@ -109,6 +99,15 @@ moment it has one. Several entries are breaking.
   half-nanosecond offset. A TDB conversion now costs a few microseconds. The
   complete gzipped bundle grows from ~27 KB to ~68 KB, most of it the TDB and
   nutation tables; tree-shaking drops the nutation tables when unused.
+- **CI**: every pull request runs the suite under Stryker's instrumentation
+  without mutating (`bun run test:mutation:dry`, about three minutes on a
+  hosted runner). Under that instrumentation the TDB and nutation series run
+  up to a hundred times slower, and the full mutation campaign runs only at
+  release and monthly, so tests exceeding their time limits there were first
+  found by the release workflow. Stryker now uses `vitest.mutation.config.ts`
+  (a 300 s per-test limit, 20 minutes for its initial run); the ordinary
+  suite's 30 s limit moves from the property suite into `vitest.config.ts`,
+  since a suite-level timeout would take precedence over Stryker's.
 - **Fix**: a UTC two-part Julian date within 0.5 ns of a positive leap
   second resolved to the instant one second after it. The fraction was split
   into whole seconds before rounding to nanoseconds, so a value such as
