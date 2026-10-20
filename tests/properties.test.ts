@@ -41,9 +41,10 @@ const RUNS = { numRuns: 10_000 }
 
 // 10 000 runs per property across seven scales: TDB and TCB each sum the
 // 787-term series several times per round trip, which under coverage on a
-// shared CI runner approaches vitest's 5 s default. The bound is for the
-// runner, not the code; a regression would still show up as a large slowdown.
-describe('round-trip properties', { timeout: 30_000 }, () => {
+// shared CI runner approaches vitest's 5 s default; vitest.config.ts sets the
+// limit. The bound is for the runner, not the code; a regression would still
+// show up as a large slowdown.
+describe('round-trip properties', () => {
   it('instant → UTC fields → instant is the identity', () => {
     fc.assert(
       fc.property(taiNanos, (n) => {

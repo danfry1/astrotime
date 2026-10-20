@@ -20,5 +20,6 @@
     "break": null
   },
   "tempDirName": ".stryker-tmp",
+  "dryRunTimeoutMinutes": 20,
   "concurrency": 8
 }
