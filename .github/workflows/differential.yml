@@ -1,4 +1,4 @@
-name: Extended verification (astropy differential, Hermes conformance)
+name: Extended verification (astropy differential, Hermes and SpiderMonkey conformance)
 
 on:
   schedule:
@@ -48,3 +48,6 @@ jobs:
 
       - name: Conformance under Hermes (React Native engine)
         run: ./scripts/conformance-hermes.sh
+
+      - name: Conformance under SpiderMonkey (Firefox engine)
+        run: ./scripts/conformance-spidermonkey.sh
