@@ -391,8 +391,15 @@ export function instantFromJulianDateParts(
     throw new RangeError(`Julian date is outside the exact UTC-second range: ${String(dayIndex)}`)
   }
   const seconds = fraction * utcDayLength(dayStart, options)
-  const whole = Math.min(Math.floor(seconds), SECONDS_PER_DAY)
-  const nanosecond = Number(toNanos(seconds - whole, NANOS_PER_SECOND, 'Julian date'))
+  let whole = Math.floor(seconds)
+  let nanosecond = Number(toNanos(seconds - whole, NANOS_PER_SECOND, 'Julian date'))
+  // Carry before choosing the leap branch: a fraction that rounds up to a
+  // whole second within 0.5 ns of 23:59:60 is the leap second itself, not the
+  // Unix second after it.
+  if (nanosecond === Number(NANOS_PER_SECOND)) {
+    whole += 1
+    nanosecond = 0
+  }
   if (whole === SECONDS_PER_DAY) {
     const leap = instantFromResolvedUtc(
       { days: dayIndex, secondOfDay: SECONDS_PER_DAY, second: 60, nanosecond },
@@ -401,7 +408,7 @@ export function instantFromJulianDateParts(
     if (leap.ok) return leap.value
   }
   return instantFromUnixNanos(
-    BigInt(dayStart + whole) * NANOS_PER_SECOND + BigInt(nanosecond),
+    BigInt(dayStart + Math.min(whole, SECONDS_PER_DAY)) * NANOS_PER_SECOND + BigInt(nanosecond),
     options,
   )
 }
