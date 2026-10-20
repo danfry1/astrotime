@@ -6,7 +6,9 @@
   instrumentation without mutating (`bun run test:mutation:dry`, about two
   minutes). The full mutation campaign runs only at release and monthly, so
   the 0.13.0 release was the first place a test exceeding its time limit
-  under that instrumentation could surface.
+  under that instrumentation could surface. The property suite's 30 s limit
+  moves from the suite into `vitest.config.ts`, because a suite-level
+  timeout takes precedence over the mutation configuration's 300 s one.
 
 ## 0.13.0 - 2026-10-20
 
