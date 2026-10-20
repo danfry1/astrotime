@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest'
 import * as astrotime from '../src/index.js'
 
 const EXPECTED_RUNTIME_EXPORTS = `
-GPS_EPOCH_INSTANT GPS_MINUS_TAI_NANOS IERS_LEAP_SECONDS InvalidTimeError
+EarthOrientationError GPS_EPOCH_INSTANT GPS_MINUS_TAI_NANOS IERS_LEAP_SECONDS InvalidTimeError
+earthOrientationAt earthRotationAngle greenwichMeanSiderealTime instantToUt1JulianDateParts parseIersFinals
 J2000_INSTANT JD_J2000 JD_UNIX_EPOCH LeapSecondTableError MJD_OFFSET NANOS_PER_DAY
 NANOS_PER_HOUR NANOS_PER_MICRO NANOS_PER_MILLI NANOS_PER_MINUTE NANOS_PER_SECOND
 PRE_1972_DELTA_AT TIME_SCALES TIME_SCALE_LABELS TT_MINUS_TAI_NANOS TimeParseError

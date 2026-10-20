@@ -60,8 +60,11 @@ a separately qualified implementation.
   CSPICE's one-term model differs from it by up to 40 microseconds.
 - Single-number Julian dates have ordinary IEEE-754 resolution limits. The
   two-part API exists for nanosecond preservation.
-- UT1, Earth-orientation parameters, spacecraft clocks, ephemerides and time
-  zones are outside scope.
+- UT1, the Earth Rotation Angle and mean sidereal time are only as good as
+  the IERS data supplied: they are refused outside its span and across gaps,
+  flagged when predictions contribute, and omit sub-daily ocean-tide and
+  libration terms (tens of microseconds of UT1). Nutation, apparent sidereal
+  time, spacecraft clocks, ephemerides and time zones are outside scope.
 - No defect-free or mission-independent safety claim is made.
 
 ## Acceptance gates

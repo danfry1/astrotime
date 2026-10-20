@@ -12,6 +12,7 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
 - **Leap-second-aware UTC** — `23:59:60` is a real, validated time; the IERS table ships in the box and can be replaced at runtime from `leap-seconds.list` / `Leap_Second.dat` (with `#h` integrity verification).
 - **Time scales** — UTC, TAI, TT, GPS, TDB, TCG, TCB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention and evaluates the full 787-term Fairhead & Bretagnon series — the model ERFA and astropy use, reproduced to 1e-13 s; CSPICE's simpler model differs by up to 40 µs; `tcg` and `tcb` are the IAU-defined coordinate times, computed in exact rational arithmetic), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
+- **Earth rotation** — UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time (IAU 2006) from IERS `finals2000A` data you supply, with four-point Lagrange interpolation, gaps and predictions reported rather than papered over.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
 - **Deterministic** — bit-identical output on V8, JavaScriptCore *and* Hermes (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
@@ -89,6 +90,7 @@ non-UTC time scales actually matter to you:
 | TAI / TT / GPS / TDB / TCG / TCB scales | ✅ | ❌ | ❌ | ❌ |
 | Julian dates, day-of-year, SPICE ET | ✅ | ❌ | partial (ordinal only) | partial |
 | Time zones & locale formatting | ❌ use `Intl` | ✅ | ✅ | ✅ |
+| UT1, Earth rotation angle, sidereal time | ✅ from IERS data | ❌ | ❌ | ❌ |
 | Calendar arithmetic (add a month) | ❌ out of scope | ✅ | ✅ | ✅ |
 | Available today without a polyfill | ✅ | partial | ✅ | ✅ (maintenance mode) |
 
@@ -134,7 +136,8 @@ if (result.ok) {
 ```
 
 Each error carries a stable `code`, structured fields and `toJSON()`
-(`TimeParseError`, `InvalidTimeError`, `LeapSecondTableError`). When you'd
+(`TimeParseError`, `InvalidTimeError`, `LeapSecondTableError`,
+`EarthOrientationError`). When you'd
 rather throw — one-off scripts, inputs you already trust, or plain JavaScript
 without the compiler enforcing the `.ok` check — use `parseInstantOrThrow` /
 `parseDurationOrThrow`, or `unwrap(result)` / `unwrapOr(result, fallback)`.
@@ -467,7 +470,7 @@ binary protocols use `instantToTaiNanos(i)` / `instantFromTaiNanos(n)` (a `bigin
 - `instantNow()` has millisecond precision (it reads `Date.now()`); nanosecond precision applies to stored and parsed timestamps.
 - UTC before 1972 is approximated with TAI − UTC = 10 s (the real pre-1972 "rubber second" UTC is out of scope); opt into rejection with `before1972: 'reject'`.
 - ISO duration parsing deviates from ISO 8601 deliberately: comma or dot fractions and a leading sign are accepted; weeks are exclusive (`P1W2D` rejected); only the last component may carry a fraction; components are capped at 16 digits.
-- UT1 / ΔT, SCLK and SPICE kernels are out of scope.
+- UT1 needs IERS data and is available only within the supplied table's span; long-term ΔT models (historical or far-future Earth rotation), SCLK and SPICE kernels are out of scope.
 - Public calendar conversion helpers reject impossible dates/ordinals and
   unsafe-integer inputs; they never normalize an invalid date into a different one.
 
@@ -494,6 +497,49 @@ bun run test:mutation   # Stryker mutation testing
 pip install astropy==6.0.1 spiceypy==6.0.0   # regenerate reference fixtures (see CONTRIBUTING.md)
 ```
 
+### Earth orientation: UT1, rotation angle, sidereal time
+
+UT1 follows the Earth's actual rotation, so it is measured, not computed: the
+IERS publishes daily UT1 − UTC and polar motion. astrotime parses the IERS
+`finals2000A` files (`.all`, `.data`, `.daily`) and interpolates them. Nothing
+is bundled — the data changes daily and a stale copy would be a silent
+hazard — so fetch a current file:
+
+```ts
+import { earthOrientationAt, earthRotationAngle, greenwichMeanSiderealTime, instantToUt1JulianDateParts, parseIersFinals, parseInstantOrThrow, unwrap } from 'astrotime'
+
+const text = await (await fetch('https://datacenter.iers.org/data/9/finals2000A.all')).text()
+const eop = unwrap(parseIersFinals(text))
+const i = parseInstantOrThrow('2026-10-19T12:00:00Z')
+
+earthOrientationAt(i, eop)        // ok: { ut1MinusUtc: -0.0394018…, ut1MinusTai: -37.0394018…, xp, yp, predicted: true }
+earthRotationAngle(i, eop)        // ok: 3.6238887… rad (IAU 2000)
+greenwichMeanSiderealTime(i, eop) // ok: 3.6298814… rad (IAU 2006 mean sidereal time)
+instantToUt1JulianDateParts(i, eop)
+```
+
+(Values from the IERS file of 2026-10-15; later files revise them.)
+
+- **Interpolation.** Four-point Lagrange by default, as the IERS recommends.
+  UT1 − UTC's fortnightly tidal term (~0.8 ms) makes linear interpolation err
+  by up to ~20 µs — more than the ~10 µs uncertainty of recent data; on the
+  date above the two differ by 28.5 µs. `{ interpolation: 'linear' }` matches
+  astropy, to 8e-15 s.
+- **Leap seconds.** UT1 − TAI is interpolated, since it is continuous; UT1 −
+  UTC is then taken from it, so it jumps by exactly one second where UTC does
+  while UT1 and the rotation angle stay smooth.
+- **Fail closed.** An instant before the first row, after the last, or inside
+  a gap between non-consecutive days returns an `EarthOrientationError`;
+  values are never extrapolated or bridged. `predicted` reports when
+  Bulletin A predictions contributed. Bulletin B (final) values are used where
+  the file has them.
+- **Accuracy.** The Earth Rotation Angle formula is evaluated in exact
+  rational arithmetic, so its error is that of UT1 itself (~10 µs of UT1 ≈
+  7e-10 rad for recent data). ERA and GMST match ERFA `era00`/`gmst06` on the
+  same UT1 within 1e-13 rad. Sub-daily ocean-tide and libration corrections
+  to UT1 (tens of µs, IERS Conventions ch. 5) are not applied, as in ERFA and
+  astropy; apparent sidereal time (which needs nutation) is not provided.
+
 ## API reference
 
 Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T, InvalidTimeError | TimeParseError>`.
@@ -508,9 +554,10 @@ Everything is a flat, tree-shakeable named export. `R<T>` below means `Result<T,
 | Numeric interop | `instantToOffsetMillis/Seconds` · `instantFromOffsetMillis/Seconds` · `unixMillisResolutionNanos` |
 | Arithmetic & order | `addToInstant` · `subtractFromInstant` · `durationBetween` · `compareInstants` · `instantsEqual` · `isBefore` · `isAfter` · `minInstant` · `maxInstant` · `clampInstant` · `instantRange` · `truncateInstant(i, unit, scale)` |
 | Leap seconds | `deltaAt` · `deltaAtUnixSeconds` · `isLeapSecond` · `isUtcDefined` · `IERS_LEAP_SECONDS` · `parseLeapSecondsList → R` · `validateLeapSecondTable → R` · `freezeLeapSecondTable` · `isLeapSecondTableExpired` · `PRE_1972_DELTA_AT` |
+| Earth orientation | `parseIersFinals → R` · `earthOrientationAt → R` · `earthRotationAngle → R` · `greenwichMeanSiderealTime → R` · `instantToUt1JulianDateParts → R` |
 | Calendar | `isLeapYear` · `daysInMonth` · `daysInYear` · `dayOfYear` · `daysFromCivil` · `civilFromDays` · `civilFromOrdinal` |
 | Constants | `J2000_INSTANT` · `GPS_EPOCH_INSTANT` · `UNIX_EPOCH_INSTANT` · `UTC_START_INSTANT` · `TT_MINUS_TAI_NANOS` · `GPS_MINUS_TAI_NANOS` · `JD_UNIX_EPOCH` · `JD_J2000` · `MJD_OFFSET` · `NANOS_PER_*` · `TIME_SCALES` · `TIME_SCALE_LABELS` |
-| Results & errors | `unwrap` · `unwrapOr` · `isAstrotimeError` · `TimeParseError` · `InvalidTimeError` · `LeapSecondTableError` · `isInstant` · `isDuration` |
+| Results & errors | `unwrap` · `unwrapOr` · `isAstrotimeError` · `TimeParseError` · `InvalidTimeError` · `LeapSecondTableError` · `EarthOrientationError` · `isInstant` · `isDuration` |
 
 Every export has JSDoc — hover in your editor for the details, read [`DESIGN.md`](DESIGN.md) for the model and its invariants, [`API-STABILITY.md`](API-STABILITY.md) for the compatibility promise, and [`ASSURANCE-ROADMAP.md`](ASSURANCE-ROADMAP.md) with [`REQUIREMENTS.md`](REQUIREMENTS.md) for the evidence trail.
 

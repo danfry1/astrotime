@@ -41,4 +41,7 @@ Deliberately open questions, to be settled at 1.0 with real-usage evidence:
    Additive if a consumer (e.g. a leap-table-only user) asks.
 
 Out of scope permanently (see README): time zones and locales (`Intl`),
-UT1/ΔT, SCLK/SPICE kernels, calendar (month/year) arithmetic.
+long-term ΔT models, SCLK/SPICE kernels, calendar (month/year) arithmetic.
+UT1 was listed here until IERS-data-driven UT1, Earth rotation angle and mean
+sidereal time were added; it remains outside `TimeScale` because it depends
+on measured data.
