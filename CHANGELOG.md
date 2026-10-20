@@ -1,9 +1,13 @@
 # Changelog
 
-## Unreleased
+## 0.13.0 - 2026-10-20
 
-An API-surface audit, done now because the library has no adopters and the
-cost of changing a public name rises to permanent the moment it has one.
+TDB from the full Fairhead & Bretagnon series, optionally topocentric; the
+coordinate times TCG and TCB, evaluated exactly; UT1 from IERS data with the
+Earth Rotation Angle and mean and apparent sidereal time; and IAU 2006/2000A
+nutation. Alongside them, an API-surface audit, done now because the library
+has no adopters and the cost of changing a public name rises to permanent the
+moment it has one. Several entries are breaking.
 
 - **New**: topocentric TDB and TCB. `UtcOptions.observer` (WGS84 longitude
   and latitude in radians, height in metres) adds ERFA `dtdb`'s topocentric
@@ -30,9 +34,8 @@ cost of changing a public name rises to permanent the moment it has one.
   consumer that never calls nutation does not bundle them — now checked by
   `check:package` (a `formatIso`-only bundle drops from ~31.4 KB to ~20.8 KB
   gzipped). The cross-engine digest moves to `astrotime-conformance-v3` and
-  adds nutation and the equation of the equinoxes: 195 000 outputs,
-  `7c169553779050b9`, identical on V8, JavaScriptCore, Hermes and
-  SpiderMonkey.
+  adds nutation and the equation of the equinoxes; its final value is in the
+  topocentric entry above.
 - **New**: UT1, the Earth Rotation Angle and Greenwich Mean Sidereal Time.
   `parseIersFinals` reads IERS `finals2000A` Earth-orientation files
   (Bulletin B where present, else Bulletin A with its prediction flag);
@@ -48,8 +51,8 @@ cost of changing a public name rises to permanent the moment it has one.
   UT1 in femtoseconds. Against a verbatim IERS excerpt, linear UT1 − UTC
   matches astropy within 8e-15 s and ERA/GMST match ERFA `era00`/`gmst06`
   within 4e-14 rad; Lagrange results match an independent implementation.
-  No EOP data is bundled. UT1 leaves the non-goals; long-term ΔT, nutation
-  and apparent sidereal time remain out of scope.
+  No EOP data is bundled. UT1 leaves the non-goals; long-term ΔT remains
+  out of scope.
 - **New**: `tcg` (Geocentric Coordinate Time) and `tcb` (Barycentric
   Coordinate Time) join `TimeScale`, with ` TCG` / ` TCB` designators in
   parse and format. Both follow their IAU definitions (2000 B1.9, 2006 B3)
@@ -65,15 +68,16 @@ cost of changing a public name rises to permanent the moment it has one.
   instant → TCB → instant is exact as well (TT → TCB always runs faster than
   one-for-one). `API-STABILITY.md` now records that
   `TimeScale` may gain members in minor releases. The conformance digest
-  covers the two new scales (its current value is in the nutation entry).
+  covers the two new scales.
 - **Accuracy**: TDB now evaluates the full 787-term Fairhead & Bretagnon
   (1990) series with ERFA's JPL-mass adjustments — the geocentric model ERFA
-  `dtdb` and astropy use — instead of the seven-term USNO Circular 179
-  truncation. Against ERFA the offset now agrees within 1.0e-14 s over
-  1600–2500 (was 9.3 µs); a seeded 100 000-epoch astropy sweep finds a 1 ns
-  maximum TDB difference, which is nanosecond rounding, and the 28 golden
-  epochs match exactly. Acceptance limits tighten to 1e-13 s against `dtdb`
-  and 1 ns against astropy. The coefficient table is generated from a
+  `dtdb` and astropy use — instead of the three largest terms of the
+  USNO Circular 179 truncation. Against ERFA the offset now agrees within
+  1.0e-14 s over 1600–2500 (0.12.0 erred by up to ~23 µs); a seeded
+  100 000-epoch astropy sweep finds a 1 ns maximum TDB difference, which is
+  nanosecond rounding, and the 28 golden epochs match exactly. Acceptance
+  limits tighten to 1e-13 s against `dtdb` and 1 ns against astropy. The
+  coefficient table is generated from a
   SHA-256-pinned ERFA v2.0.1 `dtdb.c` by `scripts/generate-tdb-series.mjs`
   and is guarded by a content digest; the ERFA BSD 3-clause notice ships in
   `THIRD-PARTY-NOTICES.md`. Within ±10 000 years of J2000 the evaluation is
@@ -86,15 +90,15 @@ cost of changing a public name rises to permanent the moment it has one.
 - **Accuracy contract**: CSPICE's one-term ET model differs from the full
   series by up to 36.53 µs over 1972–2100 (half-day grid, `naif0012.tls`), so
   the CSPICE bound is restated as 40 µs. It was 30 µs only because the
-  seven-term truncation happened to sit closer to CSPICE's model. The series
-  remains geocentric: the topocentric term for an observer on the Earth's
-  surface (up to ~2 µs) is not applied, as in astropy without a location.
-- **Behavior**: TDB readings change by up to 9.3 µs relative to 0.12.0, and
-  the cross-engine conformance digest changes (its current value is in the
-  TCG/TCB entry above). Two TDB lattice tests use new
+  shorter truncation happened to sit closer to CSPICE's model. Without an
+  `observer` the series is geocentric, as in astropy without a location.
+- **Behavior**: TDB readings change by up to 23.5 µs over 1972–2100 relative
+  to 0.12.0, which evaluated three terms, and the cross-engine conformance
+  digest changes. Two TDB lattice tests use new
   rounding-boundary instants, each confirmed against ERFA to sit exactly on a
-  half-nanosecond offset. A TDB conversion now costs a few microseconds and the
-  gzipped bundle grows from ~28 KB to ~44 KB.
+  half-nanosecond offset. A TDB conversion now costs a few microseconds. The
+  complete gzipped bundle grows from ~27 KB to ~68 KB, most of it the TDB and
+  nutation tables; tree-shaking drops the nutation tables when unused.
 - **Fix**: a UTC two-part Julian date within 0.5 ns of a positive leap
   second resolved to the instant one second after it. The fraction was split
   into whole seconds before rounding to nanoseconds, so a value such as
@@ -170,9 +174,7 @@ cost of changing a public name rises to permanent the moment it has one.
   x^15 on [−π/2, π/2]; the truncation error is ≈ 6.07e-12 (the first omitted
   term, (π/2)^17/17!), and 6.02e-12 is measured against `Math.sin`. Scaled by
   the TDB series amplitude that is ~1e-14 s of TDB offset, so no published
-  accuracy bound changes. The numerics are untouched and the cross-engine
-  conformance digest is unchanged (`astrotime-conformance-v2 135000
-  a85edc8d2639f9b4`).
+  accuracy bound changes. The numerics are untouched.
 - **Verification**: the conformance digest now also runs under
   SpiderMonkey, the Firefox engine, on every pull request and in the
   scheduled extended-verification workflow.
@@ -182,7 +184,6 @@ cost of changing a public name rises to permanent the moment it has one.
   the unmodified `scripts/conformance.mjs` as an ES module against the built
   `dist/index.mjs`, and fails unless the digest equals Node's. SpiderMonkey
   produces the same digest as V8, JavaScriptCore and Hermes.
-
 - **Fix**: an options argument that is not an options object is rejected.
   `formatInstant(i, pattern, 'tai')` was accepted in silence and the default
   scale used, so it rendered a UTC reading 37 seconds from the TAI one the
@@ -209,13 +210,6 @@ cost of changing a public name rises to permanent the moment it has one.
 - **Hardening**: `isLeapYear`, `daysInYear` and `daysInMonth` reject
   non-safe-integer inputs, and `daysInMonth` rejects months outside 1–12,
   instead of returning a plausible calendar answer for invalid input.
-- **Accuracy**: TDB now evaluates all seven terms of the Fairhead &
-  Bretagnon truncation published in USNO Circular 179 rather than only its
-  three largest terms. Independent Astropy/ERFA differential testing over
-  100,000 seeded epochs from 1972–2100 found a 9.282 µs maximum error, so
-  the ERFA acceptance limit is tightened from 30 µs to 10 µs. CSPICE uses a
-  distinct truncated periodic model; its independently tested 30 µs bound
-  remains explicit rather than being conflated with the ERFA bound.
 - **Fix/documentation**: the TDB inverse now corrects against the actual
   integer-nanosecond forward map at expanded years and chooses the closest
   representable TT reading. The former claim of a universally exact TDB
@@ -237,7 +231,6 @@ cost of changing a public name rises to permanent the moment it has one.
   parsing exposed a global format-semantics mutation point. The supported
   pattern contract remains documented and is queryable through
   `formatPatternError` / `parsePatternError`.
-
 - `Result`'s error type is now constrained to `Error`. Every `Result` the
   library produces already carried one, and `ok`/`err` are no longer
   exported, so `unwrap` no longer needs a branch for wrapping a non-`Error`

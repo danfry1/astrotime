@@ -56,9 +56,9 @@ exercise time behavior).
 | Release | Overall | Weakest module | Strongest |
 |---|---|---|---|
 | 0.7.0 | 86.60% (2148 mutants, Stryker 9.6.1) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
-| Unreleased audit | 85.46% (3308 mutants, Stryker 10.0.0) | `options.ts` 30.30%*, `calendar.ts` 70.06% | `result.ts` 100%, `sha1.ts` 95.95%, `duration.ts` 92.86%; high-consequence `leap-seconds.ts` 91.16% |
+| 0.13.0 audit | 85.46% (3308 mutants, Stryker 10.0.0) | `options.ts` 30.30%*, `calendar.ts` 70.06% | `result.ts` 100%, `sha1.ts` 95.95%, `duration.ts` 92.86%; high-consequence `leap-seconds.ts` 91.16% |
 
-**New physical-model modules (Unreleased).** Measured with Stryker 10.0.0 on
+**New physical-model modules (0.13.0).** Measured with Stryker 10.0.0 on
 the modules added for TDB, TCG/TCB, Earth orientation, nutation and the
 observer:
 
