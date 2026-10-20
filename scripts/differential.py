@@ -58,6 +58,8 @@ const out = cases.map((s) => {
     jdUtc.jd2,
     jdTt.jd1,
     jdTt.jd2,
+    formatIso(i, { scale: 'tcg', precision: 'nanos', designator: 'none' }),
+    formatIso(i, { scale: 'tcb', precision: 'nanos', designator: 'none' }),
   ];
 });
 process.stdout.write(JSON.stringify(out));
@@ -87,6 +89,8 @@ times.precision = 9
 ref_utc = times.utc.isot
 ref_tt = times.tt.isot
 ref_tdb = times.tdb.isot
+ref_tcg = times.tcg.isot
+ref_tcb = times.tcb.isot
 ref_gps = times.gps
 ref_yday = times.utc.yday
 ref_jd_utc1 = times.utc.jd1
@@ -109,13 +113,24 @@ def iso_epoch_nanos(text):
 # the instant as two doubles), so a reading can land one nanosecond apart at a
 # half-nanosecond boundary.
 TDB_LIMIT_NS = 1
+# TCG and TCB are exact linear maps of TT and TDB. astrotime evaluates them in
+# rational arithmetic, rounded once; astropy's double-precision Julian dates
+# misround about 0.5% of readings by a nanosecond (exact arithmetic sides with
+# astrotime on every one; see tests/coordinate-time.test.ts).
+COORDINATE_LIMIT_NS = 1
 
 mismatches = []
 max_tdb_error_ns = 0
 max_jd_error_seconds = 0.0
+max_coordinate_error_ns = 0
 for idx in range(N):
-    utc, tt, tdb, gps, yday, utc1, utc2, tt1, tt2 = ours[idx]
+    utc, tt, tdb, gps, yday, utc1, utc2, tt1, tt2, tcg, tcb = ours[idx]
     tdb_error_ns = abs(iso_epoch_nanos(tdb) - iso_epoch_nanos(ref_tdb[idx]))
+    coordinate_error_ns = max(
+        abs(iso_epoch_nanos(tcg) - iso_epoch_nanos(ref_tcg[idx])),
+        abs(iso_epoch_nanos(tcb) - iso_epoch_nanos(ref_tcb[idx])),
+    )
+    max_coordinate_error_ns = max(max_coordinate_error_ns, coordinate_error_ns)
     utc_jd_error = abs((utc1 - float(ref_jd_utc1[idx]) + utc2 - float(ref_jd_utc2[idx])) * 86_400)
     tt_jd_error = abs((tt1 - float(ref_jd_tt1[idx]) + tt2 - float(ref_jd_tt2[idx])) * 86_400)
     jd_error = max(utc_jd_error, tt_jd_error)
@@ -127,12 +142,13 @@ for idx in range(N):
         or yday != ref_yday[idx]
         or abs(gps - float(ref_gps[idx])) > 1e-6
         or tdb_error_ns > TDB_LIMIT_NS
+        or coordinate_error_ns > COORDINATE_LIMIT_NS
         or jd_error > 1e-9
     ):
         mismatches.append(
             (
                 cases[idx],
-                (utc, tt, tdb, gps, yday, (utc1, utc2), (tt1, tt2)),
+                (utc, tt, tdb, gps, yday, (utc1, utc2), (tt1, tt2), tcg, tcb),
                 (
                     ref_utc[idx],
                     ref_tt[idx],
@@ -141,12 +157,15 @@ for idx in range(N):
                     ref_yday[idx],
                     (float(ref_jd_utc1[idx]), float(ref_jd_utc2[idx])),
                     (float(ref_jd_tt1[idx]), float(ref_jd_tt2[idx])),
+                    ref_tcg[idx],
+                    ref_tcb[idx],
                 ),
             )
         )
 
-print(f"\ncompared {N} instants across UTC, TT, TDB, GPS, day-of-year and UTC/TT JD")
+print(f"\ncompared {N} instants across UTC, TT, TDB, TCG, TCB, GPS, day-of-year and UTC/TT JD")
 print(f"maximum TDB error: {max_tdb_error_ns} ns (limit {TDB_LIMIT_NS} ns)")
+print(f"maximum TCG/TCB error: {max_coordinate_error_ns} ns (limit {COORDINATE_LIMIT_NS} ns)")
 print(f"maximum two-part JD error: {max_jd_error_seconds:.3e} s (limit 1e-9 s)")
 print(f"mismatches: {len(mismatches)}")
 for m in mismatches[:10]:
@@ -170,9 +189,14 @@ if REPORT_PATH is not None:
                     "astropy": astropy.__version__,
                     "erfa": erfa.__version__,
                 },
-                "limits": {"tdbErrorNanos": TDB_LIMIT_NS, "julianDateErrorSeconds": 1e-9},
+                "limits": {
+                    "tdbErrorNanos": TDB_LIMIT_NS,
+                    "coordinateTimeErrorNanos": COORDINATE_LIMIT_NS,
+                    "julianDateErrorSeconds": 1e-9,
+                },
                 "observed": {
                     "maxTdbErrorNanos": max_tdb_error_ns,
+                    "maxCoordinateTimeErrorNanos": max_coordinate_error_ns,
                     "maxJulianDateErrorSeconds": max_jd_error_seconds,
                     "mismatches": len(mismatches),
                 },

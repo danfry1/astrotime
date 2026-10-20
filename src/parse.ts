@@ -33,7 +33,7 @@ export type ParseError = TimeParseError | InvalidTimeError
 
 const YEAR = String.raw`([+-]\d{4,6}|\d{4})`
 const TIME = String.raw`(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:[.,](\d{1,9}))?)?)?`
-const DESIGNATOR = String.raw`(Z|[+-]\d{2}(?::?\d{2})?| ?(?:TAI|TT|GPS|TDB))?`
+const DESIGNATOR = String.raw`(Z|[+-]\d{2}(?::?\d{2})?| ?(?:TAI|TT|GPS|TDB|TCG|TCB))?`
 const ISO_CALENDAR = new RegExp(`^${YEAR}-(\\d{2})-(\\d{2})${TIME}${DESIGNATOR}$`)
 const ISO_ORDINAL = new RegExp(`^${YEAR}-(\\d{3})${TIME}${DESIGNATOR}$`)
 const SECONDS_PER_DAY = 86_400
@@ -42,6 +42,8 @@ const LABEL_TO_SCALE: Readonly<Record<string, TimeScale>> = {
   TT: 'tt',
   GPS: 'gps',
   TDB: 'tdb',
+  TCG: 'tcg',
+  TCB: 'tcb',
 }
 
 const parseFraction = (digits: string | undefined): number =>
@@ -269,7 +271,7 @@ function compilePattern(pattern: string): Compiled {
         fields.push('Y')
         break
       case 'Z':
-        source += String.raw`(Z|TAI|TT|GPS|TDB)`
+        source += String.raw`(Z|TAI|TT|GPS|TDB|TCG|TCB)`
         fields.push('Z')
         break
       case 'D':
