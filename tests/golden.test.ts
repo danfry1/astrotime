@@ -60,9 +60,9 @@ describe('astropy golden vectors', () => {
     expect(formatIso(instant, { precision: 'nanos' })).toBe(`${row.utc}Z`)
     expect(formatInstant(instant, 'YYYY:DDD:HH:mm:ss.SSSSSSSSS')).toBe(row.yday)
 
-    // TDB: our seven-term series vs ERFA's full dtdb — agree within 10 µs,
-    // compared at full nanosecond precision (no millisecond truncation).
-    expect(tdbErrorNanos(row) <= 10_000n).toBe(true)
+    // TDB: the same full Fairhead & Bretagnon series as ERFA's dtdb, compared
+    // at full nanosecond precision; only nanosecond rounding can differ.
+    expect(tdbErrorNanos(row) <= 1n).toBe(true)
 
     expect(jdDiffSeconds(instantToJulianDateParts(instant, 'tt'), row.jdTt)).toBeLessThan(1e-9)
     // UTC JD follows the SOFA quasi-JD convention, which astropy implements too — valid on leap days as well.
@@ -82,12 +82,12 @@ describe('astropy golden vectors', () => {
     expect(instantToUtc(parseInstantOrThrow(`${row.utc}Z`)).second).toBe(60)
   })
 
-  it('TDB agrees with ERFA within 10 µs across all golden epochs', () => {
+  it('TDB agrees with ERFA within 1 ns across all golden epochs', () => {
     expect(
       rows.reduce((maximum, row) => {
         const error = tdbErrorNanos(row)
         return error > maximum ? error : maximum
       }, 0n),
-    ).toBeLessThanOrEqual(10_000n)
+    ).toBeLessThanOrEqual(1n)
   })
 })

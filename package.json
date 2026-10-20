@@ -17,6 +17,7 @@
     "dist",
     "README.md",
     "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
     "CHANGELOG.md"
   ],
   "publishConfig": {

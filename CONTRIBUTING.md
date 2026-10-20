@@ -42,6 +42,16 @@ python3 scripts/generate-golden.py > tests/fixtures/astropy-golden.json
 python3 scripts/generate-drift.py  > tests/fixtures/astropy-drift.json
 curl -sLO https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/naif0012.tls
 python3 scripts/generate-spice.py naif0012.tls > tests/fixtures/cspice-golden.json
+python3 scripts/generate-dtdb.py > tests/fixtures/erfa-dtdb.json
+```
+
+The TDB coefficient table `src/tdb-series.ts` is generated, never edited by
+hand. The generator refuses any `dtdb.c` whose SHA-256 differs from the pinned
+ERFA release, and `tests/tdb.test.ts` pins a digest of the table:
+
+```bash
+curl -sSfLO https://raw.githubusercontent.com/liberfa/erfa/v2.0.1/src/dtdb.c
+node scripts/generate-tdb-series.mjs dtdb.c > src/tdb-series.ts
 ```
 
 CI installs astropy from `scripts/requirements-differential.txt`, a hash-pinned

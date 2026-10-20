@@ -11,11 +11,11 @@ Zero-dependency spacecraft & astronomy time for TypeScript.
 
 - **Exact instants** — `bigint` nanoseconds on the TAI timeline; arithmetic never drifts, never skips, never double-counts a leap second.
 - **Leap-second-aware UTC** — `23:59:60` is a real, validated time; the IERS table ships in the box and can be replaced at runtime from `leap-seconds.list` / `Leap_Second.dat` (with `#h` integrity verification).
-- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention with an approximate TDB model — < 10 µs vs ERFA and < 30 µs vs CSPICE over 1972–2100), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
+- **Time scales** — UTC, TAI, TT, GPS, TDB; seconds since J2000 with per-scale origins (`tdb` follows the SPICE ET epoch convention and evaluates the full 787-term Fairhead & Bretagnon series — the model ERFA and astropy use, reproduced to 1e-13 s; CSPICE's simpler model differs by up to 40 µs), Julian / Modified Julian dates (single and two-part, SOFA quasi-JD for UTC), GPS week/seconds-of-week.
 - **Strict parse & format** — ISO 8601 calendar and ordinal (day-of-year / "SCET") forms with 1–9 fraction digits, UTC offsets and scale designators (`… TAI`); small token patterns (`YYYY-DDDTHH:mm:ss.SSSSSS`); ISO 8601 and clock durations.
 - **Correct by reference** — conversions are tested against [astropy](https://www.astropy.org/) (ERFA/SOFA) *and* NAIF [CSPICE](https://naif.jpl.nasa.gov/naif/toolkit.html) golden vectors: every inserted leap second since 1972 probed at ±1 ns, SPICE ET epochs, pairwise elapsed-TAI cross-checks against `naif0012.tls`, plus fast-check round-trip properties and an adversarial suite (mutable tables, negative leaps, stale data, pathological input).
 - **Deterministic** — bit-identical output on V8, JavaScriptCore *and* Hermes (no `Math.sin` variance: the TDB series uses a built-in deterministic sine), enforced by cross-engine digests in CI.
-- **Small and fast** — ~28 KB gzipped, tree-shakeable, no runtime dependencies; formatting and parsing both run at million-scale operations per second in the repository benchmark (machine-dependent, so run `bun run bench` for a relevant number). CI-verified on Node ≥ 22, Bun, and Hermes (React Native ≥ 0.70, where BigInt became available) — the Hermes check runs the real engine after the same Babel transform Metro applies. Plain ES2022 with zero dependencies, so browsers and Deno are supported targets too.
+- **Small and fast** — ~44 KB gzipped (a third of it the TDB coefficient table), tree-shakeable, no runtime dependencies; formatting and parsing both run at million-scale operations per second in the repository benchmark (machine-dependent, so run `bun run bench` for a relevant number). CI-verified on Node ≥ 22, Bun, and Hermes (React Native ≥ 0.70, where BigInt became available) — the Hermes check runs the real engine after the same Babel transform Metro applies. Plain ES2022 with zero dependencies, so browsers and Deno are supported targets too.
 
 ```ts
 import { parseInstantOrThrow, formatIso, formatOrdinal, durationBetween, durationToSeconds } from 'astrotime'
@@ -302,7 +302,7 @@ import {
   instantToCivil, J2000_INSTANT, GPS_EPOCH_INSTANT,
 } from 'astrotime'
 
-instantToJ2000Seconds(i, 'tdb')       // 840414965.97… — SPICE ET epoch convention (approximate TDB: < 10 µs vs ERFA, < 30 µs vs CSPICE, 1972–2100)
+instantToJ2000Seconds(i, 'tdb')       // 840414965.97… — SPICE ET epoch convention (full Fairhead & Bretagnon TDB, as ERFA; CSPICE's model differs by < 40 µs)
 instantToJ2000Seconds(i, 'tt')
 instantFromJ2000Seconds(8.4e8, 'tdb')
 
@@ -324,9 +324,15 @@ stated scale is a bug waiting to happen. UTC Julian dates follow the SOFA/ERFA
 quasi-JD convention (a leap-second day is 86 401 s long), so they are monotonic
 and match astropy on leap days.
 
-Definitions: TT = TAI + 32.184 s; GPS = TAI − 19 s; TDB = TT + the seven-term
-Fairhead & Bretagnon truncation (USNO Circular 179 eq. 2.6,
-< 10 µs vs ERFA's full series, 1972–2100).
+Definitions: TT = TAI + 32.184 s; GPS = TAI − 19 s; TDB = TT + the full
+787-term Fairhead & Bretagnon (1990) series in ERFA's `dtdb` form, with ERFA's
+JPL-mass adjustments. It reproduces ERFA within 1e-13 s (1600–2500) and
+matches astropy to the nanosecond over a 100 000-epoch sweep; ERFA states
+±3 ns against the DE405 time ephemeris over 1950–2050. The series is
+**geocentric**: the topocentric term for an observer on the Earth's surface
+(up to ~2 µs) is not applied, as in astropy for a `Time` without a location.
+Summing 787 terms makes a TDB conversion cost a few microseconds; the other
+scales are integer offsets.
 
 TAI, TT and GPS integer-nanosecond conversions are exact inverses. TDB's
 periodic offset varies continuously, so its two integer-nanosecond lattices

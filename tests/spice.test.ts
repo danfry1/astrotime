@@ -11,8 +11,12 @@ import spice from './fixtures/cspice-golden.json' with { type: 'json' }
 type Row = { utc: string; et: number; taiSinceEt0: number }
 
 const rows = spice.rows as Row[]
-/** CSPICE uses a different truncated TDB model; the two agree within 30 µs. */
-const SERIES_TOLERANCE_SECONDS = 3e-5
+/**
+ * CSPICE evaluates TDB with its own one-term model (K·sin E). Against the full
+ * Fairhead & Bretagnon series the two differ by up to 36.53 µs over 1972–2100
+ * (measured on a half-day grid with naif0012.tls), so 40 µs is the bound.
+ */
+const SERIES_TOLERANCE_SECONDS = 4e-5
 /** Float comparison slack for values ~1e9 s (double ULP ~1.2e-7 s). */
 const DOUBLE_TOLERANCE_SECONDS = 1e-6
 
