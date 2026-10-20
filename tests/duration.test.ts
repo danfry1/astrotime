@@ -180,6 +180,12 @@ describe('parseDuration', () => {
     ['PT1.5H30M', 'only the last component may have a fraction'],
     ['12:60', 'minutes must be 0–59'],
     ['12:00:60', 'seconds must be 0–59'],
+    ['1T24:00:00', 'hours must be 0–23 after a day count'],
+    ['-1 36:00:00', 'hours must be 0–23 after a day count'],
+    [
+      'P9999999999999999D',
+      'exceeds Number.MAX_SAFE_INTEGER days, the largest duration that can be formatted',
+    ],
     ['abc', 'expected ISO 8601 (P…T…) or clock (HH:mm:ss) duration'],
     ['', 'expected ISO 8601 (P…T…) or clock (HH:mm:ss) duration'],
   ])('rejects %j', (text, reason) => {
@@ -194,6 +200,32 @@ describe('parseDuration', () => {
       format: 'duration',
     })
     expect(() => parseDurationOrThrow(text)).toThrow(TimeParseError)
+  })
+})
+
+describe('parseDuration range', () => {
+  it('rejects a parsed duration too large to format', () => {
+    // 'P9999999999999999D' parsed, and then String(), JSON.stringify and
+    // formatDuration all threw on the value it returned.
+    const limit = `P${String(Number.MAX_SAFE_INTEGER)}D`
+    const largest = parseDurationOrThrow(limit)
+    expect(String(largest)).toBe(limit)
+    expect(formatDuration(negateDuration(largest))).toBe(`-${limit}`)
+    for (const text of [
+      `P${String(Number.MAX_SAFE_INTEGER + 1)}D`,
+      `PT${String(BigInt(Number.MAX_SAFE_INTEGER + 1) * 24n)}H`,
+      `-P${String(Number.MAX_SAFE_INTEGER)}DT24H`,
+      `${String(BigInt(Number.MAX_SAFE_INTEGER + 1) * 24n)}:00:00`,
+    ])
+      expect(parseDuration(text).ok).toBe(false)
+    expect(parseDuration(`-P${String(Number.MAX_SAFE_INTEGER)}DT23H59M59.999999999S`).ok).toBe(true)
+  })
+
+  it('limits clock hours to 0–23 after a day count', () => {
+    // '1T36:00:00' read as P2DT12H; without a day count hours stay unbounded.
+    expect(parseDuration('1T36:00:00').ok).toBe(false)
+    expect(formatDuration(parseDurationOrThrow('1T23:59:59'))).toBe('P1DT23H59M59S')
+    expect(formatDuration(parseDurationOrThrow('36:00:00'))).toBe('P1DT12H')
   })
 })
 

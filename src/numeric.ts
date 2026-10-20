@@ -77,10 +77,12 @@ const TWO_PI_LO = 2.449293598294706e-16
 const INV_TWO_PI = 0.15915494309189535
 
 /**
- * sin(x) for |x| ≤ ~1e9 rad, deterministic across JS engines, absolute error
- * < 1e-13 after reduction (argument-reduction error grows as |x|·2.4e-16 —
- * over the validated 1972–2100 TDB interval, where |x| < 1e4, the total error
- * stays below 1e-11, i.e. < 0.02 ns of TDB offset).
+ * sin(x) for |x| ≤ ~1e9 rad, deterministic across JS engines. The absolute
+ * error is ≈ 6.0e-12, set by truncating the Taylor series (below); argument
+ * reduction adds up to ~|x|·2.4e-16 on top. Over the validated 1972–2100 TDB
+ * interval, where |x| < 1e4, the measured maximum against Math.sin stays at
+ * 6.0e-12; scaled by the ~0.0017 s total amplitude of the TDB series that is
+ * ~1e-14 s (1e-5 ns) of TDB offset, far below the 1 ns output resolution.
  */
 export function deterministicSin(x: number): number {
   // Cody–Waite reduction: x − k·2π with 2π split into exact-product halves.
@@ -94,7 +96,10 @@ export function deterministicSin(x: number): number {
   } else if (r < -HALF_PI) {
     r = -TWO_PI_HI / 2 - r
   }
-  // Taylor series to x^15: max error ~4e-15 on [−π/2, π/2].
+  // Taylor series to x^15. On [−π/2, π/2] the truncation error peaks at the
+  // ends, where the first omitted term (π/2)^17/17! ≈ 6.07e-12 dominates
+  // (measured max |error| 6.02e-12). The coefficients are part of the
+  // cross-engine conformance digest, so improving them changes that digest.
   const r2 = r * r
   return (
     r *
@@ -111,3 +116,10 @@ export function deterministicSin(x: number): number {
                         (-1 / 39_916_800 + r2 * (1 / 6_227_020_800 - r2 / 1_307_674_368_000)))))))
   )
 }
+
+/**
+ * cos(x) as sin(x + π/2), deterministic across JS engines. Adding π/2 rounds
+ * by at most half an ulp of the sum, so for the reduced arguments the series
+ * pass in (|x| < ~200 rad) this adds < 3e-14 to the sine's own error.
+ */
+export const deterministicCos = (x: number): number => deterministicSin(x + Math.PI / 2)

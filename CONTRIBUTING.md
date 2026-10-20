@@ -54,6 +54,17 @@ curl -sSfLO https://raw.githubusercontent.com/liberfa/erfa/v2.0.1/src/dtdb.c
 node scripts/generate-tdb-series.mjs dtdb.c > src/tdb-series.ts
 ```
 
+The nutation tables `src/nutation-series.ts` are generated the same way, and
+`tests/nutation.test.ts` pins their digest:
+
+```bash
+for f in nut00a eect00; do curl -sSfLO https://raw.githubusercontent.com/liberfa/erfa/v2.0.1/src/$f.c; done
+node scripts/generate-nutation-series.mjs nut00a.c eect00.c > src/nutation-series.ts
+python3 scripts/generate-nutation.py > tests/fixtures/erfa-nutation.json
+python3 scripts/generate-topocentric.py > tests/fixtures/astropy-topocentric.json
+python3 scripts/generate-earth-orientation.py tests/fixtures/finals2000A-excerpt.txt > tests/fixtures/earth-orientation.json
+```
+
 CI installs astropy from `scripts/requirements-differential.txt`, a hash-pinned
 set generated with `uv pip compile --generate-hashes`, so every wheel behind the
 differential sweep is verified before it runs. Regenerate that file whenever the

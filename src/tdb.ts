@@ -33,12 +33,13 @@ function blockSum(first: number, end: number, t: number): number {
  * Geocentric TDB − TT in seconds for a TT time expressed as days since J2000:
  * the full 787-term Fairhead & Bretagnon (1990) series with ERFA's JPL-mass
  * adjustments, evaluated in ERFA `dtdb`'s term order with the observer terms
- * zeroed (as astropy does for a `Time` without a location). ERFA quotes
+ * supplied separately as `topocentric` (zero for the geocentre, as astropy
+ * uses for a `Time` without a location). ERFA quotes
  * ±3 ns absolute accuracy against DE405 over 1950–2050. Identical to ERFA
  * within ±10 000 years of J2000; beyond that the polynomial factors are held
  * (see `POLYNOMIAL_LIMIT_MILLENNIA`), where neither form is physical.
  */
-export function fairheadBretagnonTdbMinusTt(daysSinceJ2000Tt: number): number {
+export function fairheadBretagnonTdbMinusTt(daysSinceJ2000Tt: number, topocentric = 0): number {
   const t = daysSinceJ2000Tt / DAYS_PER_MILLENNIUM
   const [t0, t1, t2, t3, t4, end] = FAIRHEAD_BRETAGNON_BLOCKS
   const w0 = blockSum(t0, t1, t)
@@ -55,5 +56,6 @@ export function fairheadBretagnonTdbMinusTt(daysSinceJ2000Tt: number): number {
     -0.001_96e-6 * deterministicSin(6208.294_251 * t + 5.696_701) +
     -0.001_73e-6 * deterministicSin(74.781_599 * t + 2.4359) +
     0.036_38e-6 * p * p
-  return series + jpl
+  // ERFA's grouping, (topocentric + series) + jpl; exactly series + jpl when geocentric.
+  return topocentric + series + jpl
 }

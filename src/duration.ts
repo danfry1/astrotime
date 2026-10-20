@@ -177,6 +177,28 @@ const CLOCK_DURATION =
 
 const FORMAT_NAME = 'duration'
 
+/**
+ * A parsed duration must be one the library can then render: `String()`,
+ * `JSON.stringify` and `formatDuration` all decompose into safe-integer days
+ * and throw past `MAX_COMPONENT_DAYS`, so that bound is the parser's too.
+ */
+function finishDuration(
+  text: string,
+  sign: string | undefined,
+  nanos: bigint,
+): Result<Duration, TimeParseError> {
+  if (nanos / NANOS_PER_DAY > MAX_COMPONENT_DAYS) {
+    return err(
+      new TimeParseError(
+        text,
+        'exceeds Number.MAX_SAFE_INTEGER days, the largest duration that can be formatted',
+        FORMAT_NAME,
+      ),
+    )
+  }
+  return ok(makeDuration(sign === '-' ? -nanos : nanos))
+}
+
 function isoComponent(
   whole: string | undefined,
   fraction: string | undefined,
@@ -195,7 +217,11 @@ function isoComponent(
  *   and a leading sign are both accepted. Year/month designators are
  *   rejected (not fixed-length).
  * - Clock: `HH:mm[:ss[.fraction]]` with optional day-count prefix `D[T ]`, e.g.
- *   `02:03:04.005`, `36:00:00`, `1T02:03:04`, `-1 12:00:00`.
+ *   `02:03:04.005`, `36:00:00`, `1T02:03:04`, `-1 12:00:00`. Hours are
+ *   unbounded alone and 0–23 after a day count, which already holds the days.
+ *
+ * The result must be formattable: past `Number.MAX_SAFE_INTEGER` days it is
+ * rejected, since `formatDuration` and `String()` would throw on it.
  */
 export function parseDuration(text: string): Result<Duration, TimeParseError> {
   const iso = ISO_DURATION.exec(text)
@@ -233,7 +259,7 @@ export function parseDuration(text: string): Result<Duration, TimeParseError> {
       isoComponent(h, hf, NANOS_PER_HOUR) +
       isoComponent(m, mf, NANOS_PER_MINUTE) +
       isoComponent(s, sf, NANOS_PER_SECOND)
-    return ok(makeDuration(sign === '-' ? -nanos : nanos))
+    return finishDuration(text, sign, nanos)
   }
   if (/^[+-]?P/.test(text)) {
     const datePart = text.split('T')[0] ?? ''
@@ -245,6 +271,9 @@ export function parseDuration(text: string): Result<Duration, TimeParseError> {
   const clock = CLOCK_DURATION.exec(text)
   if (clock !== null) {
     const [, sign, days, hours, minutes, seconds, fraction] = clock
+    // '1T36:00:00' would otherwise silently read as P2DT12H.
+    if (days !== undefined && Number(hours) > 23)
+      return err(new TimeParseError(text, 'hours must be 0–23 after a day count', FORMAT_NAME))
     if (Number(minutes) > 59)
       return err(new TimeParseError(text, 'minutes must be 0–59', FORMAT_NAME))
     if (seconds !== undefined && Number(seconds) > 59) {
@@ -256,7 +285,7 @@ export function parseDuration(text: string): Result<Duration, TimeParseError> {
       BigInt(minutes ?? '0') * NANOS_PER_MINUTE +
       (seconds === undefined ? 0n : BigInt(seconds) * NANOS_PER_SECOND) +
       fractionToNanos(fraction ?? '', NANOS_PER_SECOND)
-    return ok(makeDuration(sign === '-' ? -nanos : nanos))
+    return finishDuration(text, sign, nanos)
   }
   return err(
     new TimeParseError(text, 'expected ISO 8601 (P…T…) or clock (HH:mm:ss) duration', FORMAT_NAME),

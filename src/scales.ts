@@ -7,6 +7,7 @@ import {
   type CivilFields,
   assertSupportedCivilRange,
   civilFromUnixSeconds,
+  deltaAt,
   type Instant,
   instantFromResolvedUtc,
   instantFromTaiNanos,
@@ -18,7 +19,12 @@ import {
   resolveCivilFields,
   type UtcOptions,
 } from './instant.js'
-import { IERS_LEAP_SECONDS, leapEntryIndexForUnix, PRE_1972_DELTA_AT } from './leap-seconds.js'
+import {
+  IERS_LEAP_SECONDS,
+  type LeapSecondTable,
+  leapEntryIndexForUnix,
+  PRE_1972_DELTA_AT,
+} from './leap-seconds.js'
 import { assertSafeInteger, floorDiv, fromNanos, toNanos } from './numeric.js'
 import {
   tcbNanosFromTt,
@@ -26,6 +32,7 @@ import {
   tdbNanosFromTcb,
   ttNanosFromTcg,
 } from './coordinate-time.js'
+import { topocentricFrom, topocentricTdbMinusTt, type Topocentric } from './observer.js'
 import { assertOptionsObject } from './options.js'
 import { err, ok, type Result } from './result.js'
 import { fairheadBretagnonTdbMinusTt } from './tdb.js'
@@ -37,8 +44,8 @@ import { fairheadBretagnonTdbMinusTt } from './tdb.js'
  * - `tt`  — Terrestrial Time = TAI + 32.184 s.
  * - `gps` — GPS time = TAI − 19 s.
  * - `tdb` — Barycentric Dynamical Time ≈ TT + periodic terms (≤ 1.7 ms):
- *           the full geocentric Fairhead & Bretagnon series, reproducing
- *           ERFA `dtdb` within 1e-13 s.
+ *           the full Fairhead & Bretagnon series, reproducing ERFA `dtdb`
+ *           within 1e-13 s; geocentric unless `observer` is given.
  * - `tcg` — Geocentric Coordinate Time: TT = TCG − L_G (TCG − T0), exact.
  * - `tcb` — Barycentric Coordinate Time: TDB = TCB − L_B (TCB − T0) + TDB0,
  *           exact from TDB (IAU 2006 Resolution B3).
@@ -91,6 +98,7 @@ const J2000_NANOS_FROM_1970 = BigInt(J2000_SECONDS_FROM_1970) * NANOS_PER_SECOND
 /** GPS epoch 1980-01-06T00:00:00 (GPS = UTC at that instant). */
 const GPS_EPOCH_NANOS = BigInt(daysFromCivil(1980, 1, 6) * SECONDS_PER_DAY) * NANOS_PER_SECOND
 const NANOS_PER_WEEK = 7n * NANOS_PER_DAY
+const SECONDS_PER_WEEK = 604_800
 /** Covers the documented civil range, years −999 999 through +999 999. */
 const TDB_MAX_ABS_CENTURIES = 10_020
 
@@ -102,28 +110,57 @@ export const J2000_INSTANT: Instant = instantFromTaiNanos(
 export const GPS_EPOCH_INSTANT: Instant = instantFromTaiNanos(GPS_EPOCH_NANOS - GPS_MINUS_TAI_NANOS)
 
 /**
- * TDB − TT in seconds for a TT time expressed as days since J2000: the full
- * Fairhead & Bretagnon series (see `./tdb.ts`), geocentric.
+ * Where TDB is read: `null` for the geocentre, or an Earth-fixed observer and
+ * the leap-second table that places the observer's UTC time of day.
  */
-function tdbMinusTt(daysSinceJ2000Tt: number): number {
-  const centuries = daysSinceJ2000Tt / 36_525
+type Site = {
+  readonly topo: Topocentric
+  readonly leapSeconds: LeapSecondTable | undefined
+} | null
+
+/** The site an options object names, validating `observer` (a RangeError when malformed). */
+function siteFrom(options: UtcOptions): Site {
+  const topo = topocentricFrom(options.observer)
+  return topo === null ? null : { topo, leapSeconds: options.leapSeconds }
+}
+
+/** Fraction of the UTC day at a TT reading, for the topocentric terms. */
+function utcDayFraction(ttNanos: bigint, leapSeconds: LeapSecondTable | undefined): number {
+  const tai = ttNanos - TT_MINUS_TAI_NANOS
+  const offset = deltaAt(instantFromTaiNanos(tai), { leapSeconds })
+  const unix = tai - BigInt(offset) * NANOS_PER_SECOND
+  return Number(unix - floorDiv(unix, NANOS_PER_DAY) * NANOS_PER_DAY) / Number(NANOS_PER_DAY)
+}
+
+/**
+ * TDB − TT in seconds at a TT reading: the full Fairhead & Bretagnon series
+ * (see `./tdb.ts`), plus the topocentric terms when `site` names an observer.
+ */
+function tdbMinusTt(ttNanos: bigint, site: Site): number {
+  const days = Number(ttNanos - J2000_NANOS_FROM_1970) / 86_400e9
+  const centuries = days / 36_525
   if (!Number.isFinite(centuries) || Math.abs(centuries) > TDB_MAX_ABS_CENTURIES) {
     throw new RangeError('TDB model is outside the supported ±999999-year civil range')
   }
-  return fairheadBretagnonTdbMinusTt(daysSinceJ2000Tt)
+  const topocentric =
+    site === null
+      ? 0
+      : topocentricTdbMinusTt(site.topo, days / 365_250, utcDayFraction(ttNanos, site.leapSeconds))
+  return fairheadBretagnonTdbMinusTt(days, topocentric)
 }
 
 /** The unrounded TDB − TT offset in femtoseconds, for single-rounding TCB. */
-const tdbOffsetFemtos = (ttNanos: bigint): bigint =>
-  BigInt(Math.round(tdbMinusTt(Number(ttNanos - J2000_NANOS_FROM_1970) / 86_400e9) * 1e15))
+const tdbOffsetFemtos = (ttNanos: bigint, site: Site): bigint =>
+  BigInt(Math.round(tdbMinusTt(ttNanos, site) * 1e15))
 
-const tdbOffsetNanos = (ttNanos: bigint): bigint =>
-  BigInt(Math.round(tdbMinusTt(Number(ttNanos - J2000_NANOS_FROM_1970) / 86_400e9) * 1e9))
+const tdbOffsetNanos = (ttNanos: bigint, site: Site): bigint =>
+  BigInt(Math.round(tdbMinusTt(ttNanos, site) * 1e9))
 
-const tdbNanosFromTt = (ttNanos: bigint): bigint => ttNanos + tdbOffsetNanos(ttNanos)
+const tdbNanosFromTt = (ttNanos: bigint, site: Site): bigint =>
+  ttNanos + tdbOffsetNanos(ttNanos, site)
 
-const tcbNanosFromTtReading = (ttNanos: bigint): bigint =>
-  tcbNanosFromTt(ttNanos, tdbOffsetFemtos(ttNanos))
+const tcbNanosFromTtReading = (ttNanos: bigint, site: Site): bigint =>
+  tcbNanosFromTt(ttNanos, tdbOffsetFemtos(ttNanos, site))
 
 /**
  * TT reading whose TCB reading is closest to `tcbNanos`. TT → TCB always runs
@@ -132,29 +169,43 @@ const tcbNanosFromTtReading = (ttNanos: bigint): bigint =>
  * first estimate against the actual forward map makes instant → TCB → instant
  * exact. A reading between two TT nanoseconds' readings resolves to the nearer.
  */
-function ttNanosFromTcb(tcbNanos: bigint): bigint {
-  let tt = ttNanosFromTdb(tdbNanosFromTcb(tcbNanos))
-  for (let step = 0; step < 8 && tcbNanosFromTtReading(tt) > tcbNanos; step += 1) tt -= 1n
-  for (let step = 0; step < 8 && tcbNanosFromTtReading(tt + 1n) <= tcbNanos; step += 1) tt += 1n
+function ttNanosFromTcb(tcbNanos: bigint, site: Site): bigint {
+  // Each reading sums the 787-term TDB series; the search revisits the same
+  // TT values, so evaluate each once.
+  const readings = new Map<bigint, bigint>()
+  const reading = (tt: bigint): bigint => {
+    let value = readings.get(tt)
+    if (value === undefined) {
+      value = tcbNanosFromTtReading(tt, site)
+      readings.set(tt, value)
+    }
+    return value
+  }
+  // A starting estimate within a few nanoseconds is enough: the search below
+  // settles it against the forward map.
+  const tdb = tdbNanosFromTcb(tcbNanos)
+  let tt = tdb - tdbOffsetNanos(tdb, site)
+  for (let step = 0; step < 8 && reading(tt) > tcbNanos; step += 1) tt -= 1n
+  for (let step = 0; step < 8 && reading(tt + 1n) <= tcbNanos; step += 1) tt += 1n
   // Now reading(tt) ≤ tcbNanos < reading(tt + 1); keep the nearer, ties low.
-  const below = tcbNanos - tcbNanosFromTtReading(tt)
-  const above = tcbNanosFromTtReading(tt + 1n) - tcbNanos
+  const below = tcbNanos - reading(tt)
+  const above = reading(tt + 1n) - tcbNanos
   return above < below ? tt + 1n : tt
 }
 
-function ttNanosFromTdb(tdbNanos: bigint): bigint {
+function ttNanosFromTdb(tdbNanos: bigint, site: Site): bigint {
   // Correct the inverse against the actual integer-nanosecond forward map.
   // One substitution is enough near the modern era, but at expanded years
   // Number's coarser argument lattice can leave a one-nanosecond residual.
   // Keep the closest candidate when rounding makes a TDB nanosecond fall in
   // a gap between two representable TT readings.
-  let candidate = tdbNanos - tdbOffsetNanos(tdbNanos)
+  let candidate = tdbNanos - tdbOffsetNanos(tdbNanos, site)
   let best = candidate
-  let error = tdbNanos - tdbNanosFromTt(candidate)
+  let error = tdbNanos - tdbNanosFromTt(candidate, site)
   let bestError = error
   for (let iteration = 0; iteration < 8 && error !== 0n; iteration += 1) {
     candidate += error
-    error = tdbNanos - tdbNanosFromTt(candidate)
+    error = tdbNanos - tdbNanosFromTt(candidate, site)
     const absoluteError = error < 0n ? -error : error
     const absoluteBestError = bestError < 0n ? -bestError : bestError
     if (absoluteError < absoluteBestError) {
@@ -175,6 +226,7 @@ export function instantToScaleNanos(
   options: UtcOptions = {},
 ): bigint {
   assertOptionsObject(options, 'instantToScaleNanos')
+  const site = siteFrom(options)
   switch (scale) {
     case 'tai':
       return instant.taiNanos
@@ -183,11 +235,11 @@ export function instantToScaleNanos(
     case 'gps':
       return instant.taiNanos + GPS_MINUS_TAI_NANOS
     case 'tdb':
-      return tdbNanosFromTt(instant.taiNanos + TT_MINUS_TAI_NANOS)
+      return tdbNanosFromTt(instant.taiNanos + TT_MINUS_TAI_NANOS, site)
     case 'tcg':
       return tcgNanosFromTt(instant.taiNanos + TT_MINUS_TAI_NANOS)
     case 'tcb':
-      return tcbNanosFromTtReading(instant.taiNanos + TT_MINUS_TAI_NANOS)
+      return tcbNanosFromTtReading(instant.taiNanos + TT_MINUS_TAI_NANOS, site)
     case 'utc':
       return instantToUnixNanos(instant, options)
     default:
@@ -215,6 +267,7 @@ export function instantFromScaleNanos(
   options: UtcOptions = {},
 ): Instant {
   assertOptionsObject(options, 'instantFromScaleNanos')
+  const site = siteFrom(options)
   switch (scale) {
     case 'tai':
       return instantFromTaiNanos(nanos)
@@ -223,11 +276,11 @@ export function instantFromScaleNanos(
     case 'gps':
       return instantFromTaiNanos(nanos - GPS_MINUS_TAI_NANOS)
     case 'tdb':
-      return instantFromTaiNanos(ttNanosFromTdb(nanos) - TT_MINUS_TAI_NANOS)
+      return instantFromTaiNanos(ttNanosFromTdb(nanos, site) - TT_MINUS_TAI_NANOS)
     case 'tcg':
       return instantFromTaiNanos(ttNanosFromTcg(nanos) - TT_MINUS_TAI_NANOS)
     case 'tcb':
-      return instantFromTaiNanos(ttNanosFromTcb(nanos) - TT_MINUS_TAI_NANOS)
+      return instantFromTaiNanos(ttNanosFromTcb(nanos, site) - TT_MINUS_TAI_NANOS)
     case 'utc':
       return instantFromUnixNanos(nanos, options)
     default:
@@ -263,9 +316,10 @@ export const instantFromScaleSeconds = (
  * Seconds since 2000-01-01T12:00:00 **as read on `scale`'s own clock** — the
  * standard per-scale J2000 origin. `instantToJ2000Seconds(i, 'tdb')` follows
  * the SPICE ephemeris-time convention (ET = 0 at 2000-01-01T12:00:00 TDB) but
- * uses the full geocentric Fairhead & Bretagnon TDB−TT series (ERFA `dtdb`,
- * ±3 ns against the DE405 time ephemeris over 1950–2050 per ERFA; topocentric
- * terms of up to ~2 µs are not applied). CSPICE's own one-term model differs
+ * uses the full Fairhead & Bretagnon TDB−TT series (ERFA `dtdb`, ±3 ns
+ * against the DE405 time ephemeris over 1950–2050 per ERFA), geocentric unless
+ * `options.observer` adds the topocentric terms (up to ~2.1 µs). CSPICE's own
+ * one-term model differs
  * from it by up to 40 µs over 1972–2100, so values match SPICE ET only to that
  * tolerance. `'tt'` gives TT seconds
  * past the IAU J2000.0 epoch, exactly. Origins of different scales differ by
@@ -478,11 +532,15 @@ export function instantToGpsWeek(instant: Instant): GpsWeek {
   }
 }
 
-/** Instant from a safe-integer GPS week and fractional seconds of week in `[0, 604800)`. */
+/**
+ * Instant from a safe-integer GPS week and fractional seconds of week in
+ * `[0, 604800)`. The range applies to the value given: one just below 604800
+ * that rounds to a whole week at nanosecond resolution carries into the next.
+ */
 export function instantFromGpsWeek(week: number, secondsOfWeek: number): Instant {
   assertSafeInteger(week, 'GPS week')
   const secondsNanos = toNanos(secondsOfWeek, NANOS_PER_SECOND, 'GPS seconds of week')
-  if (secondsNanos < 0n || secondsNanos >= NANOS_PER_WEEK) {
+  if (secondsOfWeek < 0 || secondsOfWeek >= SECONDS_PER_WEEK) {
     throw new RangeError(
       `GPS seconds of week must be between 0 (inclusive) and 604800 (exclusive), got ${String(secondsOfWeek)}`,
     )

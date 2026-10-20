@@ -17,7 +17,7 @@ qualified implementations.
 | Reference-implementation golden vectors (astropy/ERFA, NAIF CSPICE) | `tests/golden.test.ts`, `tests/drift.test.ts`, `tests/spice.test.ts` |
 | Property-based round-trip invariants over the documented range | `tests/properties.test.ts` |
 | Adversarial suite (mutable/partial/fabricated tables, negative leaps, pathological input) | `tests/adversarial.test.ts` |
-| Cross-engine bit-identity over 175k outputs: V8, JSC, Hermes (the React Native engine, via the Metro-style Babel transform) and SpiderMonkey (the Firefox engine, in Mozilla's SHA-256-pinned js shell) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, `scripts/conformance-spidermonkey.sh`, CI `conformance` job + scheduled workflow |
+| Cross-engine bit-identity over 195k outputs, nutation included: V8, JSC, Hermes (the React Native engine, via the Metro-style Babel transform) and SpiderMonkey (the Firefox engine, in Mozilla's SHA-256-pinned js shell) | `scripts/conformance.mjs`, `scripts/conformance-hermes.sh`, `scripts/conformance-spidermonkey.sh`, CI `conformance` job + scheduled workflow |
 | Requirements-to-tests traceability, enforced in CI | `REQUIREMENTS.md`, `scripts/check-traceability.mjs` |
 | Mutation testing, with survivor analysis | `stryker.config.json`, scores below |
 | Large-scale differential sweep vs astropy (100 000 random instants, monthly + on demand) | `scripts/differential.py`, `.github/workflows/differential.yml` |
@@ -57,6 +57,27 @@ exercise time behavior).
 |---|---|---|---|
 | 0.7.0 | 86.60% (2148 mutants, Stryker 9.6.1) | `leap-seconds.ts` 75.11% | `sha1.ts` 95.96%, `parse.ts` 93.18%, `duration.ts` 92.92% |
 | Unreleased audit | 85.46% (3308 mutants, Stryker 10.0.0) | `options.ts` 30.30%*, `calendar.ts` 70.06% | `result.ts` 100%, `sha1.ts` 95.95%, `duration.ts` 92.86%; high-consequence `leap-seconds.ts` 91.16% |
+
+**New physical-model modules (Unreleased).** Measured with Stryker 10.0.0 on
+the modules added for TDB, TCG/TCB, Earth orientation, nutation and the
+observer:
+
+| Module | Score | Survivors and their analysis |
+|---|---|---|
+| `tdb.ts` | 100% | none |
+| `observer.ts` | 100% | none |
+| `earth-orientation.ts` | 98.24% | 3 validation-cache shortcuts (performance only; equivalent); 3 on the t⁵ coefficient of the GMST polynomial (≈ 5e-17 rad over the tested dates, below double resolution); 1 static-runner report |
+| `coordinate-time.ts` | 97.50% | `−65_500n` → `+65_500n` is not valid JavaScript (unary `+` on a BigInt throws at load); reproduced directly, the plain sign flip fails three tests |
+| `nutation.ts` | 95.76% | 12 on the t³/t⁴ coefficients of the fundamental-argument polynomials, which move Δψ by ≲ 1e-16 rad over 1800–2200 — at the limit of double resolution, below the 1e-14 rad test bound and the 4.9e-16 rad measured agreement |
+
+The first campaign on these modules scored 92.03% and its survivors were not
+dismissed: the Earth-orientation ones exposed missing tests (the prediction
+flag across the observed-to-predicted boundary, duplicate days, a custom
+leap-second table, half-frozen tables, individual date columns, Bulletin B
+fields, boundary values and error text), and the observer ones exposed
+sub-nanosecond terms that nanosecond readings cannot see — now verified in
+seconds against ERFA `gd2gc` and `dtdb`. Redundant checks the equivalent
+mutants pointed to were removed rather than kept.
 
 **Coverage ceilings, honestly.** Two modules cannot reach 100% branch
 coverage and are not defects:

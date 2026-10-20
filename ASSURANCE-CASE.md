@@ -38,8 +38,8 @@ a separately qualified implementation.
 2. The adopter selects a documented UTC data-validity policy rather than
    assuming future UTC is known.
 3. The leap-second table is monitored, reviewed and updated before expiry.
-4. The adopter does not interpret pre-1972 UTC as exact, or geocentric TDB as
-   a topocentric (observer-on-Earth) reading.
+4. The adopter does not interpret pre-1972 UTC as exact, and supplies
+   `observer` wherever TDB must be a topocentric (observer-on-Earth) reading.
 5. The supported runtime and platform are tested in the integrated system.
 6. The system hazard analysis determines whether timestamps can command,
    inhibit or otherwise contribute to a hazardous action.
@@ -52,11 +52,13 @@ a separately qualified implementation.
   can be rejected.
 - UTC after the bundled table's expiry is unknown; permissive use is explicit
   and can be rejected.
-- TDB uses the full geocentric Fairhead & Bretagnon series. Its
+- TDB uses the full Fairhead & Bretagnon series, geocentric unless an
+  Earth-fixed `observer` is given (then with ERFA's topocentric terms). Its
   integer-lattice inverse has at most 1 ns numerical round-trip error. Model
   fidelity is separately bounded to 1e-13 s against ERFA `dtdb` (1600–2500)
   and 1 ns against astropy readings; physical accuracy is ERFA's stated ±3 ns
-  against DE405 over 1950–2050, excluding the topocentric term (up to ~2 µs).
+  against DE405 over 1950–2050; omitting `observer` omits the topocentric
+  term (up to ~2.1 µs).
   CSPICE's one-term model differs from it by up to 40 microseconds.
 - Single-number Julian dates have ordinary IEEE-754 resolution limits. The
   two-part API exists for nanosecond preservation.

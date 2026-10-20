@@ -28,7 +28,8 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   table from `leap-seconds.list` (IANA/NIST) or `Leap_Second.dat` (IERS) via
   `parseLeapSecondsList`. No global mutable state.
 - Scales: `utc | tai | tt | gps | tdb | tcg | tcb`. TT = TAI + 32.184 s; GPS = TAI − 19 s;
-  TDB = TT + the full 787-term geocentric Fairhead & Bretagnon series (ERFA `dtdb`, reproduced to 1e-13 s;
+  TDB = TT + the full 787-term Fairhead & Bretagnon series (ERFA `dtdb`, reproduced to 1e-13 s), geocentric unless
+  `UtcOptions.observer` names an Earth-fixed WGS84 site, which adds ERFA's topocentric terms (`src/observer.ts`;
   coefficients generated from a hash-pinned ERFA source by `scripts/generate-tdb-series.mjs`).
   TCG and TCB follow their IAU definitions (2000 B1.9, 2006 B3) in exact rational bigint arithmetic, rounded once
   (`src/coordinate-time.ts`); TCB takes TT plus the unrounded TDB offset. Both inverses are exact from any instant.
@@ -36,7 +37,9 @@ GPS / TDB scales, Julian dates, and strict parse/format for ISO-8601, ordinal
   reached through functions that take an `EarthOrientationTable` parsed from IERS `finals2000A` and return a
   `Result` (data has a finite span). UT1 − TAI is interpolated (continuous across leap seconds), four-point Lagrange
   by default within runs of consecutive days; ERA is evaluated in exact rational bigint arithmetic on UT1 in
-  femtoseconds; GMST is IAU 2006.
+  femtoseconds; GMST is IAU 2006. GAST adds the IAU 2006/2000A equation of the equinoxes (`src/nutation.ts`:
+  nut06a, obl06 and eect00 ported term for term from tables generated from hash-pinned ERFA sources by
+  `scripts/generate-nutation-series.mjs`, marked `@__PURE__` so bundlers drop them when unused).
 - Leap-second semantics: UTC `23:59:60` is representable and valid only when the
   table has a positive leap at that boundary. `instantToUnixMillis` follows POSIX:
   the leap second repeats the following second's Unix value. Pre-1972 UTC is
@@ -78,5 +81,5 @@ Expected failures (parsing, invalid fields) return `Result`; bugs throw `RangeEr
 ## Non-goals
 
 Time zones and locale formatting (use `Intl` with `instantToDate`), long-term ΔT
-models, nutation and apparent sidereal time, calendar (month/year) arithmetic,
+models, precession-nutation matrices and celestial frame transformations, calendar (month/year) arithmetic,
 SPICE kernels/SCLK.

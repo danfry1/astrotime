@@ -9,6 +9,7 @@
 import {
   duration,
   durationToComponents,
+  equationOfTheEquinoxes,
   formatDuration,
   formatIso,
   formatOrdinal,
@@ -20,6 +21,8 @@ import {
   instantToTaiNanos,
   instantToUnixNanos,
   instantToUtc,
+  meanObliquity,
+  nutation,
   TIME_SCALES,
 } from '../dist/index.mjs'
 
@@ -40,6 +43,13 @@ function absorb(text) {
     hash = ((hash ^ BigInt(text.charCodeAt(i))) * FNV_PRIME) & MASK
   }
   hash = ((hash ^ 10n) * FNV_PRIME) & MASK // newline separator
+}
+
+// Goldstone DSS-14 (WGS84), for the topocentric TDB terms.
+const observer = {
+  longitude: (-116.889 * Math.PI) / 180,
+  latitude: (35.426 * Math.PI) / 180,
+  height: 1002,
 }
 
 let count = 0
@@ -65,7 +75,11 @@ for (let i = 0; i < 5000; i += 1) {
   absorb(formatDuration(d, 'D[T]HH:mm:ss.SSSSSSSSS'))
   const c = durationToComponents(d)
   absorb(`${c.sign}|${c.days}|${c.nanos}`)
-  count += 7
+  // Nutation is the other user of the deterministic sine and cosine.
+  const { dpsi, deps } = nutation(instant)
+  absorb(`${dpsi}|${deps}|${equationOfTheEquinoxes(instant)}|${meanObliquity(instant)}`)
+  absorb(formatIso(instant, { scale: 'tdb', precision: 'nanos', observer }))
+  count += 12
 }
 
-console.log(`astrotime-conformance-v2 ${count} ${hash.toString(16).padStart(16, '0')}`)
+console.log(`astrotime-conformance-v3 ${count} ${hash.toString(16).padStart(16, '0')}`)

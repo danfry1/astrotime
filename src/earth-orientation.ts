@@ -94,7 +94,8 @@ type FinalsRow = EarthOrientationEntry | null | { readonly problem: string }
 
 function parseFinalsRow(line: string): FinalsRow {
   const mjd = fixedField(line, 8, 15)
-  if (mjd === null || mjd === undefined || !Number.isSafeInteger(mjd))
+  // Blank (null) and malformed (undefined) fields fail the safe-integer test too.
+  if (typeof mjd !== 'number' || !Number.isSafeInteger(mjd))
     return { problem: 'MJD (columns 8–15) must be a whole day' }
   if (!datesAgree(line, mjd)) return { problem: `date columns disagree with MJD ${String(mjd)}` }
   const ut1A = fixedField(line, 59, 68)
@@ -190,7 +191,7 @@ type Node = {
 /** A row placed on the TAI axis, with its continuous UT1 − TAI. */
 function node(entry: EarthOrientationEntry, leapSeconds: LeapSecondTable | undefined): Node {
   const unixSeconds = (entry.mjd - MJD_UNIX_EPOCH) * SECONDS_PER_DAY
-  const offset = deltaAtUnixSeconds(unixSeconds, leapSeconds === undefined ? {} : { leapSeconds })
+  const offset = deltaAtUnixSeconds(unixSeconds, { leapSeconds })
   return { taiSeconds: unixSeconds + offset, entry, ut1MinusTai: entry.ut1MinusUtc - offset }
 }
 
@@ -308,7 +309,7 @@ export function earthOrientationAt(
   const x = Number(instant.taiNanos - nodeNanos(nodes[0]!)) / Number(NANOS_PER_SECOND)
   const ut1MinusTai = lagrange(nodes, x, (n) => n.ut1MinusTai)
   // TAI − UTC as UTC itself has it: inside a leap second, still the old value.
-  const utcOffset = deltaAt(instant, leapSeconds === undefined ? {} : { leapSeconds })
+  const utcOffset = deltaAt(instant, { leapSeconds })
   return ok({
     ut1MinusUtc: ut1MinusTai + utcOffset,
     ut1MinusTai,
