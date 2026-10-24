@@ -38,7 +38,9 @@ jobs:
       - run: pip install --require-hashes -r scripts/requirements-differential.txt
 
       - name: Compare against astropy (ERFA/SOFA)
-        run: bun run build && python3 scripts/differential.py "${{ inputs.cases || '100000' }}" reports/differential/report.json && node scripts/stamp-differential.mjs
+        env:
+          CASES: ${{ inputs.cases || '100000' }}
+        run: bun run build && python3 scripts/differential.py "$CASES" reports/differential/report.json && node scripts/stamp-differential.mjs
 
       - name: Upload differential report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
