@@ -35,3 +35,16 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+
+  # Hash-pinned requirements for the scripts in scripts/.
+  - package-ecosystem: pip
+    directory: /scripts
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    cooldown:
+      default-days: 7
+    groups:
+      python:
+        update-types: [minor, patch]
